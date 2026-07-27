@@ -98,6 +98,17 @@ class AppFlowTests(unittest.TestCase):
         self.assertIn(b"Se guardaron 4 autorizaciones", response.data)
         self.assertIn("Mario Ángel Hernández".encode(), response.data)
 
+    def test_login_only_shows_requested_fields(self):
+        self.initialize_admin()
+        response = self.client.get("/login")
+        self.assertIn("¡Hola!".encode(), response.data)
+        self.assertIn(b"Usuario", response.data)
+        self.assertIn("Contraseña".encode(), response.data)
+        self.assertIn(b"Iniciar sesi", response.data)
+        self.assertNotIn(b"Tiempo", response.data)
+        self.assertNotIn(b"Control de horas extra", response.data)
+        self.assertNotIn(b"Consulta checadas", response.data)
+
     def test_csrf_is_required(self):
         self.initialize_admin()
         self.login()

@@ -1,20 +1,9 @@
 {% extends "base.html" %}
-{% block title %}Iniciar sesión · Tiempo{% endblock %}
+{% block title %}Iniciar sesión{% endblock %}
 {% block body_class %}auth-page{% endblock %}
 {% block content %}
 <section class="auth-card">
-  <div class="auth-brand">
-    <span class="brand-mark large">T</span>
-    <div>
-      <strong>Tiempo</strong>
-      <small>Control de horas extra</small>
-    </div>
-  </div>
-  <div class="auth-copy">
-    <span class="eyebrow">Acceso administrativo</span>
-    <h1>Bienvenido de nuevo</h1>
-    <p>Consulta checadas, autoriza horarios y revisa las excepciones de la semana.</p>
-  </div>
+  <h1 class="login-greeting">¡Hola!</h1>
   <form method="post" class="stack-form">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <label>
@@ -29,4 +18,3 @@
   </form>
 </section>
 {% endblock %}
-

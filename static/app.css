@@ -214,6 +214,7 @@ td.muted { max-width: 230px; overflow: hidden; text-overflow: ellipsis; }
 .auth-copy { margin-bottom: 25px; }
 .auth-copy h1 { font-size: 2rem; }
 .auth-copy p { margin-bottom: 0; }
+.login-greeting { margin-bottom: 27px; font-size: 2.15rem; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 .spinner { display: inline-block; width: 16px; height: 16px; margin-right: 7px; border: 2px solid #cad7d1; border-top-color: var(--green); border-radius: 50%; animation: spin .7s linear infinite; vertical-align: -3px; }
 @keyframes spin { to { transform: rotate(360deg); } }
