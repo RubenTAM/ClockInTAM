@@ -293,7 +293,5 @@ def build_weekly_report(
     for key in sorted(keys, key=lambda item: (item[1], item[0])):
         attendance = attendance_map.get(key)
         authorization = authorization_map.get(key)
-        if not authorization and int(attendance.get("overtime_minutes", 0)) <= 0:
-            continue
         result.append(compare_overtime(attendance, authorization))
     return result

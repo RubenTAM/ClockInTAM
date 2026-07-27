@@ -10,6 +10,7 @@ from datetime import date, datetime, timedelta
 from functools import wraps
 from pathlib import Path
 from time import monotonic
+from zoneinfo import ZoneInfo
 
 from dotenv import load_dotenv
 from flask import (
@@ -165,7 +166,7 @@ def register_context(app: Flask) -> None:
             session["csrf_token"] = token
         return {
             "csrf_token": token,
-            "today": date.today(),
+            "today": local_today(),
         }
 
 
@@ -202,6 +203,14 @@ def monday_for(value: date) -> date:
     return value - timedelta(days=value.weekday())
 
 
+def local_now() -> datetime:
+    return datetime.now(ZoneInfo(current_app.config["APP_TIMEZONE"]))
+
+
+def local_today() -> date:
+    return local_now().date()
+
+
 def cached_attendance(work_date: date, force: bool = False) -> list[dict]:
     cache: dict = current_app.extensions["attendance_cache"]
     key = work_date.isoformat()
@@ -234,7 +243,7 @@ def authorizations_for_week(week_start: date) -> list[dict]:
 def report_for_week(
     week_start: date,
     force: bool = False,
-) -> tuple[list[dict], datetime]:
+) -> tuple[list[dict], datetime, set[date]]:
     attendance = []
     for offset in range(7):
         attendance.extend(
@@ -247,7 +256,8 @@ def report_for_week(
         attendance,
         authorizations_for_week(week_start),
     )
-    return rows, datetime.now()
+    attendance_dates = {row["work_date"] for row in attendance}
+    return rows, local_now(), attendance_dates
 
 
 def register_routes(app: Flask) -> None:
@@ -315,7 +325,7 @@ def register_routes(app: Flask) -> None:
         if user_count() == 0:
             return redirect(url_for("setup"))
         if g.user:
-            return redirect(url_for("dashboard"))
+            return redirect(url_for("weekly_report"))
 
         if request.method == "POST":
             validate_csrf()
@@ -338,7 +348,7 @@ def register_routes(app: Flask) -> None:
                 session.permanent = True
                 next_url = request.args.get("next", "")
                 if not next_url.startswith("/"):
-                    next_url = url_for("dashboard")
+                    next_url = url_for("weekly_report")
                 return redirect(next_url)
         return render_template("login.html")
 
@@ -351,8 +361,13 @@ def register_routes(app: Flask) -> None:
 
     @app.get("/")
     @login_required
+    def home():
+        return redirect(url_for("weekly_report"))
+
+    @app.get("/resumen")
+    @login_required
     def dashboard():
-        week_start = monday_for(date.today())
+        week_start = monday_for(local_today())
         week_end = week_start + timedelta(days=6)
         connection = get_db()
         stats = connection.execute(
@@ -394,7 +409,7 @@ def register_routes(app: Flask) -> None:
             ORDER BY a.work_date, a.allowed_start
             LIMIT 6
             """,
-            (date.today().isoformat(),),
+            (local_today().isoformat(),),
         ).fetchall()
         return render_template(
             "dashboard.html",
@@ -407,11 +422,11 @@ def register_routes(app: Flask) -> None:
     @app.get("/autorizaciones")
     @login_required
     def authorizations():
-        requested = request.args.get("semana", date.today().isoformat())
+        requested = request.args.get("semana", local_today().isoformat())
         try:
             week_start = monday_for(parse_iso_date(requested, "semana"))
         except ValueError:
-            week_start = monday_for(date.today())
+            week_start = monday_for(local_today())
         return render_template(
             "authorizations.html",
             rows=authorizations_for_week(week_start),
@@ -424,7 +439,7 @@ def register_routes(app: Flask) -> None:
     @app.route("/autorizaciones/nueva", methods=("GET", "POST"))
     @login_required
     def new_authorization():
-        default_week = monday_for(date.today())
+        default_week = monday_for(local_today())
         if request.method == "POST":
             validate_csrf()
             employee_names = [
@@ -446,7 +461,7 @@ def register_routes(app: Flask) -> None:
             allowed_end = request.form.get("allowed_end", "")
             note = request.form.get("note", "").strip()
             reference_date = request.form.get(
-                "reference_date", date.today().isoformat()
+                "reference_date", local_today().isoformat()
             )
 
             errors = []
@@ -578,7 +593,7 @@ def register_routes(app: Flask) -> None:
             week_days=[
                 default_week + timedelta(days=index) for index in range(7)
             ],
-            reference_date=date.today().isoformat(),
+            reference_date=local_today().isoformat(),
             submitted=None,
         )
 
@@ -621,7 +636,7 @@ def register_routes(app: Flask) -> None:
     def api_workers():
         try:
             reference_date = parse_iso_date(
-                request.args.get("fecha", date.today().isoformat())
+                request.args.get("fecha", local_today().isoformat())
             )
             rows = cached_attendance(
                 reference_date,
@@ -649,17 +664,18 @@ def register_routes(app: Flask) -> None:
     @app.get("/reporte")
     @login_required
     def weekly_report():
-        requested = request.args.get("semana", date.today().isoformat())
+        requested = request.args.get("semana", local_today().isoformat())
         try:
             week_start = monday_for(parse_iso_date(requested, "semana"))
         except ValueError:
-            week_start = monday_for(date.today())
+            week_start = monday_for(local_today())
 
         rows = []
         loaded_at = None
+        attendance_dates = set()
         error = None
         try:
-            rows, loaded_at = report_for_week(
+            rows, loaded_at, attendance_dates = report_for_week(
                 week_start,
                 force=request.args.get("actualizar") == "1",
             )
@@ -681,6 +697,10 @@ def register_routes(app: Flask) -> None:
             week_end=week_start + timedelta(days=6),
             previous_week=week_start - timedelta(days=7),
             next_week=week_start + timedelta(days=7),
+            today_pending=(
+                week_start <= local_today() <= week_start + timedelta(days=6)
+                and local_today() not in attendance_dates
+            ),
         )
 
     @app.get("/reporte.csv")
@@ -689,10 +709,10 @@ def register_routes(app: Flask) -> None:
         try:
             week_start = monday_for(
                 parse_iso_date(
-                    request.args.get("semana", date.today().isoformat())
+                    request.args.get("semana", local_today().isoformat())
                 )
             )
-            rows, _loaded_at = report_for_week(week_start)
+            rows, _loaded_at, _attendance_dates = report_for_week(week_start)
         except (ValueError, HikConnectError) as exc:
             flash(str(exc), "error")
             return redirect(url_for("weekly_report"))

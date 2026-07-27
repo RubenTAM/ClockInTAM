@@ -39,6 +39,12 @@
     <p>{{ error }} Las autorizaciones guardadas no se modificaron. Intenta actualizar nuevamente.</p>
   </section>
 {% else %}
+  {% if today_pending %}
+    <section class="callout pending-callout">
+      <strong>Hik-Connect todavía no publica las checadas de hoy</strong>
+      <p>El reporte procesado respondió sin registros para el día actual. Esto no significa que nadie haya checado; usa “Actualizar datos” más tarde para volver a consultarlo.</p>
+    </section>
+  {% endif %}
   <section class="metric-grid report-metrics">
     <article class="metric-card">
       <span class="metric-label">Horas extra detectadas</span>
@@ -57,8 +63,8 @@
   <section class="panel table-panel">
     <div class="panel-header table-heading">
       <div>
-        <h2>Detalle de excepciones</h2>
-        <p>Solo aparecen permisos registrados o jornadas con horas extra.</p>
+        <h2>Detalle semanal</h2>
+        <p>Se muestran todas las checadas publicadas por Hik-Connect, tengan o no horas extra.</p>
       </div>
       {% if loaded_at %}
         <small class="muted">Consultado {{ loaded_at.strftime('%H:%M') }}</small>
@@ -98,8 +104,8 @@
     {% else %}
       <div class="empty-state">
         <span class="empty-icon">✓</span>
-        <h2>No hay incidencias para mostrar</h2>
-        <p>En esta semana no se encontraron horas extra ni autorizaciones pendientes.</p>
+        <h2>No hay checadas disponibles</h2>
+        <p>Hik-Connect todavía no ha publicado registros para esta semana.</p>
       </div>
     {% endif %}
   </section>

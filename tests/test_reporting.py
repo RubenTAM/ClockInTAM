@@ -144,7 +144,7 @@ class ReportingTests(unittest.TestCase):
         self.assertEqual(result["unused_minutes"], 120)
         self.assertEqual(result["status_key"], "unused")
 
-    def test_week_report_omits_normal_days(self):
+    def test_week_report_includes_normal_attendance(self):
         attendance = [
             {
                 "employee_name": "Persona sin extra",
@@ -155,7 +155,9 @@ class ReportingTests(unittest.TestCase):
                 "overtime_minutes": 0,
             }
         ]
-        self.assertEqual(build_weekly_report(attendance, []), [])
+        result = build_weekly_report(attendance, [])
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]["status_key"], "normal")
 
 
 if __name__ == "__main__":

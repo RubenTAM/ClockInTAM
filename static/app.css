@@ -198,6 +198,8 @@ td.muted { max-width: 230px; overflow: hidden; text-overflow: ellipsis; }
 .info-callout { border: 1px solid #cfe1d9; background: #eef7f3; }
 .error-callout { border: 1px solid #f1c7c3; background: var(--red-pale); }
 .error-callout strong, .error-callout p { color: var(--red); }
+.pending-callout { margin-bottom: 17px; border: 1px solid #f0d5a8; background: #fff7e8; }
+.pending-callout strong { color: #8a4b14; }
 
 .flash-stack { position: fixed; z-index: 50; top: 18px; right: 20px; display: grid; gap: 8px; max-width: 420px; }
 .flash { padding: 13px 16px; border: 1px solid var(--line); border-radius: 11px; background: white; box-shadow: var(--shadow); font-weight: 700; }
