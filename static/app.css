@@ -61,6 +61,11 @@ p { color: var(--muted); line-height: 1.55; }
 }
 .sidebar .avatar { background: rgba(184,233,134,.16); color: var(--lime); }
 .sidebar .link-button { color: rgba(255,255,255,.62); }
+.sidebar-footer form {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(255,255,255,.12);
+}
 .mobile-menu { display: none; position: fixed; z-index: 30; top: 15px; left: 15px; border: 0; border-radius: 10px; padding: 9px 11px; color: white; background: #10271f; }
 
 .app-main { margin-left: 250px; min-height: 100vh; padding: 46px clamp(24px, 5vw, 68px) 70px; }

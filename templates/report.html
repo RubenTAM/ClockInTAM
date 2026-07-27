@@ -6,7 +6,6 @@
     <span class="eyebrow">Comparación en vivo</span>
     <h1>Reporte semanal</h1>
     <p>{{ week_start|date_es }} — {{ week_end|date_es }}</p>
-    <small class="muted">Semana operativa: jueves a miércoles</small>
   </div>
   <div class="header-actions">
     <a class="button secondary"
@@ -40,16 +39,9 @@
     <p>{{ error }} Las autorizaciones guardadas no se modificaron. Intenta actualizar nuevamente.</p>
   </section>
 {% else %}
-  {% if today_pending %}
-    <section class="callout pending-callout">
-      <strong>Hik-Connect todavía no publica las checadas de hoy</strong>
-      <p>El reporte procesado respondió sin registros para el día actual. Esto no significa que nadie haya checado; usa “Actualizar datos” más tarde para volver a consultarlo.</p>
-    </section>
-  {% endif %}
   <section class="panel table-panel">
     <div class="panel-header table-heading">
       <div>
-        <h2>Detalle semanal</h2>
         <p>Se muestran todas las checadas publicadas por Hik-Connect, tengan o no horas extra.</p>
       </div>
       {% if loaded_at %}
