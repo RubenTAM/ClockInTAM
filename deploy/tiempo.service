@@ -19,6 +19,7 @@ ExecStart=/opt/tiempo/.venv/bin/gunicorn \
     app:app
 Restart=on-failure
 RestartSec=5
+UMask=0027
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
@@ -27,4 +28,3 @@ NoNewPrivileges=true
 
 [Install]
 WantedBy=multi-user.target
-
