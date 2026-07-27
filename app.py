@@ -109,7 +109,6 @@ def create_app(test_config: dict | None = None) -> Flask:
         x_proto=1,
         x_host=1,
     )
-    Path(app.instance_path).mkdir(parents=True, exist_ok=True)
     database.init_app(app)
 
     app.extensions["hik_client"] = HikConnectClient(
