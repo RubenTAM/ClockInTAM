@@ -199,8 +199,9 @@ def parse_iso_date(value: str, field_name: str = "fecha") -> date:
         raise ValueError(f"La {field_name} no es válida.") from exc
 
 
-def monday_for(value: date) -> date:
-    return value - timedelta(days=value.weekday())
+def week_start_for(value: date) -> date:
+    days_since_thursday = (value.weekday() - 3) % 7
+    return value - timedelta(days=days_since_thursday)
 
 
 def local_now() -> datetime:
@@ -367,7 +368,7 @@ def register_routes(app: Flask) -> None:
     @app.get("/resumen")
     @login_required
     def dashboard():
-        week_start = monday_for(local_today())
+        week_start = week_start_for(local_today())
         week_end = week_start + timedelta(days=6)
         connection = get_db()
         stats = connection.execute(
@@ -424,9 +425,9 @@ def register_routes(app: Flask) -> None:
     def authorizations():
         requested = request.args.get("semana", local_today().isoformat())
         try:
-            week_start = monday_for(parse_iso_date(requested, "semana"))
+            week_start = week_start_for(parse_iso_date(requested, "semana"))
         except ValueError:
-            week_start = monday_for(local_today())
+            week_start = week_start_for(local_today())
         return render_template(
             "authorizations.html",
             rows=authorizations_for_week(week_start),
@@ -439,7 +440,7 @@ def register_routes(app: Flask) -> None:
     @app.route("/autorizaciones/nueva", methods=("GET", "POST"))
     @login_required
     def new_authorization():
-        default_week = monday_for(local_today())
+        default_week = week_start_for(local_today())
         if request.method == "POST":
             validate_csrf()
             employee_names = [
@@ -574,7 +575,7 @@ def register_routes(app: Flask) -> None:
                 )
 
             try:
-                default_week = monday_for(parse_iso_date(work_dates[0]))
+                default_week = week_start_for(parse_iso_date(work_dates[0]))
             except (IndexError, ValueError):
                 pass
             return render_template(
@@ -666,9 +667,9 @@ def register_routes(app: Flask) -> None:
     def weekly_report():
         requested = request.args.get("semana", local_today().isoformat())
         try:
-            week_start = monday_for(parse_iso_date(requested, "semana"))
+            week_start = week_start_for(parse_iso_date(requested, "semana"))
         except ValueError:
-            week_start = monday_for(local_today())
+            week_start = week_start_for(local_today())
 
         rows = []
         loaded_at = None
@@ -707,7 +708,7 @@ def register_routes(app: Flask) -> None:
     @login_required
     def report_csv():
         try:
-            week_start = monday_for(
+            week_start = week_start_for(
                 parse_iso_date(
                     request.args.get("semana", local_today().isoformat())
                 )

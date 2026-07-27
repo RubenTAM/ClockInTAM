@@ -4,7 +4,7 @@ from datetime import date, time
 from pathlib import Path
 from unittest.mock import patch
 
-from app import create_app
+from app import create_app, week_start_for
 
 
 class AppFlowTests(unittest.TestCase):
@@ -58,6 +58,20 @@ class AppFlowTests(unittest.TestCase):
     def test_first_visit_requires_setup(self):
         response = self.client.get("/", follow_redirects=True)
         self.assertIn(b"Crea al administrador principal", response.data)
+
+    def test_operational_week_runs_thursday_to_wednesday(self):
+        self.assertEqual(
+            week_start_for(date(2026, 7, 27)),
+            date(2026, 7, 23),
+        )
+        self.assertEqual(
+            week_start_for(date(2026, 7, 29)),
+            date(2026, 7, 23),
+        )
+        self.assertEqual(
+            week_start_for(date(2026, 7, 30)),
+            date(2026, 7, 30),
+        )
 
     def test_admin_can_create_batch_authorizations(self):
         self.initialize_admin()

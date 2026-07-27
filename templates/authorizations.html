@@ -6,6 +6,7 @@
     <span class="eyebrow">Planeación</span>
     <h1>Autorizaciones</h1>
     <p>{{ week_start|date_es }} — {{ week_end|date_es }}</p>
+    <small class="muted">Semana operativa: jueves a miércoles</small>
   </div>
   <a class="button primary" href="{{ url_for('new_authorization') }}">
     <span>＋</span> Nueva autorización
@@ -69,4 +70,3 @@
   {% endif %}
 </section>
 {% endblock %}
-

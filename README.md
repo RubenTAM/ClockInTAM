@@ -14,6 +14,7 @@ Los datos de asistencia tienen una caché temporal en memoria de cinco minutos.
 - Consulta de trabajadores desde Hik-Connect.
 - Autorizaciones para varias personas y días.
 - Comparación semanal de horas autorizadas y no autorizadas.
+- Semana operativa de TecnoAll de jueves a miércoles.
 - Detección de permisos no utilizados y tiempo excedente.
 - Exportación del reporte a CSV compatible con Excel.
 - Historial interno de creación, modificación y eliminación.

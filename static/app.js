@@ -113,6 +113,9 @@
       [...dayGrid.querySelectorAll("input:checked")].map((input) => input.value)
     );
     const start = new Date(year, month - 1, day);
+    const daysSinceThursday = (start.getDay() - 4 + 7) % 7;
+    start.setDate(start.getDate() - daysSinceThursday);
+    weekStart.value = toIsoLocal(start);
     dayGrid.innerHTML = "";
     for (let index = 0; index < 7; index += 1) {
       const current = new Date(start);
