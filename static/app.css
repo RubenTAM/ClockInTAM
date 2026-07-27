@@ -184,28 +184,49 @@ td.muted { max-width: 230px; overflow: hidden; text-overflow: ellipsis; }
   color: var(--ink); font-size: .85rem; text-transform: none;
   letter-spacing: 0;
 }
+.authorization-calendar tbody .employee-column > strong { display: block; }
+.add-authorization-button {
+  margin-top: 9px; padding: 0; border: 0;
+  color: var(--green); background: transparent; cursor: pointer;
+  font-size: .72rem; font-weight: 800; text-align: left;
+}
+.add-authorization-button:hover { color: var(--green-dark); text-decoration: underline; }
 .authorization-calendar td {
   height: 88px; padding: 7px; border-right: 1px solid var(--line);
   white-space: normal;
 }
-.authorization-cell {
-  width: 100%; height: 100%; display: grid; place-content: center;
-  gap: 5px; border: 1px solid transparent; border-radius: 10px;
-  padding: 8px; cursor: pointer; text-align: center;
+.no-authorization {
+  display: grid; min-height: 68px; place-content: center;
+  padding: 8px; border-radius: 10px; color: #718079;
+  background: #f7f9f8; font-size: .7rem; line-height: 1.25;
+  text-align: center; overflow-wrap: anywhere;
 }
-.authorization-cell span {
-  display: block; max-width: 120px; overflow-wrap: anywhere;
-  font-size: .7rem; line-height: 1.25;
+.authorization-slots { display: grid; gap: 6px; }
+.authorization-slot {
+  position: relative; display: grid; min-height: 58px;
+  place-content: center; gap: 3px; padding: 8px 28px 8px 8px;
+  border: 1px solid; border-radius: 10px; text-align: center;
 }
-.authorization-cell strong { font-size: .8rem; }
-.authorization-cell.empty {
-  color: #718079; background: #f7f9f8;
+.authorization-slot > span { font-size: .64rem; }
+.authorization-slot > strong { font-size: .78rem; }
+.authorization-slot form { position: absolute; top: 5px; right: 5px; }
+.authorization-slot form button {
+  width: 22px; height: 22px; display: grid; place-items: center;
+  padding: 0; border: 0; border-radius: 50%; cursor: pointer;
+  color: currentColor; background: rgba(255,255,255,.55);
+  font-size: 1rem; line-height: 1;
 }
-.authorization-cell.empty:hover {
-  color: var(--green-dark); border-color: #bed8cb; background: #eef7f3;
-}
-.authorization-cell.registered {
+.authorization-slot.slot-color-0 {
   color: var(--green-dark); border-color: #b9d8ca; background: var(--green-pale);
+}
+.authorization-slot.slot-color-1 {
+  color: #355a88; border-color: #bfd2e7; background: #eaf3fb;
+}
+.authorization-slot.slot-color-2 {
+  color: #7b5520; border-color: #ead2a9; background: #fff4dd;
+}
+.authorization-slot.slot-color-3 {
+  color: #704c85; border-color: #dac5e5; background: #f5ecfa;
 }
 .authorization-dialog {
   width: min(600px, calc(100% - 32px)); padding: 0;

@@ -249,7 +249,9 @@ def authorizations_for_week(week_start: date) -> list[dict]:
         FROM overtime_authorizations a
         JOIN users u ON u.id = a.created_by
         WHERE a.work_date BETWEEN ? AND ?
-        ORDER BY a.work_date, a.employee_name_key
+        ORDER BY
+            a.work_date, a.employee_name_key,
+            a.allowed_start, a.allowed_end, a.id
         """,
         (week_start.isoformat(), week_end.isoformat()),
     ).fetchall()
@@ -273,10 +275,12 @@ def authorization_calendar_for_week(
         for row in cached_attendance(work_date, force=force):
             people[row["employee_name_key"]] = row["employee_name"]
 
-    authorization_map = {
-        (row["employee_name_key"], row["work_date"]): row
-        for row in authorizations
-    }
+    authorization_map: dict[tuple[str, str], list[dict]] = {}
+    for row in authorizations:
+        authorization_map.setdefault(
+            (row["employee_name_key"], row["work_date"]),
+            [],
+        ).append(row)
     calendar_rows = []
     for name_key, employee_name in sorted(people.items()):
         calendar_rows.append(
@@ -286,8 +290,9 @@ def authorization_calendar_for_week(
                 "cells": [
                     {
                         "work_date": work_date,
-                        "authorization": authorization_map.get(
-                            (name_key, work_date.isoformat())
+                        "authorizations": authorization_map.get(
+                            (name_key, work_date.isoformat()),
+                            [],
                         ),
                     }
                     for work_date in week_days
@@ -501,10 +506,12 @@ def register_routes(app: Flask) -> None:
                 row["employee_name_key"]: row["employee_name"]
                 for row in authorization_rows
             }
-            authorization_map = {
-                (row["employee_name_key"], row["work_date"]): row
-                for row in authorization_rows
-            }
+            authorization_map: dict[tuple[str, str], list[dict]] = {}
+            for row in authorization_rows:
+                authorization_map.setdefault(
+                    (row["employee_name_key"], row["work_date"]),
+                    [],
+                ).append(row)
             rows = [
                 {
                     "employee_name": employee_name,
@@ -512,8 +519,9 @@ def register_routes(app: Flask) -> None:
                     "cells": [
                         {
                             "work_date": work_date,
-                            "authorization": authorization_map.get(
-                                (name_key, work_date.isoformat())
+                            "authorizations": authorization_map.get(
+                                (name_key, work_date.isoformat()),
+                                [],
                             ),
                         }
                         for work_date in week_days
@@ -567,6 +575,10 @@ def register_routes(app: Flask) -> None:
                 errors.append("Selecciona al menos un día.")
             if not allowed_start or not allowed_end:
                 errors.append("Indica el horario autorizado.")
+            elif allowed_start == allowed_end:
+                errors.append(
+                    "La hora inicial y final deben ser diferentes."
+                )
 
             parsed_dates = []
             for value in work_dates:
@@ -585,83 +597,71 @@ def register_routes(app: Flask) -> None:
                 for employee_name in employee_names:
                     name_key = normalize_name(employee_name)
                     for work_date in parsed_dates:
-                        existing = connection.execute(
+                        duplicate = connection.execute(
                             """
-                            SELECT id FROM overtime_authorizations
-                            WHERE employee_name_key = ? AND work_date = ?
+                            SELECT id
+                            FROM overtime_authorizations
+                            WHERE employee_name_key = ?
+                              AND work_date = ?
+                              AND allowed_start = ?
+                              AND allowed_end = ?
                             """,
-                            (name_key, work_date.isoformat()),
+                            (
+                                name_key,
+                                work_date.isoformat(),
+                                allowed_start,
+                                allowed_end,
+                            ),
                         ).fetchone()
-                        if existing:
-                            connection.execute(
-                                """
-                                UPDATE overtime_authorizations
-                                SET employee_name = ?, allowed_start = ?,
-                                    allowed_end = ?, note = ?, updated_at = ?
-                                WHERE id = ?
-                                """,
-                                (
-                                    employee_name,
-                                    allowed_start,
-                                    allowed_end,
-                                    note,
-                                    now,
-                                    existing["id"],
-                                ),
-                            )
-                            log_action(
+                        if duplicate:
+                            continue
+                        cursor = connection.execute(
+                            """
+                            INSERT INTO overtime_authorizations (
+                                employee_name, employee_name_key, work_date,
+                                allowed_start, allowed_end, note, created_by,
+                                created_at, updated_at
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            """,
+                            (
+                                employee_name,
+                                name_key,
+                                work_date.isoformat(),
+                                allowed_start,
+                                allowed_end,
+                                note,
                                 g.user["id"],
-                                "update",
-                                "authorization",
-                                existing["id"],
-                                json.dumps(
-                                    {
-                                        "employee": employee_name,
-                                        "date": work_date.isoformat(),
-                                    },
-                                    ensure_ascii=False,
-                                ),
-                            )
-                        else:
-                            cursor = connection.execute(
-                                """
-                                INSERT INTO overtime_authorizations (
-                                    employee_name, employee_name_key, work_date,
-                                    allowed_start, allowed_end, note, created_by,
-                                    created_at, updated_at
-                                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                                """,
-                                (
-                                    employee_name,
-                                    name_key,
-                                    work_date.isoformat(),
-                                    allowed_start,
-                                    allowed_end,
-                                    note,
-                                    g.user["id"],
-                                    now,
-                                    now,
-                                ),
-                            )
-                            log_action(
-                                g.user["id"],
-                                "create",
-                                "authorization",
-                                cursor.lastrowid,
-                                json.dumps(
-                                    {
-                                        "employee": employee_name,
-                                        "date": work_date.isoformat(),
-                                    },
-                                    ensure_ascii=False,
-                                ),
-                            )
+                                now,
+                                now,
+                            ),
+                        )
+                        log_action(
+                            g.user["id"],
+                            "create",
+                            "authorization",
+                            cursor.lastrowid,
+                            json.dumps(
+                                {
+                                    "employee": employee_name,
+                                    "date": work_date.isoformat(),
+                                    "start": allowed_start,
+                                    "end": allowed_end,
+                                },
+                                ensure_ascii=False,
+                            ),
+                        )
                         affected += 1
                 connection.commit()
-                flash(
-                    f"Se guardaron {affected} autorizaciones.",
-                    "success",
-                )
+                if affected:
+                    flash(
+                        f"Se guardaron {affected} autorizaciones.",
+                        "success",
+                    )
+                else:
+                    flash(
+                        "Ese horario ya estaba autorizado en los días seleccionados.",
+                        "error",
+                    )
                 return redirect(
                     url_for(
                         "authorizations",

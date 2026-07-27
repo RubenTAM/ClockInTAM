@@ -168,16 +168,22 @@ def build_daily_attendance(reports: list[dict]) -> list[dict]:
 
 def compare_overtime(
     attendance: dict | None,
-    authorization: dict | None,
+    authorization: dict | list[dict] | None,
 ) -> dict:
+    authorizations = (
+        authorization
+        if isinstance(authorization, list)
+        else ([authorization] if authorization else [])
+    )
+    first_authorization = authorizations[0] if authorizations else None
     employee_name = (
         (attendance or {}).get("employee_name")
-        or (authorization or {}).get("employee_name")
+        or (first_authorization or {}).get("employee_name")
         or ""
     )
     work_date = (
         (attendance or {}).get("work_date")
-        or date.fromisoformat(authorization["work_date"])
+        or date.fromisoformat(first_authorization["work_date"])
     )
     overtime_minutes = int((attendance or {}).get("overtime_minutes", 0))
     actual_intervals = list(
@@ -202,38 +208,55 @@ def compare_overtime(
             )
         ]
 
-    allowed_start = None
-    allowed_end = None
-    if authorization:
-        start_time = parse_clock(authorization["allowed_start"])
-        end_time = parse_clock(authorization["allowed_end"])
+    allowed_intervals = []
+    for item in authorizations:
+        start_time = parse_clock(item["allowed_start"])
+        end_time = parse_clock(item["allowed_end"])
         if start_time and end_time:
             allowed_start = datetime.combine(work_date, start_time)
             allowed_end = datetime.combine(work_date, end_time)
             if allowed_end <= allowed_start:
                 allowed_end += timedelta(days=1)
-            allowed_minutes = int(
-                (allowed_end - allowed_start).total_seconds() // 60
-            )
+            allowed_intervals.append((allowed_start, allowed_end))
 
-    if actual_intervals and allowed_start and allowed_end:
-        for actual_start, actual_end in actual_intervals:
+    def merge_intervals(
+        intervals: list[tuple[datetime, datetime]],
+    ) -> list[tuple[datetime, datetime]]:
+        merged: list[list[datetime]] = []
+        for start, end in sorted(intervals):
+            if not merged or start > merged[-1][1]:
+                merged.append([start, end])
+            else:
+                merged[-1][1] = max(merged[-1][1], end)
+        return [(start, end) for start, end in merged]
+
+    allowed_intervals = merge_intervals(allowed_intervals)
+    allowed_minutes = sum(
+        int((end - start).total_seconds() // 60)
+        for start, end in allowed_intervals
+    )
+
+    authorized_intervals = []
+    for actual_start, actual_end in actual_intervals:
+        for allowed_start, allowed_end in allowed_intervals:
             overlap_start = max(actual_start, allowed_start)
             overlap_end = min(actual_end, allowed_end)
-            authorized_minutes += max(
-                0,
-                int(
-                    (overlap_end - overlap_start).total_seconds() // 60
-                ),
-            )
+            if overlap_end > overlap_start:
+                authorized_intervals.append(
+                    (overlap_start, overlap_end)
+                )
+    authorized_minutes = sum(
+        int((end - start).total_seconds() // 60)
+        for start, end in merge_intervals(authorized_intervals)
+    )
 
     unauthorized_minutes = max(0, overtime_minutes - authorized_minutes)
     unused_minutes = max(0, allowed_minutes - authorized_minutes)
 
-    if overtime_minutes == 0 and authorization:
+    if overtime_minutes == 0 and authorizations:
         status = "Autorización no utilizada"
         status_key = "unused"
-    elif overtime_minutes > 0 and not authorization:
+    elif overtime_minutes > 0 and not authorizations:
         status = "Horas no autorizadas"
         status_key = "unauthorized"
     elif unauthorized_minutes > 0:
@@ -259,8 +282,11 @@ def compare_overtime(
         "clock_out": (attendance or {}).get("clock_out"),
         "actual_range": actual_range,
         "allowed_range": (
-            f"{allowed_start.strftime('%H:%M')}–{allowed_end.strftime('%H:%M')}"
-            if allowed_start and allowed_end
+            ", ".join(
+                f"{start.strftime('%H:%M')}–{end.strftime('%H:%M')}"
+                for start, end in allowed_intervals
+            )
+            if allowed_intervals
             else "Sin autorización"
         ),
         "overtime_minutes": overtime_minutes,
@@ -269,7 +295,13 @@ def compare_overtime(
         "unused_minutes": unused_minutes,
         "status": status,
         "status_key": status_key,
-        "note": (authorization or {}).get("note", ""),
+        "note": " · ".join(
+            dict.fromkeys(
+                item.get("note", "")
+                for item in authorizations
+                if item.get("note", "")
+            )
+        ),
     }
 
 
@@ -281,13 +313,15 @@ def build_weekly_report(
         (row["employee_name_key"], row["work_date"]): row
         for row in attendance_rows
     }
-    authorization_map = {
-        (
-            row["employee_name_key"],
-            date.fromisoformat(row["work_date"]),
-        ): row
-        for row in authorizations
-    }
+    authorization_map: dict[tuple[str, date], list[dict]] = {}
+    for row in authorizations:
+        authorization_map.setdefault(
+            (
+                row["employee_name_key"],
+                date.fromisoformat(row["work_date"]),
+            ),
+            [],
+        ).append(row)
     keys = set(attendance_map) | set(authorization_map)
     result = []
     for key in sorted(keys, key=lambda item: (item[1], item[0])):

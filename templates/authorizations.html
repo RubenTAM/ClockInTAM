@@ -52,25 +52,35 @@
             <tr>
               <th class="employee-column" scope="row">
                 <strong>{{ row.employee_name }}</strong>
+                <button class="add-authorization-button" type="button"
+                        data-add-authorization
+                        data-employee="{{ row.employee_name }}">
+                  ＋ Agregar autorización
+                </button>
               </th>
               {% for cell in row.cells %}
-                {% set authorization = cell.authorization %}
                 <td>
-                  <button
-                    class="authorization-cell {{ 'registered' if authorization else 'empty' }}"
-                    type="button"
-                    data-authorization-cell
-                    data-employee="{{ row.employee_name }}"
-                    data-date="{{ cell.work_date }}"
-                    data-start="{{ authorization.allowed_start if authorization else '' }}"
-                    data-end="{{ authorization.allowed_end if authorization else '' }}">
-                    {% if authorization %}
-                      <span>Autorizado</span>
-                      <strong>{{ authorization.allowed_start }}–{{ authorization.allowed_end }}</strong>
-                    {% else %}
-                      <span>Sin registro de autorización</span>
-                    {% endif %}
-                  </button>
+                  {% if cell.authorizations %}
+                    <div class="authorization-slots">
+                      {% for authorization in cell.authorizations %}
+                        <div class="authorization-slot slot-color-{{ loop.index0 % 4 }}">
+                          <span>Autorizado</span>
+                          <strong>{{ authorization.allowed_start }}–{{ authorization.allowed_end }}</strong>
+                          <form method="post"
+                                action="{{ url_for('delete_authorization', authorization_id=authorization.id) }}"
+                                data-confirm="¿Eliminar la autorización {{ authorization.allowed_start }}–{{ authorization.allowed_end }} de {{ row.employee_name }}?">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                            <button type="submit"
+                                    aria-label="Eliminar autorización {{ authorization.allowed_start }}–{{ authorization.allowed_end }}">
+                              ×
+                            </button>
+                          </form>
+                        </div>
+                      {% endfor %}
+                    </div>
+                  {% else %}
+                    <span class="no-authorization">Sin registro de autorización</span>
+                  {% endif %}
                 </td>
               {% endfor %}
             </tr>
@@ -97,7 +107,7 @@
     <div class="dialog-heading">
       <div>
         <span class="eyebrow">Horas extra</span>
-        <h2>Autorización</h2>
+        <h2>Agregar autorización</h2>
         <p id="authorization-employee-name"></p>
       </div>
       <button class="dialog-close" type="button" data-dialog-close

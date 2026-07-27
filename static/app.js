@@ -147,14 +147,14 @@
   const endInput = dialog.querySelector("#authorization-end");
   const dayInputs = [...dialog.querySelectorAll("[data-dialog-day]")];
 
-  document.querySelectorAll("[data-authorization-cell]").forEach((cell) => {
-    cell.addEventListener("click", () => {
-      employeeInput.value = cell.dataset.employee;
-      employeeName.textContent = cell.dataset.employee;
-      startInput.value = cell.dataset.start || "17:00";
-      endInput.value = cell.dataset.end || "19:00";
+  document.querySelectorAll("[data-add-authorization]").forEach((button) => {
+    button.addEventListener("click", () => {
+      employeeInput.value = button.dataset.employee;
+      employeeName.textContent = button.dataset.employee;
+      startInput.value = "17:00";
+      endInput.value = "19:00";
       dayInputs.forEach((input) => {
-        input.checked = input.value === cell.dataset.date;
+        input.checked = false;
       });
       dialog.showModal();
     });

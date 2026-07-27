@@ -5,6 +5,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from app import create_app, week_start_for
+from database import get_db
 
 
 class AppFlowTests(unittest.TestCase):
@@ -129,9 +130,78 @@ class AppFlowTests(unittest.TestCase):
             response.data.count(b"Sin registro de autorizaci"),
             7,
         )
-        self.assertIn(b'data-date="2026-07-23"', response.data)
-        self.assertIn(b'data-date="2026-07-29"', response.data)
+        self.assertIn(b"data-add-authorization", response.data)
+        self.assertIn(b'value="2026-07-23"', response.data)
+        self.assertIn(b'value="2026-07-29"', response.data)
         self.assertIn(b"Guardar autorizaci", response.data)
+
+    def test_multiple_authorizations_can_be_added_and_deleted(self):
+        self.initialize_admin()
+        self.login()
+        self.client.get("/autorizaciones/nueva")
+
+        for allowed_start, allowed_end in (
+            ("07:00", "08:00"),
+            ("17:00", "19:00"),
+        ):
+            response = self.client.post(
+                "/autorizaciones/nueva",
+                data={
+                    "csrf_token": self.csrf_token(),
+                    "employee_names": ["Jorge Rangel Pulido"],
+                    "work_dates": ["2026-07-27"],
+                    "allowed_start": allowed_start,
+                    "allowed_end": allowed_end,
+                    "reference_date": "2026-07-23",
+                },
+            )
+            self.assertEqual(response.status_code, 302)
+
+        with self.app.app_context():
+            rows = get_db().execute(
+                """
+                SELECT id, allowed_start, allowed_end
+                FROM overtime_authorizations
+                ORDER BY id
+                """
+            ).fetchall()
+            self.assertEqual(len(rows), 2)
+            first_id = rows[0]["id"]
+
+        def attendance_for(day, force=False):
+            if day != date(2026, 7, 27):
+                return []
+            return [
+                {
+                    "employee_name": "Jorge Rangel Pulido",
+                    "employee_name_key": "jorge rangel pulido",
+                    "work_date": day,
+                    "clock_in": time(7, 0),
+                    "clock_out": time(19, 0),
+                    "overtime_minutes": 180,
+                    "area": "Tijuana",
+                }
+            ]
+
+        with patch("app.cached_attendance", side_effect=attendance_for):
+            response = self.client.get(
+                "/autorizaciones?semana=2026-07-27"
+            )
+        self.assertIn("07:00–08:00".encode(), response.data)
+        self.assertIn("17:00–19:00".encode(), response.data)
+        self.assertIn(b"slot-color-0", response.data)
+        self.assertIn(b"slot-color-1", response.data)
+
+        response = self.client.post(
+            f"/autorizaciones/{first_id}/eliminar",
+            data={"csrf_token": self.csrf_token()},
+        )
+        self.assertEqual(response.status_code, 302)
+        with self.app.app_context():
+            remaining = get_db().execute(
+                "SELECT COUNT(*) AS total FROM overtime_authorizations"
+            ).fetchone()
+            self.assertEqual(remaining["total"], 1)
 
     def test_login_only_shows_requested_fields(self):
         self.initialize_admin()

@@ -117,6 +117,50 @@ class ReportingTests(unittest.TestCase):
         self.assertEqual(result["unauthorized_minutes"], 60)
         self.assertEqual(result["status_key"], "exceeded")
 
+    def test_combines_multiple_authorized_intervals_without_duplicates(self):
+        attendance = build_daily_attendance(
+            [
+                {
+                    "fullName": "Jorge Rangel Pulido",
+                    "clockInDate": "2026/07/27",
+                    "clockInTime": "07:00",
+                    "clockOutDate": "2026/07/27",
+                    "clockOutTime": "19:00",
+                }
+            ]
+        )
+        authorizations = [
+            {
+                "employee_name": "Jorge Rangel Pulido",
+                "employee_name_key": "jorge rangel pulido",
+                "work_date": "2026-07-27",
+                "allowed_start": "07:00",
+                "allowed_end": "08:00",
+                "note": "",
+            },
+            {
+                "employee_name": "Jorge Rangel Pulido",
+                "employee_name_key": "jorge rangel pulido",
+                "work_date": "2026-07-27",
+                "allowed_start": "17:00",
+                "allowed_end": "19:00",
+                "note": "",
+            },
+            {
+                "employee_name": "Jorge Rangel Pulido",
+                "employee_name_key": "jorge rangel pulido",
+                "work_date": "2026-07-27",
+                "allowed_start": "17:30",
+                "allowed_end": "18:30",
+                "note": "",
+            },
+        ]
+        result = build_weekly_report(attendance, authorizations)[0]
+        self.assertEqual(result["allowed_range"], "07:00–08:00, 17:00–19:00")
+        self.assertEqual(result["authorized_minutes"], 180)
+        self.assertEqual(result["unauthorized_minutes"], 0)
+        self.assertEqual(result["status_key"], "authorized")
+
     def test_marks_overtime_without_permission(self):
         attendance = {
             "employee_name": "Jorge Rangel",

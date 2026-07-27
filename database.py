@@ -28,8 +28,7 @@ CREATE TABLE IF NOT EXISTS overtime_authorizations (
     created_by INTEGER NOT NULL,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
-    FOREIGN KEY (created_by) REFERENCES users(id),
-    UNIQUE(employee_name_key, work_date)
+    FOREIGN KEY (created_by) REFERENCES users(id)
 );
 
 CREATE TABLE IF NOT EXISTS audit_log (
@@ -76,7 +75,77 @@ def close_db(_error=None) -> None:
 def init_db() -> None:
     connection = get_db()
     connection.executescript(SCHEMA)
+    migrate_multiple_authorizations(connection)
     connection.commit()
+
+
+def migrate_multiple_authorizations(
+    connection: sqlite3.Connection,
+) -> None:
+    unique_employee_date = False
+    for index in connection.execute(
+        "PRAGMA index_list('overtime_authorizations')"
+    ).fetchall():
+        if not index["unique"]:
+            continue
+        columns = [
+            row["name"]
+            for row in connection.execute(
+                f"PRAGMA index_info('{index['name']}')"
+            ).fetchall()
+        ]
+        if columns == ["employee_name_key", "work_date"]:
+            unique_employee_date = True
+            break
+
+    if not unique_employee_date:
+        return
+
+    connection.commit()
+    connection.execute("PRAGMA foreign_keys = OFF")
+    connection.executescript(
+        """
+        DROP INDEX IF EXISTS idx_authorizations_date;
+        DROP INDEX IF EXISTS idx_authorizations_employee;
+
+        ALTER TABLE overtime_authorizations
+        RENAME TO overtime_authorizations_legacy;
+
+        CREATE TABLE overtime_authorizations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            employee_name TEXT NOT NULL,
+            employee_name_key TEXT NOT NULL,
+            work_date TEXT NOT NULL,
+            allowed_start TEXT NOT NULL,
+            allowed_end TEXT NOT NULL,
+            note TEXT NOT NULL DEFAULT '',
+            created_by INTEGER NOT NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY (created_by) REFERENCES users(id)
+        );
+
+        INSERT INTO overtime_authorizations (
+            id, employee_name, employee_name_key, work_date,
+            allowed_start, allowed_end, note, created_by,
+            created_at, updated_at
+        )
+        SELECT
+            id, employee_name, employee_name_key, work_date,
+            allowed_start, allowed_end, note, created_by,
+            created_at, updated_at
+        FROM overtime_authorizations_legacy;
+
+        DROP TABLE overtime_authorizations_legacy;
+
+        CREATE INDEX idx_authorizations_date
+        ON overtime_authorizations(work_date);
+
+        CREATE INDEX idx_authorizations_employee
+        ON overtime_authorizations(employee_name_key);
+        """
+    )
+    connection.execute("PRAGMA foreign_keys = ON")
 
 
 def log_action(
@@ -108,4 +177,3 @@ def init_app(app) -> None:
     app.teardown_appcontext(close_db)
     with app.app_context():
         init_db()
-
