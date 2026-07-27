@@ -39,44 +39,130 @@
     <p>{{ error }} Las autorizaciones guardadas no se modificaron. Intenta actualizar nuevamente.</p>
   </section>
 {% else %}
-  <section class="panel table-panel">
+  <section class="panel report-calendar-panel">
     <div class="panel-header table-heading">
       <div>
-        <p>Se muestran todas las checadas publicadas por Hik-Connect, tengan o no horas extra.</p>
+        <p>Entrada, salida y horas extra permitidas por trabajador.</p>
       </div>
       {% if loaded_at %}
         <small class="muted">Consultado {{ loaded_at.strftime('%H:%M') }}</small>
       {% endif %}
     </div>
-    {% if rows %}
-      <div class="table-wrap">
-        <table class="report-table">
+    {% if calendar_rows %}
+      <div class="report-calendar-wrap">
+        <table class="report-calendar">
           <thead>
             <tr>
-              <th>Trabajador</th>
-              <th>Fecha</th>
-              <th>Entrada / salida</th>
-              <th>Autorización</th>
-              <th>Permitidas</th>
-              <th>No autorizadas</th>
+              <th class="employee-column">Trabajador</th>
+              {% for day in week_days %}
+                <th>
+                  <span>{{ day|weekday_short }}</span>
+                  <strong>{{ day.day }}/{{ day.month }}</strong>
+                </th>
+              {% endfor %}
             </tr>
           </thead>
           <tbody>
-            {% for row in rows %}
+            {% for worker in calendar_rows %}
               <tr>
-                <td><strong>{{ row.employee_name }}</strong></td>
-                <td>{{ row.work_date|date_es }}</td>
-                <td>{{ row.clock_in|clock }} / {{ row.clock_out|clock }}</td>
-                <td>{{ row.allowed_range }}</td>
-                <td><strong>{{ row.authorized_minutes|minutes }}</strong></td>
-                <td class="{{ 'danger-text' if row.unauthorized_minutes else '' }}">
-                  <strong>{{ row.unauthorized_minutes|minutes }}</strong>
-                </td>
+                <th class="employee-column" scope="row">
+                  <button class="report-worker-button" type="button"
+                          data-report-worker
+                          data-employee="{{ worker.employee_name }}"
+                          data-template="report-detail-{{ loop.index }}">
+                    {{ worker.employee_name }}
+                  </button>
+                  <small>Ver resumen semanal</small>
+                </th>
+                {% for cell in worker.cells %}
+                  {% set report = cell.report %}
+                  <td class="report-day-cell
+                             {{ 'incomplete' if cell.is_incomplete else '' }}
+                             {{ 'future' if cell.is_future else '' }}
+                             {{ 'non-working' if cell.is_non_working else '' }}
+                             {{ 'has-authorization' if report and report.allowed_range != 'Sin autorización' else '' }}">
+                    {% if cell.is_future %}
+                      <span class="future-label">Pendiente</span>
+                      {% if report and report.allowed_range != 'Sin autorización' %}
+                        <span class="authorization-badge">✓ Horas extra permitidas</span>
+                      {% endif %}
+                    {% elif cell.is_non_working %}
+                      <span class="non-working-label">Día no laborable</span>
+                    {% else %}
+                      <div class="punch-times">
+                        <span>
+                          <small>Entrada</small>
+                          <strong>{{ report.clock_in|clock if report else '—' }}</strong>
+                        </span>
+                        <span>
+                          <small>Salida</small>
+                          <strong>{{ report.clock_out|clock if report else '—' }}</strong>
+                        </span>
+                      </div>
+                      {% if cell.is_incomplete %}
+                        <span class="punch-alert">⚠ Checada incompleta</span>
+                      {% endif %}
+                      {% if report and report.allowed_range != 'Sin autorización' %}
+                        <span class="authorization-badge">✓ Horas extra permitidas</span>
+                      {% endif %}
+                    {% endif %}
+                  </td>
+                {% endfor %}
               </tr>
             {% endfor %}
           </tbody>
         </table>
       </div>
+
+      {% for worker in calendar_rows %}
+        <template id="report-detail-{{ loop.index }}">
+          <div class="worker-total-grid">
+            <article>
+              <span>Horas autorizadas utilizadas</span>
+              <strong>{{ worker.authorized_minutes|minutes }}</strong>
+            </article>
+            <article class="{{ 'warning-total' if worker.unauthorized_minutes else '' }}">
+              <span>Horas no autorizadas</span>
+              <strong>{{ worker.unauthorized_minutes|minutes }}</strong>
+            </article>
+          </div>
+          <div class="worker-week-detail">
+            {% for cell in worker.cells %}
+              {% set report = cell.report %}
+              <article class="{{ 'incomplete' if cell.is_incomplete else '' }}">
+                <div class="worker-day-heading">
+                  <strong>{{ cell.work_date|date_es }}</strong>
+                  <span>
+                    {{ report.clock_in|clock if report else '—' }}
+                    –
+                    {{ report.clock_out|clock if report else '—' }}
+                  </span>
+                </div>
+                {% if report and report.allowed_range != 'Sin autorización' %}
+                  <dl>
+                    <div>
+                      <dt>Horas extra permitidas</dt>
+                      <dd>{{ report.allowed_range }}</dd>
+                    </div>
+                    <div>
+                      <dt>Horas utilizadas</dt>
+                      <dd>{{ report.authorized_minutes|minutes }}</dd>
+                    </div>
+                  </dl>
+                {% elif cell.is_future %}
+                  <p>La fecha todavía no ha transcurrido.</p>
+                {% elif cell.is_non_working %}
+                  <p>Día no laborable.</p>
+                {% elif cell.is_incomplete %}
+                  <p class="danger-text">La entrada o la salida no fue registrada correctamente.</p>
+                {% else %}
+                  <p>Sin horas extra permitidas.</p>
+                {% endif %}
+              </article>
+            {% endfor %}
+          </div>
+        </template>
+      {% endfor %}
     {% else %}
       <div class="empty-state">
         <span class="empty-icon">✓</span>
@@ -85,5 +171,19 @@
       </div>
     {% endif %}
   </section>
+
+  <dialog class="report-detail-dialog" id="report-detail-dialog">
+    <div class="report-detail-content">
+      <div class="dialog-heading">
+        <div>
+          <span class="eyebrow">Resumen semanal</span>
+          <h2 id="report-detail-name"></h2>
+        </div>
+        <button class="dialog-close" type="button" data-report-dialog-close
+                aria-label="Cerrar">×</button>
+      </div>
+      <div id="report-detail-body"></div>
+    </div>
+  </dialog>
 {% endif %}
 {% endblock %}

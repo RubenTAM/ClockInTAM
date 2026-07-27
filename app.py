@@ -322,6 +322,68 @@ def report_for_week(
     return rows, local_now(), attendance_dates
 
 
+def weekly_report_calendar(
+    report_rows: list[dict],
+    week_start: date,
+) -> tuple[list[dict], list[date]]:
+    week_days = [
+        week_start + timedelta(days=offset) for offset in range(7)
+    ]
+    people: dict[str, str] = {}
+    report_map: dict[tuple[str, date], dict] = {}
+    for row in report_rows:
+        name_key = row["employee_name_key"]
+        people[name_key] = row["employee_name"]
+        report_map[(name_key, row["work_date"])] = row
+
+    calendar_rows = []
+    for name_key, employee_name in sorted(people.items()):
+        cells = []
+        for work_date in week_days:
+            report = report_map.get((name_key, work_date))
+            is_future = work_date > local_today()
+            is_non_working = work_date.weekday() == 6 and report is None
+            is_incomplete = (
+                not is_future
+                and not is_non_working
+                and (
+                    report is None
+                    or not report.get("clock_in")
+                    or not report.get("clock_out")
+                )
+            )
+            cells.append(
+                {
+                    "work_date": work_date,
+                    "report": report,
+                    "is_future": is_future,
+                    "is_non_working": is_non_working,
+                    "is_incomplete": is_incomplete,
+                }
+            )
+
+        calendar_rows.append(
+            {
+                "employee_name": employee_name,
+                "employee_name_key": name_key,
+                "cells": cells,
+                "authorized_minutes": sum(
+                    int((cell["report"] or {}).get(
+                        "authorized_minutes", 0
+                    ))
+                    for cell in cells
+                ),
+                "unauthorized_minutes": sum(
+                    int((cell["report"] or {}).get(
+                        "unauthorized_minutes", 0
+                    ))
+                    for cell in cells
+                ),
+            }
+        )
+    return calendar_rows, week_days
+
+
 def register_routes(app: Flask) -> None:
     @app.get("/health")
     def health():
@@ -783,9 +845,15 @@ def register_routes(app: Flask) -> None:
             "authorized": sum(row["authorized_minutes"] for row in rows),
             "unauthorized": sum(row["unauthorized_minutes"] for row in rows),
         }
+        calendar_rows, week_days = weekly_report_calendar(
+            rows,
+            week_start,
+        )
         return render_template(
             "report.html",
             rows=rows,
+            calendar_rows=calendar_rows,
+            week_days=week_days,
             totals=totals,
             error=error,
             loaded_at=loaded_at,

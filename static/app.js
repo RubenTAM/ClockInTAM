@@ -168,3 +168,31 @@
     if (event.target === dialog) dialog.close();
   });
 })();
+
+(() => {
+  const dialog = document.querySelector("#report-detail-dialog");
+  if (!dialog) return;
+
+  const employeeName = dialog.querySelector("#report-detail-name");
+  const detailBody = dialog.querySelector("#report-detail-body");
+
+  document.querySelectorAll("[data-report-worker]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const template = document.querySelector(
+        `#${CSS.escape(button.dataset.template)}`
+      );
+      if (!template) return;
+      employeeName.textContent = button.dataset.employee;
+      detailBody.replaceChildren(template.content.cloneNode(true));
+      dialog.showModal();
+    });
+  });
+
+  dialog.querySelectorAll("[data-report-dialog-close]").forEach((button) => {
+    button.addEventListener("click", () => dialog.close());
+  });
+
+  dialog.addEventListener("click", (event) => {
+    if (event.target === dialog) dialog.close();
+  });
+})();

@@ -262,8 +262,43 @@ class AppFlowTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn(b"2 h 00 min", response.data)
         self.assertIn(b"1 h 00 min", response.data)
+        self.assertIn(b'class="report-calendar"', response.data)
+        self.assertIn(b"data-report-worker", response.data)
+        self.assertIn("✓ Horas extra permitidas".encode(), response.data)
+        self.assertIn("17:00–19:00".encode(), response.data)
+        self.assertIn(b"Horas autorizadas utilizadas", response.data)
         self.assertNotIn(b"Horas extra detectadas", response.data)
         self.assertNotIn(b"<th>Estado</th>", response.data)
+
+    def test_report_calendar_marks_incomplete_punches(self):
+        self.initialize_admin()
+        self.login()
+
+        def attendance_for(day, force=False):
+            if day != date(2026, 7, 23):
+                return []
+            return [
+                {
+                    "employee_name": "Eduardo Sanchez Reyna",
+                    "employee_name_key": "eduardo sanchez reyna",
+                    "work_date": day,
+                    "clock_in": time(7, 43),
+                    "clock_out": None,
+                    "overtime_minutes": 0,
+                    "area": "Tijuana",
+                }
+            ]
+
+        with patch("app.cached_attendance", side_effect=attendance_for):
+            response = self.client.get(
+                "/reporte?semana=2026-07-23"
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"Eduardo Sanchez Reyna", response.data)
+        self.assertIn("⚠ Checada incompleta".encode(), response.data)
+        self.assertIn(b"07:43", response.data)
+        self.assertIn(b'id="report-detail-dialog"', response.data)
 
 
 if __name__ == "__main__":
