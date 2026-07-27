@@ -142,9 +142,10 @@ class AppFlowTests(unittest.TestCase):
             )
 
         self.assertEqual(response.status_code, 200)
-        self.assertIn(b"Excedi", response.data)
         self.assertIn(b"2 h 00 min", response.data)
         self.assertIn(b"1 h 00 min", response.data)
+        self.assertNotIn(b"Horas extra detectadas", response.data)
+        self.assertNotIn(b"<th>Estado</th>", response.data)
 
 
 if __name__ == "__main__":

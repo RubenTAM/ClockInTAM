@@ -46,21 +46,6 @@
       <p>El reporte procesado respondió sin registros para el día actual. Esto no significa que nadie haya checado; usa “Actualizar datos” más tarde para volver a consultarlo.</p>
     </section>
   {% endif %}
-  <section class="metric-grid report-metrics">
-    <article class="metric-card">
-      <span class="metric-label">Horas extra detectadas</span>
-      <strong>{{ totals.overtime|minutes }}</strong>
-    </article>
-    <article class="metric-card success-card">
-      <span class="metric-label">Dentro de autorización</span>
-      <strong>{{ totals.authorized|minutes }}</strong>
-    </article>
-    <article class="metric-card warning-card">
-      <span class="metric-label">No autorizadas</span>
-      <strong>{{ totals.unauthorized|minutes }}</strong>
-    </article>
-  </section>
-
   <section class="panel table-panel">
     <div class="panel-header table-heading">
       <div>
@@ -82,7 +67,6 @@
               <th>Autorización</th>
               <th>Permitidas</th>
               <th>No autorizadas</th>
-              <th>Estado</th>
             </tr>
           </thead>
           <tbody>
@@ -96,7 +80,6 @@
                 <td class="{{ 'danger-text' if row.unauthorized_minutes else '' }}">
                   <strong>{{ row.unauthorized_minutes|minutes }}</strong>
                 </td>
-                <td><span class="status-pill {{ row.status_key }}">{{ row.status }}</span></td>
               </tr>
             {% endfor %}
           </tbody>
@@ -111,9 +94,4 @@
     {% endif %}
   </section>
 {% endif %}
-
-<section class="callout info-callout">
-  <strong>Cómo se realiza la comparación</strong>
-  <p>Se consideran horas extra antes de las 08:00 y después de las 17:00 de lunes a viernes; los sábados, antes de las 08:30 y después de las 13:00. Los domingos se consideran días no laborables. La aplicación compara esos periodos con el horario autorizado.</p>
-</section>
 {% endblock %}
