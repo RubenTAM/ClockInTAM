@@ -96,6 +96,14 @@ def create_app(test_config: dict | None = None) -> Flask:
     if test_config:
         app.config.update(test_config)
 
+    static_directory = Path(app.static_folder)
+    app.config["STATIC_VERSION"] = str(
+        max(
+            (static_directory / filename).stat().st_mtime_ns
+            for filename in ("app.css", "app.js")
+        )
+    )
+
     if (
         app.config["APP_ENV"] == "production"
         and app.config["SECRET_KEY"] == "dev-only-change-me"
@@ -173,6 +181,7 @@ def register_context(app: Flask) -> None:
         return {
             "csrf_token": token,
             "today": local_today(),
+            "static_version": current_app.config["STATIC_VERSION"],
         }
 
 

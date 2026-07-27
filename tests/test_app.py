@@ -143,6 +143,8 @@ class AppFlowTests(unittest.TestCase):
         self.assertNotIn(b"Tiempo", response.data)
         self.assertNotIn(b"Control de horas extra", response.data)
         self.assertNotIn(b"Consulta checadas", response.data)
+        self.assertIn(b"/static/app.css?v=", response.data)
+        self.assertIn(b"/static/app.js?v=", response.data)
 
     def test_csrf_is_required(self):
         self.initialize_admin()
