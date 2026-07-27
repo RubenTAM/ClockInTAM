@@ -34,7 +34,7 @@ class ReportingTests(unittest.TestCase):
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0]["clock_in"], time(6, 0))
         self.assertEqual(rows[0]["clock_out"], time(20, 0))
-        self.assertEqual(rows[0]["overtime_minutes"], 180)
+        self.assertEqual(rows[0]["overtime_minutes"], 300)
 
     def test_weekday_overtime_uses_company_schedule(self):
         self.assertEqual(
@@ -43,7 +43,7 @@ class ReportingTests(unittest.TestCase):
                 time(6, 58),
                 time(17, 2),
             ),
-            2,
+            64,
         )
 
     def test_saturday_overtime_starts_at_one_pm(self):
@@ -53,7 +53,7 @@ class ReportingTests(unittest.TestCase):
                 time(8, 10),
                 time(14, 6),
             ),
-            66,
+            86,
         )
 
     def test_sunday_counts_the_complete_worked_interval(self):
@@ -65,6 +65,34 @@ class ReportingTests(unittest.TestCase):
             ),
             427,
         )
+
+    def test_early_authorization_matches_time_before_shift(self):
+        attendance = build_daily_attendance(
+            [
+                {
+                    "fullName": "Jorge Rangel Pulido",
+                    "clockInDate": "2026/07/22",
+                    "clockInTime": "06:52",
+                    "clockOutDate": "2026/07/22",
+                    "clockOutTime": "17:02",
+                    "overtimeDuration": "01:08",
+                }
+            ]
+        )
+        authorization = [
+            {
+                "employee_name": "Jorge Rangel Pulido",
+                "employee_name_key": "jorge rangel pulido",
+                "work_date": "2026-07-22",
+                "allowed_start": "07:00",
+                "allowed_end": "08:00",
+                "note": "",
+            }
+        ]
+        result = build_weekly_report(attendance, authorization)[0]
+        self.assertEqual(result["authorized_minutes"], 60)
+        self.assertEqual(result["unauthorized_minutes"], 10)
+        self.assertEqual(result["status_key"], "exceeded")
 
     def test_separates_authorized_and_excess_minutes(self):
         attendance = {

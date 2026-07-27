@@ -51,32 +51,53 @@ def format_minutes(minutes: int) -> str:
     return f"{minutes // 60} h {minutes % 60:02d} min"
 
 
+def scheduled_overtime_intervals(
+    work_date: date,
+    clock_in: time | None,
+    clock_out: time | None,
+) -> list[tuple[datetime, datetime]]:
+    if clock_in is None or clock_out is None:
+        return []
+
+    day_start = datetime.combine(work_date, time.min)
+    start = datetime.combine(work_date, clock_in)
+    end = datetime.combine(work_date, clock_out)
+    if end < start:
+        end += timedelta(days=1)
+
+    if work_date.weekday() <= 4:
+        schedule_start = day_start.replace(hour=8)
+        schedule_end = day_start.replace(hour=17)
+    elif work_date.weekday() == 5:
+        schedule_start = day_start.replace(hour=8, minute=30)
+        schedule_end = day_start.replace(hour=13)
+    else:
+        return [(start, end)] if end > start else []
+
+    intervals = []
+    early_end = min(end, schedule_start)
+    if start < early_end:
+        intervals.append((start, early_end))
+
+    late_start = max(start, schedule_end)
+    if late_start < end:
+        intervals.append((late_start, end))
+    return intervals
+
+
 def scheduled_overtime_minutes(
     work_date: date,
     clock_in: time | None,
     clock_out: time | None,
 ) -> int:
-    if clock_out is None:
-        return 0
-
-    day_start = datetime.combine(work_date, time.min)
-    end = datetime.combine(work_date, clock_out)
-    start = datetime.combine(work_date, clock_in) if clock_in else None
-    if start and end < start:
-        end += timedelta(days=1)
-
-    if work_date.weekday() <= 4:
-        overtime_start = day_start.replace(hour=17)
-    elif work_date.weekday() == 5:
-        overtime_start = day_start.replace(hour=13)
-    else:
-        overtime_start = start
-
-    if overtime_start is None:
-        return 0
-    if start:
-        overtime_start = max(overtime_start, start)
-    return max(0, int((end - overtime_start).total_seconds() // 60))
+    return sum(
+        int((end - start).total_seconds() // 60)
+        for start, end in scheduled_overtime_intervals(
+            work_date,
+            clock_in,
+            clock_out,
+        )
+    )
 
 
 def build_daily_attendance(reports: list[dict]) -> list[dict]:
@@ -129,10 +150,14 @@ def build_daily_attendance(reports: list[dict]) -> list[dict]:
 
     rows = list(grouped.values())
     for row in rows:
-        row["overtime_minutes"] = scheduled_overtime_minutes(
+        row["overtime_intervals"] = scheduled_overtime_intervals(
             row["work_date"],
             row["clock_in"],
             row["clock_out"],
+        )
+        row["overtime_minutes"] = sum(
+            int((end - start).total_seconds() // 60)
+            for start, end in row["overtime_intervals"]
         )
 
     return sorted(
@@ -155,14 +180,27 @@ def compare_overtime(
         or date.fromisoformat(authorization["work_date"])
     )
     overtime_minutes = int((attendance or {}).get("overtime_minutes", 0))
-    actual_start = None
-    actual_end = None
+    actual_intervals = list(
+        (attendance or {}).get("overtime_intervals") or []
+    )
     allowed_minutes = 0
     authorized_minutes = 0
 
-    if attendance and attendance.get("clock_out") and overtime_minutes:
-        actual_end = datetime.combine(work_date, attendance["clock_out"])
-        actual_start = actual_end - timedelta(minutes=overtime_minutes)
+    if (
+        not actual_intervals
+        and attendance
+        and attendance.get("clock_out")
+        and overtime_minutes
+    ):
+        fallback_end = datetime.combine(
+            work_date, attendance["clock_out"]
+        )
+        actual_intervals = [
+            (
+                fallback_end - timedelta(minutes=overtime_minutes),
+                fallback_end,
+            )
+        ]
 
     allowed_start = None
     allowed_end = None
@@ -178,12 +216,16 @@ def compare_overtime(
                 (allowed_end - allowed_start).total_seconds() // 60
             )
 
-    if actual_start and actual_end and allowed_start and allowed_end:
-        overlap_start = max(actual_start, allowed_start)
-        overlap_end = min(actual_end, allowed_end)
-        authorized_minutes = max(
-            0, int((overlap_end - overlap_start).total_seconds() // 60)
-        )
+    if actual_intervals and allowed_start and allowed_end:
+        for actual_start, actual_end in actual_intervals:
+            overlap_start = max(actual_start, allowed_start)
+            overlap_end = min(actual_end, allowed_end)
+            authorized_minutes += max(
+                0,
+                int(
+                    (overlap_end - overlap_start).total_seconds() // 60
+                ),
+            )
 
     unauthorized_minutes = max(0, overtime_minutes - authorized_minutes)
     unused_minutes = max(0, allowed_minutes - authorized_minutes)
@@ -204,8 +246,10 @@ def compare_overtime(
         status = "Sin horas extra"
         status_key = "normal"
 
-    def clock_text(value: datetime | None) -> str:
-        return value.strftime("%H:%M") if value else "—"
+    actual_range = ", ".join(
+        f"{start.strftime('%H:%M')}–{end.strftime('%H:%M')}"
+        for start, end in actual_intervals
+    ) or "—"
 
     return {
         "employee_name": employee_name,
@@ -213,13 +257,9 @@ def compare_overtime(
         "work_date": work_date,
         "clock_in": (attendance or {}).get("clock_in"),
         "clock_out": (attendance or {}).get("clock_out"),
-        "actual_range": (
-            f"{clock_text(actual_start)}–{clock_text(actual_end)}"
-            if actual_start and actual_end
-            else "—"
-        ),
+        "actual_range": actual_range,
         "allowed_range": (
-            f"{clock_text(allowed_start)}–{clock_text(allowed_end)}"
+            f"{allowed_start.strftime('%H:%M')}–{allowed_end.strftime('%H:%M')}"
             if allowed_start and allowed_end
             else "Sin autorización"
         ),

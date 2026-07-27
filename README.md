@@ -22,9 +22,10 @@ Los datos de asistencia tienen una caché temporal en memoria de cinco minutos.
 ## Funcionamiento del cálculo
 
 Hik-Connect entrega la entrada y la salida. Tiempo calcula las horas extra de
-acuerdo con el horario general de TecnoAll: después de las 17:00 de lunes a
-viernes, después de las 13:00 los sábados y toda la jornada del domingo. Luego
-calcula la intersección con el horario autorizado. El resultado separa:
+acuerdo con el horario general de TecnoAll: antes de las 08:00 y después de las
+17:00 de lunes a viernes; antes de las 08:30 y después de las 13:00 los sábados;
+y toda la jornada del domingo. Luego calcula la intersección con el horario
+autorizado. El resultado separa:
 
 - tiempo dentro de autorización;
 - tiempo excedente;
