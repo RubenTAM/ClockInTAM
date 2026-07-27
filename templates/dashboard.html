@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Resumen · Tiempo{% endblock %}
+{% block content %}
+<header class="page-header">
+  <div>
+    <span class="eyebrow">Semana actual</span>
+    <h1>Hola, {{ g.user['display_name'].split(' ')[0] }}</h1>
+    <p>{{ week_start|date_es }} — {{ week_end|date_es }}</p>
+  </div>
+  <a class="button primary" href="{{ url_for('new_authorization') }}">
+    <span>＋</span> Nueva autorización
+  </a>
+</header>
+
+<section class="metric-grid" aria-label="Resumen de autorizaciones">
+  <article class="metric-card accent">
+    <span class="metric-label">Autorizaciones</span>
+    <strong>{{ stats['total'] }}</strong>
+    <small>programadas esta semana</small>
+  </article>
+  <article class="metric-card">
+    <span class="metric-label">Trabajadores</span>
+    <strong>{{ stats['employees'] }}</strong>
+    <small>con permiso registrado</small>
+  </article>
+  <article class="metric-card">
+    <span class="metric-label">Horas permitidas</span>
+    <strong>{{ stats['minutes']|minutes }}</strong>
+    <small>antes de comparar checadas</small>
+  </article>
+</section>
+
+<section class="content-grid dashboard-grid">
+  <article class="panel">
+    <div class="panel-header">
+      <div>
+        <span class="eyebrow">Próximos permisos</span>
+        <h2>Autorizaciones registradas</h2>
+      </div>
+      <a href="{{ url_for('authorizations') }}">Ver todas</a>
+    </div>
+    {% if upcoming %}
+      <div class="list">
+        {% for row in upcoming %}
+          <div class="list-row">
+            <span class="date-tile">
+              <strong>{{ row['work_date'][8:10] }}</strong>
+              <small>{{ row['work_date'][5:7] }}/{{ row['work_date'][0:4] }}</small>
+            </span>
+            <span class="list-main">
+              <strong>{{ row['employee_name'] }}</strong>
+              <small>{{ row['allowed_start'] }}–{{ row['allowed_end'] }}
+                · por {{ row['created_by_name'] }}</small>
+            </span>
+            <span class="status-pill authorized">Autorizada</span>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="empty-state compact">
+        <span class="empty-icon">✓</span>
+        <h3>No hay autorizaciones próximas</h3>
+        <p>Crea la primera para comenzar a comparar las horas extra.</p>
+      </div>
+    {% endif %}
+  </article>
+
+  <aside class="panel quick-panel">
+    <span class="eyebrow">Flujo semanal</span>
+    <h2>Tres pasos sencillos</h2>
+    <ol class="steps">
+      <li><span>1</span><div><strong>Autoriza</strong><small>Elige personas, días y horario.</small></div></li>
+      <li><span>2</span><div><strong>Actualiza</strong><small>La app consulta Hik-Connect.</small></div></li>
+      <li><span>3</span><div><strong>Revisa</strong><small>Separa horas permitidas y excepciones.</small></div></li>
+    </ol>
+    <a class="button secondary full" href="{{ url_for('weekly_report') }}">
+      Abrir reporte semanal
+    </a>
+  </aside>
+</section>
+{% endblock %}
+

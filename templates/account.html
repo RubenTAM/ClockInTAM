@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Mi cuenta · Tiempo{% endblock %}
+{% block content %}
+<header class="page-header">
+  <div>
+    <span class="eyebrow">Seguridad</span>
+    <h1>Mi cuenta</h1>
+    <p>{{ g.user['display_name'] }} · @{{ g.user['username'] }}</p>
+  </div>
+</header>
+
+<section class="panel form-panel account-panel">
+  <div class="section-heading">
+    <span class="step-number">●</span>
+    <div>
+      <h2>Cambiar contraseña</h2>
+      <p>Utiliza por lo menos 10 caracteres y evita reutilizar otras contraseñas.</p>
+    </div>
+  </div>
+  <form method="post" class="stack-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label>
+      Contraseña actual
+      <input type="password" name="current_password"
+             autocomplete="current-password" required>
+    </label>
+    <label>
+      Nueva contraseña
+      <input type="password" name="new_password"
+             autocomplete="new-password" minlength="10" required>
+    </label>
+    <label>
+      Repetir nueva contraseña
+      <input type="password" name="password_confirmation"
+             autocomplete="new-password" minlength="10" required>
+    </label>
+    <button class="button primary" type="submit">Actualizar contraseña</button>
+  </form>
+</section>
+{% endblock %}

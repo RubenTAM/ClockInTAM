@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block title %}Nueva autorización · Tiempo{% endblock %}
+{% block content %}
+<header class="page-header">
+  <div>
+    <a class="back-link" href="{{ url_for('authorizations') }}">← Autorizaciones</a>
+    <h1>Nueva autorización</h1>
+    <p>Aplica el mismo horario a varias personas y días en una sola operación.</p>
+  </div>
+</header>
+
+<form method="post" class="authorization-layout" id="authorization-form">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <section class="panel form-panel">
+    <div class="section-heading">
+      <span class="step-number">1</span>
+      <div>
+        <h2>Selecciona trabajadores</h2>
+        <p>La lista se consulta directamente desde Hik-Connect.</p>
+      </div>
+    </div>
+    <div class="inline-fields">
+      <label>
+        Fecha para consultar personal
+        <input type="date" name="reference_date" id="reference-date"
+               value="{{ reference_date }}">
+      </label>
+      <button class="button secondary align-end" type="button" id="load-workers">
+        Consultar trabajadores
+      </button>
+    </div>
+    <div class="worker-toolbar">
+      <label class="search-field">
+        <span class="sr-only">Buscar trabajador</span>
+        <input type="search" id="worker-search"
+               placeholder="Buscar por nombre o área…" disabled>
+      </label>
+      <button type="button" class="link-button" id="select-all" disabled>
+        Seleccionar visibles
+      </button>
+    </div>
+    <div id="worker-state" class="worker-state">
+      <span>Consulta una fecha para cargar a los trabajadores.</span>
+    </div>
+    <div id="worker-list" class="worker-list" aria-live="polite"></div>
+    <details class="manual-entry">
+      <summary>¿No aparece alguien? Escribir nombre manualmente</summary>
+      <label>
+        Nombre completo exactamente como aparece en Hik-Connect
+        <input name="manual_name" placeholder="Nombre del trabajador"
+               value="{{ submitted.get('manual_name', '') if submitted else '' }}">
+      </label>
+    </details>
+  </section>
+
+  <section class="panel form-panel">
+    <div class="section-heading">
+      <span class="step-number">2</span>
+      <div>
+        <h2>Elige semana y días</h2>
+        <p>Selecciona todos los días donde aplicará el permiso.</p>
+      </div>
+    </div>
+    <label class="week-input">
+      Semana de
+      <input type="date" id="week-start" value="{{ week_start }}">
+    </label>
+    <div class="day-grid" id="day-grid">
+      {% for day in week_days %}
+        <label class="day-option">
+          <input type="checkbox" name="work_dates" value="{{ day }}"
+                 {% if submitted and day|string in submitted.getlist('work_dates') %}checked{% endif %}>
+          <span>
+            <small>{{ day|date_es }}</small>
+            <strong>{{ day.day }}</strong>
+          </span>
+        </label>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="panel form-panel">
+    <div class="section-heading">
+      <span class="step-number">3</span>
+      <div>
+        <h2>Define el horario permitido</h2>
+        <p>Solo el tiempo que coincida con este intervalo contará como autorizado.</p>
+      </div>
+    </div>
+    <div class="form-grid two">
+      <label>
+        Desde
+        <input type="time" name="allowed_start" required
+               value="{{ submitted.get('allowed_start', '17:00') if submitted else '17:00' }}">
+      </label>
+      <label>
+        Hasta
+        <input type="time" name="allowed_end" required
+               value="{{ submitted.get('allowed_end', '19:00') if submitted else '19:00' }}">
+      </label>
+    </div>
+    <label>
+      Comentario <span class="optional">Opcional</span>
+      <textarea name="note" rows="3"
+                placeholder="Ej. cierre de producción, inventario…">{{ submitted.get('note', '') if submitted else '' }}</textarea>
+    </label>
+  </section>
+
+  <div class="form-actions sticky-actions">
+    <a class="button ghost" href="{{ url_for('authorizations') }}">Cancelar</a>
+    <button class="button primary" type="submit">Guardar autorizaciones</button>
+  </div>
+</form>
+{% endblock %}

@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Usuarios · Tiempo{% endblock %}
+{% block content %}
+<header class="page-header">
+  <div>
+    <span class="eyebrow">Administración</span>
+    <h1>Usuarios</h1>
+    <p>Personas con acceso a autorizaciones y reportes.</p>
+  </div>
+</header>
+
+<section class="content-grid users-grid">
+  <article class="panel">
+    <div class="panel-header">
+      <div>
+        <h2>Usuarios registrados</h2>
+        <p>{{ rows|length }} acceso{{ 's' if rows|length != 1 else '' }}</p>
+      </div>
+    </div>
+    <div class="list">
+      {% for row in rows %}
+        <div class="list-row">
+          <span class="avatar">{{ row['display_name'][0]|upper }}</span>
+          <span class="list-main">
+            <strong>{{ row['display_name'] }}</strong>
+            <small>@{{ row['username'] }}</small>
+          </span>
+          <span class="status-pill {{ 'authorized' if row['active'] else 'normal' }}">
+            {{ 'Activo' if row['active'] else 'Inactivo' }}
+          </span>
+          {% if row['id'] != g.user['id'] %}
+            <form method="post"
+                  action="{{ url_for('toggle_user', user_id=row['id']) }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <button class="link-button" type="submit">
+                {{ 'Desactivar' if row['active'] else 'Activar' }}
+              </button>
+            </form>
+          {% endif %}
+        </div>
+      {% endfor %}
+    </div>
+  </article>
+
+  <aside class="panel form-panel">
+    <div class="section-heading">
+      <span class="step-number">＋</span>
+      <div>
+        <h2>Agregar usuario</h2>
+        <p>Podrá consultar y crear autorizaciones.</p>
+      </div>
+    </div>
+    <form method="post" action="{{ url_for('new_user') }}" class="stack-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <label>
+        Nombre completo
+        <input name="display_name" autocomplete="off" required>
+      </label>
+      <label>
+        Usuario
+        <input name="username" autocomplete="off" minlength="3" required>
+      </label>
+      <label>
+        Contraseña temporal
+        <input type="password" name="password" autocomplete="new-password"
+               minlength="10" required>
+      </label>
+      <button class="button primary full" type="submit">Crear usuario</button>
+    </form>
+  </aside>
+</section>
+{% endblock %}
+

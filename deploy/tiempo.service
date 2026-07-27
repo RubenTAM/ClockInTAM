@@ -1,0 +1,30 @@
+[Unit]
+Description=Tiempo - control de horas extra
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=tiempo
+Group=tiempo
+WorkingDirectory=/opt/tiempo
+EnvironmentFile=/etc/tiempo.env
+ExecStart=/opt/tiempo/.venv/bin/gunicorn \
+    --bind 127.0.0.1:8000 \
+    --workers 1 \
+    --threads 4 \
+    --timeout 180 \
+    --access-logfile - \
+    --error-logfile - \
+    app:app
+Restart=on-failure
+RestartSec=5
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/tiempo
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
+

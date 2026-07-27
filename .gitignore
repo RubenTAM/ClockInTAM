@@ -1,0 +1,12 @@
+.DS_Store
+.env
+.venv/
+__pycache__/
+*.py[cod]
+instance/
+*.sqlite3
+checadas_hikconnect_*.csv
+reporte_horas_extra_*.csv
+.pytest_cache/
+coverage.xml
+htmlcov/

@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>{% block title %}Control de horas extra{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+  <script defer src="{{ url_for('static', filename='app.js') }}"></script>
+</head>
+<body class="{% block body_class %}{% endblock %}">
+  {% if g.user %}
+    <aside class="sidebar" id="sidebar">
+      <a class="brand" href="{{ url_for('dashboard') }}" aria-label="Inicio">
+        <span class="brand-mark">T</span>
+        <span>
+          <strong>Tiempo</strong>
+          <small>Control de extras</small>
+        </span>
+      </a>
+      <nav class="nav" aria-label="Navegación principal">
+        <a href="{{ url_for('dashboard') }}"
+           class="{{ 'active' if request.endpoint == 'dashboard' else '' }}">
+          <span class="nav-icon">⌂</span> Resumen
+        </a>
+        <a href="{{ url_for('authorizations') }}"
+           class="{{ 'active' if request.endpoint in ('authorizations', 'new_authorization') else '' }}">
+          <span class="nav-icon">✓</span> Autorizaciones
+        </a>
+        <a href="{{ url_for('weekly_report') }}"
+           class="{{ 'active' if request.endpoint in ('weekly_report', 'report_csv') else '' }}">
+          <span class="nav-icon">▤</span> Reporte semanal
+        </a>
+        <a href="{{ url_for('users') }}"
+           class="{{ 'active' if request.endpoint == 'users' else '' }}">
+          <span class="nav-icon">●</span> Usuarios
+        </a>
+      </nav>
+      <div class="sidebar-footer">
+        <a class="user-chip" href="{{ url_for('account') }}">
+          <span class="avatar">{{ g.user['display_name'][0]|upper }}</span>
+          <span>
+            <strong>{{ g.user['display_name'] }}</strong>
+            <small>Administrador</small>
+          </span>
+        </a>
+        <form method="post" action="{{ url_for('logout') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <button class="link-button" type="submit">Cerrar sesión</button>
+        </form>
+      </div>
+    </aside>
+    <button class="mobile-menu" type="button" data-menu-toggle
+            aria-label="Abrir menú" aria-controls="sidebar">☰</button>
+  {% endif %}
+
+  <main class="{{ 'app-main' if g.user else 'auth-main' }}">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="flash-stack" role="status">
+          {% for category, message in messages %}
+            <div class="flash {{ category }}">{{ message }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

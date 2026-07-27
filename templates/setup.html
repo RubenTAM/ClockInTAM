@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Configuración inicial · Tiempo{% endblock %}
+{% block body_class %}auth-page{% endblock %}
+{% block content %}
+<section class="auth-card wide">
+  <div class="auth-brand">
+    <span class="brand-mark large">T</span>
+    <div>
+      <strong>Tiempo</strong>
+      <small>Primer acceso</small>
+    </div>
+  </div>
+  <div class="auth-copy">
+    <span class="eyebrow">Configuración segura</span>
+    <h1>Crea al administrador principal</h1>
+    <p>Este acceso controlará las autorizaciones y podrá crear otros usuarios.</p>
+  </div>
+  <form method="post" class="stack-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label>
+      Nombre completo
+      <input name="display_name" autocomplete="name" required>
+    </label>
+    <label>
+      Nombre de usuario
+      <input name="username" autocomplete="username" minlength="3" required>
+    </label>
+    <div class="form-grid two">
+      <label>
+        Contraseña
+        <input type="password" name="password" autocomplete="new-password"
+               minlength="10" required>
+      </label>
+      <label>
+        Repetir contraseña
+        <input type="password" name="password_confirmation"
+               autocomplete="new-password" minlength="10" required>
+      </label>
+    </div>
+    <button class="button primary full" type="submit">Crear administrador</button>
+  </form>
+</section>
+{% endblock %}
+

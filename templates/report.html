@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block title %}Reporte semanal · Tiempo{% endblock %}
+{% block content %}
+<header class="page-header">
+  <div>
+    <span class="eyebrow">Comparación en vivo</span>
+    <h1>Reporte semanal</h1>
+    <p>{{ week_start|date_es }} — {{ week_end|date_es }}</p>
+  </div>
+  <div class="header-actions">
+    <a class="button secondary"
+       href="{{ url_for('weekly_report', semana=week_start, actualizar=1) }}">
+      ↻ Actualizar datos
+    </a>
+    {% if not error %}
+      <a class="button primary"
+         href="{{ url_for('report_csv', semana=week_start) }}">
+        Descargar CSV
+      </a>
+    {% endif %}
+  </div>
+</header>
+
+<div class="week-nav">
+  <a class="icon-button" href="{{ url_for('weekly_report', semana=previous_week) }}"
+     aria-label="Semana anterior">←</a>
+  <form method="get" class="week-picker">
+    <label for="semana">Ir a la semana de</label>
+    <input id="semana" type="date" name="semana" value="{{ week_start }}">
+    <button class="button secondary small" type="submit">Ver</button>
+  </form>
+  <a class="icon-button" href="{{ url_for('weekly_report', semana=next_week) }}"
+     aria-label="Semana siguiente">→</a>
+</div>
+
+{% if error %}
+  <section class="callout error-callout">
+    <strong>No fue posible consultar las checadas</strong>
+    <p>{{ error }} Las autorizaciones guardadas no se modificaron. Intenta actualizar nuevamente.</p>
+  </section>
+{% else %}
+  <section class="metric-grid report-metrics">
+    <article class="metric-card">
+      <span class="metric-label">Horas extra detectadas</span>
+      <strong>{{ totals.overtime|minutes }}</strong>
+    </article>
+    <article class="metric-card success-card">
+      <span class="metric-label">Dentro de autorización</span>
+      <strong>{{ totals.authorized|minutes }}</strong>
+    </article>
+    <article class="metric-card warning-card">
+      <span class="metric-label">No autorizadas</span>
+      <strong>{{ totals.unauthorized|minutes }}</strong>
+    </article>
+  </section>
+
+  <section class="panel table-panel">
+    <div class="panel-header table-heading">
+      <div>
+        <h2>Detalle de excepciones</h2>
+        <p>Solo aparecen permisos registrados o jornadas con horas extra.</p>
+      </div>
+      {% if loaded_at %}
+        <small class="muted">Consultado {{ loaded_at.strftime('%H:%M') }}</small>
+      {% endif %}
+    </div>
+    {% if rows %}
+      <div class="table-wrap">
+        <table class="report-table">
+          <thead>
+            <tr>
+              <th>Trabajador</th>
+              <th>Fecha</th>
+              <th>Entrada / salida</th>
+              <th>Extra real</th>
+              <th>Autorización</th>
+              <th>Permitidas</th>
+              <th>No autorizadas</th>
+              <th>Estado</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in rows %}
+              <tr>
+                <td><strong>{{ row.employee_name }}</strong></td>
+                <td>{{ row.work_date|date_es }}</td>
+                <td>{{ row.clock_in|clock }} / {{ row.clock_out|clock }}</td>
+                <td>{{ row.actual_range }}</td>
+                <td>{{ row.allowed_range }}</td>
+                <td><strong>{{ row.authorized_minutes|minutes }}</strong></td>
+                <td class="{{ 'danger-text' if row.unauthorized_minutes else '' }}">
+                  <strong>{{ row.unauthorized_minutes|minutes }}</strong>
+                </td>
+                <td><span class="status-pill {{ row.status_key }}">{{ row.status }}</span></td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="empty-state">
+        <span class="empty-icon">✓</span>
+        <h2>No hay incidencias para mostrar</h2>
+        <p>En esta semana no se encontraron horas extra ni autorizaciones pendientes.</p>
+      </div>
+    {% endif %}
+  </section>
+{% endif %}
+
+<section class="callout info-callout">
+  <strong>Cómo se realiza la comparación</strong>
+  <p>Hik-Connect informa la duración extra. La aplicación ubica ese tiempo antes de la salida y mide cuánto coincide con el horario autorizado.</p>
+</section>
+{% endblock %}
+
