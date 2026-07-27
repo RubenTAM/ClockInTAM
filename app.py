@@ -706,7 +706,6 @@ def register_routes(app: Flask) -> None:
                 "Fecha",
                 "Entrada",
                 "Salida",
-                "Horario extra real",
                 "Horario autorizado",
                 "Horas extra detectadas",
                 "Horas autorizadas",
@@ -726,7 +725,6 @@ def register_routes(app: Flask) -> None:
                     row["clock_out"].strftime("%H:%M")
                     if row["clock_out"]
                     else "",
-                    row["actual_range"],
                     row["allowed_range"],
                     format_minutes(row["overtime_minutes"]),
                     format_minutes(row["authorized_minutes"]),

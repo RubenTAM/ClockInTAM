@@ -51,6 +51,34 @@ def format_minutes(minutes: int) -> str:
     return f"{minutes // 60} h {minutes % 60:02d} min"
 
 
+def scheduled_overtime_minutes(
+    work_date: date,
+    clock_in: time | None,
+    clock_out: time | None,
+) -> int:
+    if clock_out is None:
+        return 0
+
+    day_start = datetime.combine(work_date, time.min)
+    end = datetime.combine(work_date, clock_out)
+    start = datetime.combine(work_date, clock_in) if clock_in else None
+    if start and end < start:
+        end += timedelta(days=1)
+
+    if work_date.weekday() <= 4:
+        overtime_start = day_start.replace(hour=17)
+    elif work_date.weekday() == 5:
+        overtime_start = day_start.replace(hour=13)
+    else:
+        overtime_start = start
+
+    if overtime_start is None:
+        return 0
+    if start:
+        overtime_start = max(overtime_start, start)
+    return max(0, int((end - overtime_start).total_seconds() // 60))
+
+
 def build_daily_attendance(reports: list[dict]) -> list[dict]:
     grouped: dict[tuple[str, date], dict] = {}
 
@@ -93,18 +121,22 @@ def build_daily_attendance(reports: list[dict]) -> list[dict]:
             row["clock_out"] is None or clock_out > row["clock_out"]
         ):
             row["clock_out"] = clock_out
-        row["overtime_minutes"] = max(
-            row["overtime_minutes"],
-            duration_minutes(source.get("overtimeDuration")),
-        )
         row["area"] = (
             str(source.get("clockOutArea") or "").strip()
             or str(source.get("clockInArea") or "").strip()
             or row["area"]
         )
 
+    rows = list(grouped.values())
+    for row in rows:
+        row["overtime_minutes"] = scheduled_overtime_minutes(
+            row["work_date"],
+            row["clock_in"],
+            row["clock_out"],
+        )
+
     return sorted(
-        grouped.values(),
+        rows,
         key=lambda item: (item["work_date"], item["employee_name_key"]),
     )
 
@@ -225,4 +257,3 @@ def build_weekly_report(
             continue
         result.append(compare_overtime(attendance, authorization))
     return result
-

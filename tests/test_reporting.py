@@ -6,6 +6,7 @@ from reporting import (
     build_weekly_report,
     compare_overtime,
     normalize_name,
+    scheduled_overtime_minutes,
 )
 
 
@@ -34,6 +35,36 @@ class ReportingTests(unittest.TestCase):
         self.assertEqual(rows[0]["clock_in"], time(6, 0))
         self.assertEqual(rows[0]["clock_out"], time(20, 0))
         self.assertEqual(rows[0]["overtime_minutes"], 180)
+
+    def test_weekday_overtime_uses_company_schedule(self):
+        self.assertEqual(
+            scheduled_overtime_minutes(
+                date(2026, 7, 13),
+                time(6, 58),
+                time(17, 2),
+            ),
+            2,
+        )
+
+    def test_saturday_overtime_starts_at_one_pm(self):
+        self.assertEqual(
+            scheduled_overtime_minutes(
+                date(2026, 7, 18),
+                time(8, 10),
+                time(14, 6),
+            ),
+            66,
+        )
+
+    def test_sunday_counts_the_complete_worked_interval(self):
+        self.assertEqual(
+            scheduled_overtime_minutes(
+                date(2026, 7, 19),
+                time(14, 57),
+                time(22, 4),
+            ),
+            427,
+        )
 
     def test_separates_authorized_and_excess_minutes(self):
         attendance = {
@@ -101,4 +132,3 @@ class ReportingTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

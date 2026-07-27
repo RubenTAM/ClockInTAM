@@ -72,7 +72,6 @@
               <th>Trabajador</th>
               <th>Fecha</th>
               <th>Entrada / salida</th>
-              <th>Extra real</th>
               <th>Autorización</th>
               <th>Permitidas</th>
               <th>No autorizadas</th>
@@ -85,7 +84,6 @@
                 <td><strong>{{ row.employee_name }}</strong></td>
                 <td>{{ row.work_date|date_es }}</td>
                 <td>{{ row.clock_in|clock }} / {{ row.clock_out|clock }}</td>
-                <td>{{ row.actual_range }}</td>
                 <td>{{ row.allowed_range }}</td>
                 <td><strong>{{ row.authorized_minutes|minutes }}</strong></td>
                 <td class="{{ 'danger-text' if row.unauthorized_minutes else '' }}">
@@ -109,7 +107,6 @@
 
 <section class="callout info-callout">
   <strong>Cómo se realiza la comparación</strong>
-  <p>Hik-Connect informa la duración extra. La aplicación ubica ese tiempo antes de la salida y mide cuánto coincide con el horario autorizado.</p>
+  <p>Se consideran horas extra después de las 17:00 de lunes a viernes y después de las 13:00 los sábados. Los domingos se consideran días no laborables. La aplicación compara ese tiempo con el horario autorizado.</p>
 </section>
 {% endblock %}
-

@@ -21,9 +21,10 @@ Los datos de asistencia tienen una caché temporal en memoria de cinco minutos.
 
 ## Funcionamiento del cálculo
 
-Hik-Connect entrega la entrada, salida y duración total de horas extra. Tiempo
-ubica esa duración inmediatamente antes de la salida y calcula la intersección
-con el horario autorizado. El resultado separa:
+Hik-Connect entrega la entrada y la salida. Tiempo calcula las horas extra de
+acuerdo con el horario general de TecnoAll: después de las 17:00 de lunes a
+viernes, después de las 13:00 los sábados y toda la jornada del domingo. Luego
+calcula la intersección con el horario autorizado. El resultado separa:
 
 - tiempo dentro de autorización;
 - tiempo excedente;
@@ -79,4 +80,3 @@ y las copias de seguridad en el Droplet. En producción deben definirse:
 
 Nunca se deben subir `.env`, la base SQLite ni sus copias de seguridad al
 repositorio.
-
