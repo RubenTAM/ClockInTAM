@@ -154,6 +154,92 @@ td.muted { max-width: 230px; overflow: hidden; text-overflow: ellipsis; }
 .danger-text { color: var(--red); }
 .muted { color: var(--muted); }
 
+.authorization-calendar-panel { width: 100%; min-width: 0; overflow: hidden; }
+.authorization-calendar-wrap {
+  width: 100%; max-width: 100%; overflow: auto;
+  max-height: calc(100vh - 245px);
+}
+.authorization-calendar { min-width: 1260px; table-layout: fixed; }
+.authorization-calendar th { text-align: center; }
+.authorization-calendar thead th {
+  position: sticky; top: 0; z-index: 3; height: 70px;
+  border-right: 1px solid var(--line);
+}
+.authorization-calendar thead th span,
+.authorization-calendar thead th strong { display: block; }
+.authorization-calendar thead th span { margin-bottom: 5px; }
+.authorization-calendar thead th strong {
+  color: var(--ink); font-size: .88rem; letter-spacing: 0;
+}
+.authorization-calendar .employee-column {
+  position: sticky; left: 0; z-index: 2; width: 245px;
+  text-align: left; white-space: normal; background: white;
+  box-shadow: 1px 0 0 var(--line);
+}
+.authorization-calendar thead .employee-column {
+  z-index: 4; background: #f7f9f8;
+}
+.authorization-calendar tbody .employee-column {
+  padding: 16px 18px; border-top: 1px solid var(--line);
+  color: var(--ink); font-size: .85rem; text-transform: none;
+  letter-spacing: 0;
+}
+.authorization-calendar td {
+  height: 88px; padding: 7px; border-right: 1px solid var(--line);
+  white-space: normal;
+}
+.authorization-cell {
+  width: 100%; height: 100%; display: grid; place-content: center;
+  gap: 5px; border: 1px solid transparent; border-radius: 10px;
+  padding: 8px; cursor: pointer; text-align: center;
+}
+.authorization-cell span {
+  display: block; max-width: 120px; overflow-wrap: anywhere;
+  font-size: .7rem; line-height: 1.25;
+}
+.authorization-cell strong { font-size: .8rem; }
+.authorization-cell.empty {
+  color: #718079; background: #f7f9f8;
+}
+.authorization-cell.empty:hover {
+  color: var(--green-dark); border-color: #bed8cb; background: #eef7f3;
+}
+.authorization-cell.registered {
+  color: var(--green-dark); border-color: #b9d8ca; background: var(--green-pale);
+}
+.authorization-dialog {
+  width: min(600px, calc(100% - 32px)); padding: 0;
+  border: 0; border-radius: 20px; color: var(--ink);
+  box-shadow: 0 28px 90px rgba(8, 38, 28, .28);
+}
+.authorization-dialog::backdrop { background: rgba(8, 28, 21, .6); backdrop-filter: blur(2px); }
+.authorization-dialog-form { padding: 28px; }
+.dialog-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
+.dialog-heading h2 { margin-bottom: 4px; font-size: 1.75rem; }
+.dialog-heading p { margin-bottom: 0; }
+.dialog-close {
+  width: 36px; height: 36px; border: 0; border-radius: 50%;
+  color: var(--muted); background: #f1f4f2; cursor: pointer; font-size: 1.4rem;
+}
+.dialog-section { margin: 25px 0 0; padding: 0; border: 0; }
+.dialog-section legend { margin-bottom: 12px; font-weight: 800; }
+.dialog-day-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 7px; }
+.dialog-day { position: relative; cursor: pointer; }
+.dialog-day input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.dialog-day span {
+  display: grid; min-height: 68px; place-content: center; gap: 4px;
+  border: 1px solid var(--line); border-radius: 10px; text-align: center;
+}
+.dialog-day small { color: var(--muted); text-transform: uppercase; }
+.dialog-day input:checked + span {
+  color: white; border-color: var(--green); background: var(--green);
+}
+.dialog-day input:checked + span small { color: rgba(255,255,255,.75); }
+.dialog-actions {
+  display: flex; justify-content: flex-end; gap: 10px;
+  margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--line);
+}
+
 .authorization-layout { display: grid; gap: 17px; max-width: 950px; }
 .form-panel { padding: 26px; }
 .section-heading { display: flex; align-items: flex-start; gap: 13px; margin-bottom: 23px; }
@@ -251,4 +337,9 @@ td.muted { max-width: 230px; overflow: hidden; text-overflow: ellipsis; }
   .form-panel { padding: 20px; }
   .flash-stack { left: 16px; right: 16px; }
   .status-pill { white-space: normal; }
+  .authorization-calendar-wrap { max-height: none; }
+  .authorization-dialog-form { padding: 22px; }
+  .dialog-day-grid { grid-template-columns: repeat(4, 1fr); }
+  .dialog-actions { align-items: stretch; flex-direction: column-reverse; }
+  .dialog-actions .button { width: 100%; }
 }

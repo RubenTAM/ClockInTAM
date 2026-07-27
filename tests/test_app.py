@@ -97,6 +97,41 @@ class AppFlowTests(unittest.TestCase):
         )
         self.assertIn(b"Se guardaron 4 autorizaciones", response.data)
         self.assertIn("Mario Ángel Hernández".encode(), response.data)
+        self.assertIn("17:00–19:00".encode(), response.data)
+
+    def test_authorization_page_uses_weekly_calendar(self):
+        self.initialize_admin()
+        self.login()
+
+        def attendance_for(day, force=False):
+            if day != date(2026, 7, 23):
+                return []
+            return [
+                {
+                    "employee_name": "Jorge Rangel Pulido",
+                    "employee_name_key": "jorge rangel pulido",
+                    "work_date": day,
+                    "clock_in": time(7, 0),
+                    "clock_out": time(17, 0),
+                    "overtime_minutes": 60,
+                    "area": "Tijuana",
+                }
+            ]
+
+        with patch("app.cached_attendance", side_effect=attendance_for):
+            response = self.client.get(
+                "/autorizaciones?semana=2026-07-23"
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"Jorge Rangel Pulido", response.data)
+        self.assertEqual(
+            response.data.count(b"Sin registro de autorizaci"),
+            7,
+        )
+        self.assertIn(b'data-date="2026-07-23"', response.data)
+        self.assertIn(b'data-date="2026-07-29"', response.data)
+        self.assertIn(b"Guardar autorizaci", response.data)
 
     def test_login_only_shows_requested_fields(self):
         self.initialize_admin()

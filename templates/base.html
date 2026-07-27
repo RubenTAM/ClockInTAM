@@ -19,6 +19,10 @@
            class="{{ 'active' if request.endpoint in ('weekly_report', 'report_csv') else '' }}">
           <span class="nav-icon">▤</span> Reporte semanal
         </a>
+        <a href="{{ url_for('authorizations') }}"
+           class="{{ 'active' if request.endpoint in ('authorizations', 'new_authorization') else '' }}">
+          <span class="nav-icon">✓</span> Autorización
+        </a>
         <a href="{{ url_for('users') }}"
            class="{{ 'active' if request.endpoint == 'users' else '' }}">
           <span class="nav-icon">●</span> Usuarios

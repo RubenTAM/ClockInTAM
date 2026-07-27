@@ -144,6 +144,12 @@ def register_filters(app: Flask) -> None:
     def clock_filter(value) -> str:
         return value.strftime("%H:%M") if value else "—"
 
+    @app.template_filter("weekday_short")
+    def weekday_short_filter(value) -> str:
+        if isinstance(value, str):
+            value = date.fromisoformat(value)
+        return DAY_NAMES[value.weekday()][:3]
+
 
 def register_context(app: Flask) -> None:
     @app.before_request
@@ -239,6 +245,47 @@ def authorizations_for_week(week_start: date) -> list[dict]:
         (week_start.isoformat(), week_end.isoformat()),
     ).fetchall()
     return [dict(row) for row in rows]
+
+
+def authorization_calendar_for_week(
+    week_start: date,
+    force: bool = False,
+) -> tuple[list[dict], list[date]]:
+    week_days = [
+        week_start + timedelta(days=offset) for offset in range(7)
+    ]
+    authorizations = authorizations_for_week(week_start)
+    people: dict[str, str] = {
+        row["employee_name_key"]: row["employee_name"]
+        for row in authorizations
+    }
+
+    for work_date in week_days:
+        for row in cached_attendance(work_date, force=force):
+            people[row["employee_name_key"]] = row["employee_name"]
+
+    authorization_map = {
+        (row["employee_name_key"], row["work_date"]): row
+        for row in authorizations
+    }
+    calendar_rows = []
+    for name_key, employee_name in sorted(people.items()):
+        calendar_rows.append(
+            {
+                "employee_name": employee_name,
+                "employee_name_key": name_key,
+                "cells": [
+                    {
+                        "work_date": work_date,
+                        "authorization": authorization_map.get(
+                            (name_key, work_date.isoformat())
+                        ),
+                    }
+                    for work_date in week_days
+                ],
+            }
+        )
+    return calendar_rows, week_days
 
 
 def report_for_week(
@@ -428,9 +475,48 @@ def register_routes(app: Flask) -> None:
             week_start = week_start_for(parse_iso_date(requested, "semana"))
         except ValueError:
             week_start = week_start_for(local_today())
+        rows = []
+        week_days = [
+            week_start + timedelta(days=offset) for offset in range(7)
+        ]
+        error = None
+        try:
+            rows, week_days = authorization_calendar_for_week(
+                week_start,
+                force=request.args.get("actualizar") == "1",
+            )
+        except HikConnectError as exc:
+            error = str(exc)
+            authorization_rows = authorizations_for_week(week_start)
+            people = {
+                row["employee_name_key"]: row["employee_name"]
+                for row in authorization_rows
+            }
+            authorization_map = {
+                (row["employee_name_key"], row["work_date"]): row
+                for row in authorization_rows
+            }
+            rows = [
+                {
+                    "employee_name": employee_name,
+                    "employee_name_key": name_key,
+                    "cells": [
+                        {
+                            "work_date": work_date,
+                            "authorization": authorization_map.get(
+                                (name_key, work_date.isoformat())
+                            ),
+                        }
+                        for work_date in week_days
+                    ],
+                }
+                for name_key, employee_name in sorted(people.items())
+            ]
         return render_template(
             "authorizations.html",
-            rows=authorizations_for_week(week_start),
+            rows=rows,
+            week_days=week_days,
+            error=error,
             week_start=week_start,
             week_end=week_start + timedelta(days=6),
             previous_week=week_start - timedelta(days=7),
