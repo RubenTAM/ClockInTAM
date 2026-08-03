@@ -103,7 +103,7 @@ class AppFlowTests(unittest.TestCase):
         self.assertIn(b"17:02", response.data)
         self.assertIn(b"1 h 02 min", response.data)
         self.assertIn(b"Fotograf\xc3\xada pendiente", response.data)
-        self.assertEqual(response.data.count(b'<div></div>'), 4)
+        self.assertNotIn(b"Espacios reservados", response.data)
 
     def test_admin_can_create_batch_authorizations(self):
         self.initialize_admin()
