@@ -14,7 +14,9 @@
   {% if g.user %}
     <aside class="sidebar" id="sidebar">
       <a class="brand" href="{{ url_for('home') }}" aria-label="Inicio">
-        <strong>######</strong>
+        <img class="tecnoall-logo"
+             src="{{ url_for('static', filename='tecnoall-logo.svg') }}"
+             alt="TecnoAll · Soluciones con sentido">
       </a>
       <nav class="nav" aria-label="Navegación principal">
         <a href="{{ url_for('home') }}"
