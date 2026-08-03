@@ -98,6 +98,7 @@ class AppFlowTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn(b"Buscar trabajador", response.data)
+        self.assertIn(b'class="home-page"', response.data)
         self.assertIn(b"Jorge Rangel Pulido", response.data)
         self.assertIn(b"06:58", response.data)
         self.assertIn(b"17:02", response.data)

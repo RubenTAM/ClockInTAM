@@ -119,19 +119,28 @@ p { color: var(--muted); line-height: 1.55; }
 .date-tile small { margin-top: 2px; font-size: .63rem; }
 .quick-panel { padding: 25px; }
 .home-header { margin-bottom: 18px; }
+.home-page { overflow: hidden; }
+.home-page .app-main {
+  height: 100vh; min-height: 0; display: flex; flex-direction: column;
+  padding-top: 26px; padding-bottom: 24px; overflow: hidden;
+}
+.home-page .home-header { flex: 0 0 auto; }
+.home-page .week-nav { flex: 0 0 auto; }
 .home-browser {
   display: grid; grid-template-columns: 285px minmax(0, 1fr);
-  gap: 18px; align-items: start;
+  grid-template-rows: minmax(0, 1fr);
+  flex: 1 1 auto; min-height: 0; gap: 18px; align-items: stretch;
 }
-.home-profile-host { min-width: 0; }
+.home-profile-host { min-width: 0; min-height: 0; overflow: hidden; }
 .home-worker-panel {
-  position: sticky; top: 28px; padding: 20px;
-  max-height: calc(100vh - 56px); overflow: hidden;
+  min-height: 0; display: flex; flex-direction: column;
+  padding: 20px; overflow: hidden;
 }
 .home-worker-panel > label { margin-bottom: 8px; }
 .home-worker-list {
-  display: grid; gap: 7px; margin-top: 16px;
-  max-height: calc(100vh - 180px); overflow-y: auto;
+  min-height: 0; display: grid; align-content: start; flex: 1 1 auto;
+  gap: 7px; margin-top: 16px; overflow-y: auto;
+  scrollbar-gutter: stable;
 }
 .home-worker-option {
   width: 100%; display: flex; align-items: center; gap: 10px;
@@ -147,13 +156,16 @@ p { color: var(--muted); line-height: 1.55; }
 .home-worker-option strong { font-size: .82rem; }
 .home-worker-option small { margin-top: 3px; color: var(--muted); font-size: .7rem; }
 .home-search-empty { margin: 18px 0 0; font-size: .85rem; text-align: center; }
-.home-profile { min-width: 0; }
+.home-profile {
+  min-width: 0; min-height: 0; height: 100%;
+  display: flex; flex-direction: column;
+}
 .home-person-grid {
   display: grid; grid-template-columns: minmax(245px, .65fr) minmax(320px, 1fr);
-  gap: 16px; margin-bottom: 17px;
+  flex: 1 1 0; min-height: 0; gap: 16px; margin-bottom: 12px;
 }
 .home-photo-placeholder {
-  min-height: 260px; display: grid; place-content: center; gap: 12px;
+  min-height: 0; height: 100%; display: grid; place-content: center; gap: 12px;
   border: 2px dashed #bdc9c3; border-radius: 28px; color: var(--muted);
   background: #fafcfb; text-align: center;
 }
@@ -163,30 +175,32 @@ p { color: var(--muted); line-height: 1.55; }
   background: var(--green-pale); font-size: 2rem; font-weight: 850;
 }
 .home-photo-placeholder small { font-weight: 700; }
-.home-person-info { min-height: 260px; padding: 27px; }
-.home-person-info h2 { margin-bottom: 23px; font-size: 1.65rem; }
+.home-person-info { min-height: 0; height: 100%; padding: 20px; overflow: hidden; }
+.home-person-info h2 { margin-bottom: 14px; font-size: 1.45rem; }
 .home-person-info dl { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin: 0; }
-.home-person-info dl div { padding-top: 12px; border-top: 1px solid var(--line); }
+.home-person-info dl div { padding-top: 8px; border-top: 1px solid var(--line); }
 .home-person-info dt { color: var(--muted); font-size: .7rem; font-weight: 750; text-transform: uppercase; }
 .home-person-info dd { margin: 6px 0 0; font-size: .88rem; font-weight: 750; }
 .home-week-cards {
   display: grid; grid-template-columns: repeat(7, minmax(142px, 1fr));
-  gap: 10px; overflow-x: auto; padding: 1px 1px 12px;
+  flex: 1 1 0; min-height: 0; gap: 10px;
+  overflow-x: auto; overflow-y: hidden;
+  padding: 1px;
 }
 .home-day-card {
-  min-height: 225px; padding: 15px; border: 2px solid #20a5da;
+  min-height: 0; height: 100%; padding: 10px; border: 2px solid #20a5da;
   border-radius: 12px; background: white;
 }
 .home-day-card.incomplete { border-color: #dc4c47; background: #fffafa; }
 .home-day-card header { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
 .home-day-card header span { font-size: .78rem; font-weight: 850; text-transform: capitalize; }
 .home-day-card header strong { color: var(--muted); font-size: .72rem; }
-.home-day-card dl { display: grid; gap: 13px; margin: 19px 0 0; }
-.home-day-card dl div { padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+.home-day-card dl { display: grid; gap: 6px; margin: 12px 0 0; }
+.home-day-card dl div { padding-bottom: 6px; border-bottom: 1px solid var(--line); }
 .home-day-card dt { color: var(--muted); font-size: .66rem; }
 .home-day-card dd { margin: 4px 0 0; font-size: .88rem; font-weight: 850; }
 .home-authorization, .home-incomplete {
-  display: block; margin-top: 12px; padding: 6px; border-radius: 8px;
+  display: block; margin-top: 7px; padding: 5px; border-radius: 8px;
   font-size: .65rem; font-weight: 800; text-align: center;
 }
 .home-authorization { color: var(--green-dark); background: var(--green-pale); }
@@ -519,6 +533,8 @@ td.muted { max-width: 230px; overflow: hidden; text-overflow: ellipsis; }
 }
 
 @media (max-width: 760px) {
+  .home-page { overflow: auto; }
+  .home-page .app-main { height: auto; min-height: 100vh; overflow: visible; }
   .sidebar { transform: translateX(-105%); transition: transform .2s ease; box-shadow: 15px 0 40px rgba(0,0,0,.25); }
   .sidebar.open { transform: translateX(0); }
   .mobile-menu { display: block; }
@@ -548,7 +564,12 @@ td.muted { max-width: 230px; overflow: hidden; text-overflow: ellipsis; }
   .dialog-actions { align-items: stretch; flex-direction: column-reverse; }
   .dialog-actions .button { width: 100%; }
   .home-browser { grid-template-columns: 1fr; }
-  .home-worker-panel { position: static; max-height: none; }
-  .home-worker-list { max-height: 280px; }
+  .home-worker-panel { max-height: 340px; }
+  .home-worker-list { max-height: 260px; }
+  .home-profile-host { overflow: visible; }
+  .home-profile { height: auto; }
+  .home-person-grid, .home-week-cards { flex: none; }
+  .home-photo-placeholder, .home-person-info { min-height: 220px; height: auto; }
+  .home-day-card { min-height: 205px; height: auto; }
   .home-person-info dl { grid-template-columns: 1fr; }
 }
