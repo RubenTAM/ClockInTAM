@@ -25,6 +25,7 @@ from flask import (
     render_template,
     request,
     session,
+    send_from_directory,
     url_for,
 )
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -67,6 +68,42 @@ MONTH_NAMES = (
     "noviembre",
     "diciembre",
 )
+
+PHOTO_DIRECTORY = Path(__file__).resolve().parent / "fotos"
+PHOTO_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
+PHOTO_NAME_ALIASES = {
+    "feliz": "felix",
+    "reyez": "reyes",
+    "susniaga": "suniaga",
+}
+PHOTO_NAME_IGNORED = {"fotor", "practicante"}
+
+
+def photo_name_key(value: str) -> tuple[str, ...]:
+    """Return an order-independent worker name key from a photo filename."""
+    normalized = normalize_name(Path(value).stem)
+    normalized = normalized.split("-fotor", 1)[0]
+    tokens = []
+    for token in normalized.split():
+        if token.isdigit() or token in PHOTO_NAME_IGNORED:
+            continue
+        tokens.append(PHOTO_NAME_ALIASES.get(token, token))
+    return tuple(sorted(tokens))
+
+
+def employee_photo_filename(employee_name: str) -> str | None:
+    """Match a worker with a local photo using the name in its filename."""
+    if not PHOTO_DIRECTORY.is_dir():
+        return None
+    employee_key = photo_name_key(employee_name)
+    for photo_path in sorted(PHOTO_DIRECTORY.iterdir()):
+        if (
+            photo_path.is_file()
+            and photo_path.suffix.casefold() in PHOTO_EXTENSIONS
+            and photo_name_key(photo_path.name) == employee_key
+        ):
+            return photo_path.name
+    return None
 
 
 def create_app(test_config: dict | None = None) -> Flask:
@@ -379,6 +416,7 @@ def weekly_report_calendar(
             {
                 "employee_name": employee_name,
                 "employee_name_key": name_key,
+                "photo_filename": employee_photo_filename(employee_name),
                 "cells": cells,
                 "authorized_minutes": sum(
                     int((cell["report"] or {}).get(
@@ -495,6 +533,13 @@ def register_routes(app: Flask) -> None:
         validate_csrf()
         session.clear()
         return redirect(url_for("login"))
+
+    @app.get("/fotos-trabajadores/<path:filename>")
+    @login_required
+    def employee_photo(filename: str):
+        if Path(filename).suffix.casefold() not in PHOTO_EXTENSIONS:
+            abort(404)
+        return send_from_directory(PHOTO_DIRECTORY, filename, conditional=True)
 
     @app.get("/")
     @login_required

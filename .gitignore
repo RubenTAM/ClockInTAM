@@ -11,3 +11,4 @@ reporte_horas_extra_*.csv
 coverage.xml
 htmlcov/
 .deploy-access/
+fotos/

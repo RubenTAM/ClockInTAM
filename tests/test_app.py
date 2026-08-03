@@ -4,7 +4,12 @@ from datetime import date, time
 from pathlib import Path
 from unittest.mock import patch
 
-from app import create_app, week_start_for, weekly_report_calendar
+from app import (
+    create_app,
+    employee_photo_filename,
+    week_start_for,
+    weekly_report_calendar,
+)
 from database import get_db
 
 
@@ -98,6 +103,19 @@ class AppFlowTests(unittest.TestCase):
         self.assertEqual(workers[0]["cells"][1]["report"]["double_minutes"], 60)
         self.assertEqual(workers[0]["cells"][1]["report"]["triple_minutes"], 60)
 
+    def test_employee_photo_is_matched_by_filename_name(self):
+        self.assertEqual(
+            employee_photo_filename("Jorge Rangel Pulido"),
+            "063 RANGEL PULIDO JORGE.jpg",
+        )
+        self.assertEqual(
+            employee_photo_filename("Heidi Johana Reyez Diaz"),
+            "095 REYES DIAZ HEIDI JOHANA.jpeg",
+        )
+        self.assertIsNone(
+            employee_photo_filename("Trabajador Sin Fotografia"),
+        )
+
     def test_home_searches_workers_and_shows_week_profile(self):
         self.initialize_admin()
         self.login()
@@ -132,7 +150,8 @@ class AppFlowTests(unittest.TestCase):
         self.assertIn(b"Horas dobles", response.data)
         self.assertIn(b"Horas triples", response.data)
         self.assertIn(b"0 h 00 min", response.data)
-        self.assertIn(b"Fotograf\xc3\xada pendiente", response.data)
+        self.assertIn(b"063%20RANGEL%20PULIDO%20JORGE.jpg", response.data)
+        self.assertIn(b"home-worker-photo", response.data)
         self.assertNotIn(b"Espacios reservados", response.data)
 
     def test_admin_can_create_batch_authorizations(self):

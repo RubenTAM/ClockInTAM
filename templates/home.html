@@ -47,7 +47,13 @@
           <button type="button" class="home-worker-option {{ 'active' if loop.first else '' }}"
                   data-home-worker data-worker-name="{{ worker.employee_name|lower }}"
                   data-template="home-profile-{{ loop.index }}">
-            <span class="worker-avatar">{{ worker.employee_name[0]|upper }}</span>
+            {% if worker.photo_filename %}
+              <img class="worker-avatar worker-avatar-photo"
+                   src="{{ url_for('employee_photo', filename=worker.photo_filename) }}"
+                   alt="Foto de {{ worker.employee_name }}">
+            {% else %}
+              <span class="worker-avatar">{{ worker.employee_name[0]|upper }}</span>
+            {% endif %}
             <span>
               <strong>{{ worker.employee_name }}</strong>
               <small>{{ worker.area or 'Sin área registrada' }}</small>
@@ -65,9 +71,15 @@
     <template id="home-profile-{{ loop.index }}">
       <section class="home-profile">
         <div class="home-person-grid">
-          <div class="home-photo-placeholder" aria-label="Fotografía pendiente">
-            <span>{{ worker.employee_name[0]|upper }}</span>
-            <small>Fotografía pendiente</small>
+          <div class="home-photo-placeholder">
+            {% if worker.photo_filename %}
+              <img class="home-worker-photo"
+                   src="{{ url_for('employee_photo', filename=worker.photo_filename) }}"
+                   alt="Foto de {{ worker.employee_name }}">
+            {% else %}
+              <span>{{ worker.employee_name[0]|upper }}</span>
+              <small>Fotografía pendiente</small>
+            {% endif %}
           </div>
           <article class="panel home-person-info">
             <span class="eyebrow">Información del trabajador</span>
