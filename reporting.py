@@ -280,6 +280,7 @@ def compare_overtime(
         "work_date": work_date,
         "clock_in": (attendance or {}).get("clock_in"),
         "clock_out": (attendance or {}).get("clock_out"),
+        "area": (attendance or {}).get("area", ""),
         "actual_range": actual_range,
         "allowed_range": (
             ", ".join(

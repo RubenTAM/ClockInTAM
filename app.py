@@ -449,7 +449,7 @@ def register_routes(app: Flask) -> None:
         if user_count() == 0:
             return redirect(url_for("setup"))
         if g.user:
-            return redirect(url_for("weekly_report"))
+            return redirect(url_for("home"))
 
         if request.method == "POST":
             validate_csrf()
@@ -472,7 +472,7 @@ def register_routes(app: Flask) -> None:
                 session.permanent = True
                 next_url = request.args.get("next", "")
                 if not next_url.startswith("/"):
-                    next_url = url_for("weekly_report")
+                    next_url = url_for("home")
                 return redirect(next_url)
         return render_template("login.html")
 
@@ -486,7 +486,47 @@ def register_routes(app: Flask) -> None:
     @app.get("/")
     @login_required
     def home():
-        return redirect(url_for("weekly_report"))
+        requested = request.args.get("semana", local_today().isoformat())
+        try:
+            week_start = week_start_for(parse_iso_date(requested, "semana"))
+        except ValueError:
+            week_start = week_start_for(local_today())
+        week_end = week_start + timedelta(days=6)
+        calendar_rows = []
+        week_days = [week_start + timedelta(days=offset) for offset in range(7)]
+        loaded_at = None
+        error = None
+        try:
+            report_rows, loaded_at, _ = report_for_week(
+                week_start,
+                force=request.args.get("actualizar") == "1",
+            )
+            calendar_rows, week_days = weekly_report_calendar(
+                report_rows,
+                week_start,
+            )
+            for worker in calendar_rows:
+                worker["area"] = next(
+                    (
+                        cell["report"].get("area", "")
+                        for cell in worker["cells"]
+                        if cell["report"] and cell["report"].get("area")
+                    ),
+                    "",
+                )
+        except HikConnectError as exc:
+            error = str(exc)
+        return render_template(
+            "home.html",
+            calendar_rows=calendar_rows,
+            week_days=week_days,
+            week_start=week_start,
+            week_end=week_end,
+            previous_week=week_start - timedelta(days=7),
+            next_week=week_start + timedelta(days=7),
+            loaded_at=loaded_at,
+            error=error,
+        )
 
     @app.get("/resumen")
     @login_required

@@ -196,3 +196,37 @@
     if (event.target === dialog) dialog.close();
   });
 })();
+
+(() => {
+  const browser = document.querySelector("[data-home-browser]");
+  if (!browser) return;
+
+  const search = browser.querySelector("[data-home-search]");
+  const profile = browser.querySelector("[data-home-profile]");
+  const empty = browser.querySelector("[data-home-empty]");
+  const workers = [...browser.querySelectorAll("[data-home-worker]")];
+
+  const showWorker = (button) => {
+    const template = document.getElementById(button.dataset.template);
+    if (!template) return;
+    workers.forEach((worker) => worker.classList.toggle("active", worker === button));
+    profile.replaceChildren(template.content.cloneNode(true));
+  };
+
+  workers.forEach((button) => {
+    button.addEventListener("click", () => showWorker(button));
+  });
+
+  search.addEventListener("input", () => {
+    const query = search.value.trim().toLocaleLowerCase("es");
+    let visible = 0;
+    workers.forEach((button) => {
+      const matches = button.dataset.workerName.includes(query);
+      button.hidden = !matches;
+      if (matches) visible += 1;
+    });
+    empty.hidden = visible > 0;
+  });
+
+  if (workers.length) showWorker(workers[0]);
+})();

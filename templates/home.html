@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}Inicio{% endblock %}
+{% block content %}
+<header class="page-header home-header">
+  <div>
+    <span class="eyebrow">Vista de trabajadores</span>
+    <h1>Inicio</h1>
+    <p>{{ week_start|date_es }} — {{ week_end|date_es }}</p>
+  </div>
+  <a class="button secondary"
+     href="{{ url_for('home', semana=week_start, actualizar=1) }}">↻ Actualizar datos</a>
+</header>
+
+<div class="week-nav">
+  <a class="icon-button" href="{{ url_for('home', semana=previous_week) }}"
+     aria-label="Semana anterior">←</a>
+  <form method="get" class="week-picker">
+    <label for="semana">Ir a la semana de</label>
+    <input id="semana" type="date" name="semana" value="{{ week_start }}">
+    <button class="button secondary small" type="submit">Ver</button>
+  </form>
+  <a class="icon-button" href="{{ url_for('home', semana=next_week) }}"
+     aria-label="Semana siguiente">→</a>
+</div>
+
+{% if error %}
+  <section class="callout error-callout">
+    <strong>No fue posible consultar los trabajadores</strong>
+    <p>{{ error }}</p>
+  </section>
+{% elif not calendar_rows %}
+  <section class="panel empty-state">
+    <div class="empty-icon">✓</div>
+    <h2>No hay trabajadores para mostrar</h2>
+    <p>No se encontraron checadas ni autorizaciones en esta semana.</p>
+  </section>
+{% else %}
+  <section class="home-browser" data-home-browser>
+    <aside class="panel home-worker-panel">
+      <label for="home-worker-search">Buscar trabajador</label>
+      <input id="home-worker-search" type="search"
+             placeholder="Escribe un nombre…" autocomplete="off"
+             data-home-search>
+      <div class="home-worker-list" data-home-list>
+        {% for worker in calendar_rows %}
+          <button type="button" class="home-worker-option {{ 'active' if loop.first else '' }}"
+                  data-home-worker data-worker-name="{{ worker.employee_name|lower }}"
+                  data-template="home-profile-{{ loop.index }}">
+            <span class="worker-avatar">{{ worker.employee_name[0]|upper }}</span>
+            <span>
+              <strong>{{ worker.employee_name }}</strong>
+              <small>{{ worker.area or 'Sin área registrada' }}</small>
+            </span>
+          </button>
+        {% endfor %}
+      </div>
+      <p class="home-search-empty" data-home-empty hidden>No hay coincidencias.</p>
+    </aside>
+
+    <div class="home-profile-host" data-home-profile></div>
+  </section>
+
+  {% for worker in calendar_rows %}
+    <template id="home-profile-{{ loop.index }}">
+      <section class="home-profile">
+        <div class="home-person-grid">
+          <div class="home-photo-placeholder" aria-label="Fotografía pendiente">
+            <span>{{ worker.employee_name[0]|upper }}</span>
+            <small>Fotografía pendiente</small>
+          </div>
+          <article class="panel home-person-info">
+            <span class="eyebrow">Información del trabajador</span>
+            <h2>{{ worker.employee_name }}</h2>
+            <dl>
+              <div><dt>Área</dt><dd>{{ worker.area or 'Sin información' }}</dd></div>
+              <div><dt>Puesto</dt><dd>Sin información</dd></div>
+              <div><dt>Teléfono</dt><dd>Sin información</dd></div>
+              <div><dt>Correo</dt><dd>Sin información</dd></div>
+            </dl>
+          </article>
+        </div>
+
+        <div class="home-week-cards">
+          {% for cell in worker.cells %}
+            {% set report = cell.report %}
+            <article class="home-day-card {{ 'incomplete' if cell.is_incomplete else '' }}">
+              <header>
+                <span>{{ cell.work_date|weekday_short }}</span>
+                <strong>{{ cell.work_date.day }}/{{ cell.work_date.month }}</strong>
+              </header>
+              <dl>
+                <div><dt>Hora de entrada</dt><dd>{{ report.clock_in|clock if report else '—' }}</dd></div>
+                <div><dt>Hora de salida</dt><dd>{{ report.clock_out|clock if report else '—' }}</dd></div>
+                <div><dt>Tiempo extra</dt><dd>{{ report.overtime_minutes|minutes if report else '0 h 00 min' }}</dd></div>
+              </dl>
+              {% if report and report.allowed_range != 'Sin autorización' %}
+                <span class="home-authorization">✓ Horas extra permitidas</span>
+              {% elif cell.is_incomplete %}
+                <span class="home-incomplete">Checada incompleta</span>
+              {% endif %}
+            </article>
+          {% endfor %}
+        </div>
+
+        <div class="home-future-grid" aria-label="Espacios reservados">
+          <div></div><div></div><div></div><div></div>
+        </div>
+      </section>
+    </template>
+  {% endfor %}
+{% endif %}
+{% endblock %}

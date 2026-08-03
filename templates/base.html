@@ -13,10 +13,14 @@
 <body class="{% block body_class %}{% endblock %}">
   {% if g.user %}
     <aside class="sidebar" id="sidebar">
-      <a class="brand" href="{{ url_for('weekly_report') }}" aria-label="Inicio">
+      <a class="brand" href="{{ url_for('home') }}" aria-label="Inicio">
         <strong>######</strong>
       </a>
       <nav class="nav" aria-label="Navegación principal">
+        <a href="{{ url_for('home') }}"
+           class="{{ 'active' if request.endpoint == 'home' else '' }}">
+          <span class="nav-icon">⌂</span> Inicio
+        </a>
         <a href="{{ url_for('weekly_report') }}"
            class="{{ 'active' if request.endpoint in ('weekly_report', 'report_csv') else '' }}">
           <span class="nav-icon">▤</span> Reporte semanal

@@ -74,6 +74,37 @@ class AppFlowTests(unittest.TestCase):
             date(2026, 7, 30),
         )
 
+    def test_home_searches_workers_and_shows_week_profile(self):
+        self.initialize_admin()
+        self.login()
+
+        def attendance_for(day, force=False):
+            if day != date(2026, 7, 23):
+                return []
+            return [
+                {
+                    "employee_name": "Jorge Rangel Pulido",
+                    "employee_name_key": "jorge rangel pulido",
+                    "work_date": day,
+                    "clock_in": time(6, 58),
+                    "clock_out": time(17, 2),
+                    "overtime_minutes": 62,
+                    "area": "Tijuana",
+                }
+            ]
+
+        with patch("app.cached_attendance", side_effect=attendance_for):
+            response = self.client.get("/?semana=2026-07-23")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"Buscar trabajador", response.data)
+        self.assertIn(b"Jorge Rangel Pulido", response.data)
+        self.assertIn(b"06:58", response.data)
+        self.assertIn(b"17:02", response.data)
+        self.assertIn(b"1 h 02 min", response.data)
+        self.assertIn(b"Fotograf\xc3\xada pendiente", response.data)
+        self.assertEqual(response.data.count(b'<div></div>'), 4)
+
     def test_admin_can_create_batch_authorizations(self):
         self.initialize_admin()
         response = self.login()
