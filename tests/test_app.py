@@ -4,7 +4,7 @@ from datetime import date, time
 from pathlib import Path
 from unittest.mock import patch
 
-from app import create_app, week_start_for
+from app import create_app, week_start_for, weekly_report_calendar
 from database import get_db
 
 
@@ -74,6 +74,30 @@ class AppFlowTests(unittest.TestCase):
             date(2026, 7, 30),
         )
 
+    def test_weekly_overtime_is_split_into_double_and_triple_hours(self):
+        rows = [
+            {
+                "employee_name": "Jorge Rangel Pulido",
+                "employee_name_key": "jorge rangel pulido",
+                "work_date": date(2026, 7, 23),
+                "overtime_minutes": 480,
+            },
+            {
+                "employee_name": "Jorge Rangel Pulido",
+                "employee_name_key": "jorge rangel pulido",
+                "work_date": date(2026, 7, 24),
+                "overtime_minutes": 120,
+            },
+        ]
+
+        with self.app.app_context():
+            workers, _ = weekly_report_calendar(rows, date(2026, 7, 23))
+
+        self.assertEqual(workers[0]["cells"][0]["report"]["double_minutes"], 480)
+        self.assertEqual(workers[0]["cells"][0]["report"]["triple_minutes"], 0)
+        self.assertEqual(workers[0]["cells"][1]["report"]["double_minutes"], 60)
+        self.assertEqual(workers[0]["cells"][1]["report"]["triple_minutes"], 60)
+
     def test_home_searches_workers_and_shows_week_profile(self):
         self.initialize_admin()
         self.login()
@@ -105,6 +129,9 @@ class AppFlowTests(unittest.TestCase):
         self.assertIn(b"06:58", response.data)
         self.assertIn(b"17:02", response.data)
         self.assertIn(b"1 h 02 min", response.data)
+        self.assertIn(b"Horas dobles", response.data)
+        self.assertIn(b"Horas triples", response.data)
+        self.assertIn(b"0 h 00 min", response.data)
         self.assertIn(b"Fotograf\xc3\xada pendiente", response.data)
         self.assertNotIn(b"Espacios reservados", response.data)
 

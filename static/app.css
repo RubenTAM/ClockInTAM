@@ -123,8 +123,9 @@ p { color: var(--muted); line-height: 1.55; }
 .home-page { overflow: hidden; }
 .home-page .app-main {
   height: 100vh; min-height: 0; display: flex; flex-direction: column;
-  padding-top: 26px; padding-bottom: 24px; overflow: hidden;
+  padding-top: 18px; padding-bottom: 20px; overflow: hidden;
 }
+.home-page h1 { font-size: clamp(2rem, 3vw, 2.6rem); }
 .home-page .home-header { flex: 0 0 auto; }
 .home-page .week-nav { flex: 0 0 auto; }
 .home-browser {
@@ -163,7 +164,7 @@ p { color: var(--muted); line-height: 1.55; }
 }
 .home-person-grid {
   display: grid; grid-template-columns: minmax(245px, .65fr) minmax(320px, 1fr);
-  flex: 1 1 0; min-height: 0; gap: 16px; margin-bottom: 12px;
+  flex: .85 1 0; min-height: 220px; gap: 16px; margin-bottom: 12px;
 }
 .home-photo-placeholder {
   min-height: 0; height: 100%; display: grid; place-content: center; gap: 12px;
@@ -176,15 +177,15 @@ p { color: var(--muted); line-height: 1.55; }
   background: var(--green-pale); font-size: 2rem; font-weight: 850;
 }
 .home-photo-placeholder small { font-weight: 700; }
-.home-person-info { min-height: 0; height: 100%; padding: 20px; overflow: hidden; }
-.home-person-info h2 { margin-bottom: 14px; font-size: 1.45rem; }
-.home-person-info dl { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin: 0; }
+.home-person-info { min-height: 0; height: 100%; padding: 15px 17px; overflow: hidden; }
+.home-person-info h2 { margin-bottom: 9px; font-size: 1.3rem; }
+.home-person-info dl { display: grid; grid-template-columns: repeat(2, 1fr); gap: 9px 15px; margin: 0; }
 .home-person-info dl div { padding-top: 8px; border-top: 1px solid var(--line); }
 .home-person-info dt { color: var(--muted); font-size: .7rem; font-weight: 750; text-transform: uppercase; }
 .home-person-info dd { margin: 6px 0 0; font-size: .88rem; font-weight: 750; }
 .home-week-cards {
   display: grid; grid-template-columns: repeat(7, minmax(142px, 1fr));
-  flex: 1 1 0; min-height: 0; gap: 10px;
+  flex: 1.15 1 0; min-height: 275px; gap: 10px;
   overflow-x: auto; overflow-y: hidden;
   padding: 1px;
 }
@@ -196,12 +197,14 @@ p { color: var(--muted); line-height: 1.55; }
 .home-day-card header { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
 .home-day-card header span { font-size: .78rem; font-weight: 850; text-transform: capitalize; }
 .home-day-card header strong { color: var(--muted); font-size: .72rem; }
-.home-day-card dl { display: grid; gap: 6px; margin: 12px 0 0; }
-.home-day-card dl div { padding-bottom: 6px; border-bottom: 1px solid var(--line); }
-.home-day-card dt { color: var(--muted); font-size: .66rem; }
-.home-day-card dd { margin: 4px 0 0; font-size: .88rem; font-weight: 850; }
+.home-day-card dl { display: grid; gap: 2px; margin: 6px 0 0; }
+.home-day-card dl div { padding-bottom: 3px; border-bottom: 1px solid var(--line); }
+.home-day-card dt { color: var(--muted); font-size: .62rem; }
+.home-day-card dd { margin: 2px 0 0; font-size: .82rem; font-weight: 850; }
+.home-day-card .double-hours dd { color: #1a547a; }
+.home-day-card .triple-hours dd { color: #006892; }
 .home-authorization, .home-incomplete {
-  display: block; margin-top: 7px; padding: 5px; border-radius: 8px;
+  display: block; margin-top: 4px; padding: 4px; border-radius: 8px;
   font-size: .65rem; font-weight: 800; text-align: center;
 }
 .home-authorization { color: var(--green-dark); background: var(--green-pale); }

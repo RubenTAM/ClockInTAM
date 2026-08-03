@@ -93,6 +93,8 @@
                 <div><dt>Hora de entrada</dt><dd>{{ report.clock_in|clock if report else '—' }}</dd></div>
                 <div><dt>Hora de salida</dt><dd>{{ report.clock_out|clock if report else '—' }}</dd></div>
                 <div><dt>Tiempo extra</dt><dd>{{ report.overtime_minutes|minutes if report else '0 h 00 min' }}</dd></div>
+                <div class="double-hours"><dt>Horas dobles</dt><dd>{{ report.double_minutes|minutes if report else '0 h 00 min' }}</dd></div>
+                <div class="triple-hours"><dt>Horas triples</dt><dd>{{ report.triple_minutes|minutes if report else '0 h 00 min' }}</dd></div>
               </dl>
               {% if report and report.allowed_range != 'Sin autorización' %}
                 <span class="home-authorization">✓ Horas extra permitidas</span>

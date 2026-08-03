@@ -339,8 +339,21 @@ def weekly_report_calendar(
     calendar_rows = []
     for name_key, employee_name in sorted(people.items()):
         cells = []
+        weekly_overtime_used = 0
         for work_date in week_days:
             report = report_map.get((name_key, work_date))
+            if report:
+                overtime_minutes = int(report.get("overtime_minutes", 0))
+                double_minutes = min(
+                    overtime_minutes,
+                    max(0, 9 * 60 - weekly_overtime_used),
+                )
+                report["double_minutes"] = double_minutes
+                report["triple_minutes"] = max(
+                    0,
+                    overtime_minutes - double_minutes,
+                )
+                weekly_overtime_used += overtime_minutes
             is_future = work_date > local_today()
             is_non_working = work_date.weekday() == 6 and report is None
             is_incomplete = (
