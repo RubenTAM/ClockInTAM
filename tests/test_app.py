@@ -154,6 +154,20 @@ class AppFlowTests(unittest.TestCase):
         self.assertIn(b"home-worker-photo", response.data)
         self.assertNotIn(b"Espacios reservados", response.data)
 
+    def test_home_keeps_directory_worker_without_attendance_visible(self):
+        self.initialize_admin()
+        self.login()
+
+        with patch("app.cached_attendance", return_value=[]):
+            response = self.client.get("/?semana=2026-07-30")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"Ruben Humberto Lizarraga Reyes", response.data)
+        self.assertIn(
+            b"017%20LIZARRAGA%20REYES%20RUBEN%20HUMBERTO.jpg",
+            response.data,
+        )
+
     def test_admin_can_create_batch_authorizations(self):
         self.initialize_admin()
         response = self.login()

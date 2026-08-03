@@ -77,6 +77,9 @@ PHOTO_NAME_ALIASES = {
     "susniaga": "suniaga",
 }
 PHOTO_NAME_IGNORED = {"fotor", "practicante"}
+EMPLOYEE_DIRECTORY = (
+    "Ruben Humberto Lizarraga Reyes",
+)
 
 
 def photo_name_key(value: str) -> tuple[str, ...]:
@@ -366,7 +369,10 @@ def weekly_report_calendar(
     week_days = [
         week_start + timedelta(days=offset) for offset in range(7)
     ]
-    people: dict[str, str] = {}
+    people: dict[str, str] = {
+        normalize_name(employee_name): employee_name
+        for employee_name in EMPLOYEE_DIRECTORY
+    }
     report_map: dict[tuple[str, date], dict] = {}
     for row in report_rows:
         name_key = row["employee_name_key"]
