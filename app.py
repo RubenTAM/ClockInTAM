@@ -386,17 +386,22 @@ def weekly_report_calendar(
         for work_date in week_days:
             report = report_map.get((name_key, work_date))
             if report:
-                overtime_minutes = int(report.get("overtime_minutes", 0))
+                counted_overtime_minutes = int(
+                    report.get("authorized_minutes", 0)
+                )
+                report["counted_overtime_minutes"] = (
+                    counted_overtime_minutes
+                )
                 double_minutes = min(
-                    overtime_minutes,
+                    counted_overtime_minutes,
                     max(0, 9 * 60 - weekly_overtime_used),
                 )
                 report["double_minutes"] = double_minutes
                 report["triple_minutes"] = max(
                     0,
-                    overtime_minutes - double_minutes,
+                    counted_overtime_minutes - double_minutes,
                 )
-                weekly_overtime_used += overtime_minutes
+                weekly_overtime_used += counted_overtime_minutes
             is_future = work_date > local_today()
             is_non_working = work_date.weekday() == 6 and report is None
             is_incomplete = (

@@ -86,12 +86,14 @@ class AppFlowTests(unittest.TestCase):
                 "employee_name_key": "jorge rangel pulido",
                 "work_date": date(2026, 7, 23),
                 "overtime_minutes": 480,
+                "authorized_minutes": 480,
             },
             {
                 "employee_name": "Jorge Rangel Pulido",
                 "employee_name_key": "jorge rangel pulido",
                 "work_date": date(2026, 7, 24),
                 "overtime_minutes": 120,
+                "authorized_minutes": 120,
             },
         ]
 
@@ -102,6 +104,25 @@ class AppFlowTests(unittest.TestCase):
         self.assertEqual(workers[0]["cells"][0]["report"]["triple_minutes"], 0)
         self.assertEqual(workers[0]["cells"][1]["report"]["double_minutes"], 60)
         self.assertEqual(workers[0]["cells"][1]["report"]["triple_minutes"], 60)
+
+    def test_unapproved_overtime_is_not_counted_on_home(self):
+        rows = [
+            {
+                "employee_name": "Jorge Rangel Pulido",
+                "employee_name_key": "jorge rangel pulido",
+                "work_date": date(2026, 7, 23),
+                "overtime_minutes": 90,
+                "authorized_minutes": 0,
+            }
+        ]
+
+        with self.app.app_context():
+            workers, _ = weekly_report_calendar(rows, date(2026, 7, 23))
+
+        report = workers[0]["cells"][0]["report"]
+        self.assertEqual(report["counted_overtime_minutes"], 0)
+        self.assertEqual(report["double_minutes"], 0)
+        self.assertEqual(report["triple_minutes"], 0)
 
     def test_employee_photo_is_matched_by_filename_name(self):
         self.assertEqual(
@@ -146,13 +167,46 @@ class AppFlowTests(unittest.TestCase):
         self.assertIn(b"Jorge Rangel Pulido", response.data)
         self.assertIn(b"06:58", response.data)
         self.assertIn(b"17:02", response.data)
-        self.assertIn(b"1 h 02 min", response.data)
+        self.assertNotIn(b"1 h 02 min", response.data)
         self.assertIn(b"Horas dobles", response.data)
         self.assertIn(b"Horas triples", response.data)
         self.assertIn(b"0 h 00 min", response.data)
+        self.assertNotIn(b"data-range=", response.data)
         self.assertIn(b"063%20RANGEL%20PULIDO%20JORGE.jpg", response.data)
         self.assertIn(b"home-worker-photo", response.data)
         self.assertNotIn(b"Espacios reservados", response.data)
+
+    def test_home_shows_authorized_overtime_button_and_detail(self):
+        self.initialize_admin()
+        self.login()
+        report_rows = [
+            {
+                "employee_name": "Jorge Rangel Pulido",
+                "employee_name_key": "jorge rangel pulido",
+                "work_date": date(2026, 7, 23),
+                "clock_in": time(7, 0),
+                "clock_out": time(18, 30),
+                "overtime_minutes": 90,
+                "authorized_minutes": 60,
+                "unauthorized_minutes": 30,
+                "allowed_range": "17:00–18:00",
+                "area": "Tijuana",
+            }
+        ]
+
+        with patch(
+            "app.report_for_week",
+            return_value=(report_rows, None, {date(2026, 7, 23)}),
+        ):
+            response = self.client.get("/?semana=2026-07-23")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"1 h 00 min", response.data)
+        self.assertNotIn(b"1 h 30 min", response.data)
+        self.assertIn(b"data-home-authorization", response.data)
+        self.assertIn(b"Horas extras autorizadas", response.data)
+        self.assertIn("17:00–18:00".encode(), response.data)
+        self.assertIn(b'id="home-authorization-dialog"', response.data)
 
     def test_home_keeps_directory_worker_without_attendance_visible(self):
         self.initialize_admin()

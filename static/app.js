@@ -230,3 +230,31 @@
 
   if (workers.length) showWorker(workers[0]);
 })();
+
+(() => {
+  const dialog = document.querySelector("#home-authorization-dialog");
+  if (!dialog) return;
+
+  const employeeName = dialog.querySelector("#home-authorization-name");
+  const workDate = dialog.querySelector("#home-authorization-date");
+  const allowedRange = dialog.querySelector("#home-authorization-range");
+  const countedTime = dialog.querySelector("#home-authorization-counted");
+
+  document.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-home-authorization]");
+    if (!button) return;
+    employeeName.textContent = button.dataset.employee;
+    workDate.textContent = button.dataset.date;
+    allowedRange.textContent = button.dataset.range;
+    countedTime.textContent = button.dataset.counted;
+    dialog.showModal();
+  });
+
+  dialog.querySelectorAll("[data-home-authorization-close]").forEach((button) => {
+    button.addEventListener("click", () => dialog.close());
+  });
+
+  dialog.addEventListener("click", (event) => {
+    if (event.target === dialog) dialog.close();
+  });
+})();

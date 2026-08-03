@@ -104,14 +104,22 @@
               <dl>
                 <div><dt>Hora de entrada</dt><dd>{{ report.clock_in|clock if report else '—' }}</dd></div>
                 <div><dt>Hora de salida</dt><dd>{{ report.clock_out|clock if report else '—' }}</dd></div>
-                <div><dt>Tiempo extra</dt><dd>{{ report.overtime_minutes|minutes if report else '0 h 00 min' }}</dd></div>
+                <div><dt>Tiempo extra</dt><dd>{{ report.counted_overtime_minutes|minutes if report else '0 h 00 min' }}</dd></div>
                 <div class="double-hours"><dt>Horas dobles</dt><dd>{{ report.double_minutes|minutes if report else '0 h 00 min' }}</dd></div>
                 <div class="triple-hours"><dt>Horas triples</dt><dd>{{ report.triple_minutes|minutes if report else '0 h 00 min' }}</dd></div>
               </dl>
-              {% if report and report.allowed_range != 'Sin autorización' %}
-                <span class="home-authorization">✓ Horas extra permitidas</span>
-              {% elif cell.is_incomplete %}
+              {% if cell.is_incomplete %}
                 <span class="home-incomplete">Checada incompleta</span>
+              {% endif %}
+              {% if report and report.allowed_range != 'Sin autorización' %}
+                <button type="button" class="home-authorization"
+                        data-home-authorization
+                        data-employee="{{ worker.employee_name }}"
+                        data-date="{{ cell.work_date|date_es }}"
+                        data-range="{{ report.allowed_range }}"
+                        data-counted="{{ report.counted_overtime_minutes|minutes }}">
+                  ✓ Horas extras autorizadas
+                </button>
               {% endif %}
             </article>
           {% endfor %}
@@ -121,4 +129,31 @@
     </template>
   {% endfor %}
 {% endif %}
+
+<dialog class="report-detail-dialog" id="home-authorization-dialog">
+  <section class="report-detail-content">
+    <div class="dialog-heading">
+      <div>
+        <span class="eyebrow">Horas extras autorizadas</span>
+        <h2 id="home-authorization-name"></h2>
+      </div>
+      <button type="button" class="dialog-close"
+              data-home-authorization-close aria-label="Cerrar">×</button>
+    </div>
+    <dl class="home-authorization-detail">
+      <div>
+        <dt>Fecha</dt>
+        <dd id="home-authorization-date"></dd>
+      </div>
+      <div>
+        <dt>Horario autorizado</dt>
+        <dd id="home-authorization-range"></dd>
+      </div>
+      <div>
+        <dt>Tiempo extra contabilizado</dt>
+        <dd id="home-authorization-counted"></dd>
+      </div>
+    </dl>
+  </section>
+</dialog>
 {% endblock %}

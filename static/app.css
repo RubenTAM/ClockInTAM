@@ -215,7 +215,11 @@ p { color: var(--muted); line-height: 1.55; }
   display: block; margin-top: 4px; padding: 4px; border-radius: 8px;
   font-size: .65rem; font-weight: 800; text-align: center;
 }
-.home-authorization { color: var(--green-dark); background: var(--green-pale); }
+.home-authorization {
+  width: 100%; border: 0; color: var(--green-dark);
+  background: var(--green-pale); cursor: pointer;
+}
+.home-authorization:hover { background: #d8eef5; }
 .home-incomplete { color: var(--red); background: var(--red-pale); }
 .steps { margin: 25px 0; padding: 0; list-style: none; }
 .steps li { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
@@ -324,6 +328,21 @@ td.muted { max-width: 230px; overflow: hidden; text-overflow: ellipsis; }
 }
 .report-detail-dialog::backdrop { background: rgba(15, 39, 57, .62); backdrop-filter: blur(2px); }
 .report-detail-content { padding: 28px; }
+.home-authorization-detail {
+  display: grid; gap: 10px; margin: 22px 0 0;
+}
+.home-authorization-detail div {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 20px; padding: 14px 15px; border: 1px solid var(--line);
+  border-radius: 11px; background: #f8fbfc;
+}
+.home-authorization-detail dt {
+  color: var(--muted); font-size: .78rem; font-weight: 750;
+}
+.home-authorization-detail dd {
+  margin: 0; color: var(--green-dark); font-size: .9rem;
+  font-weight: 850; text-align: right;
+}
 .worker-total-grid {
   display: grid; grid-template-columns: repeat(2, 1fr);
   gap: 10px; margin-top: 22px;
