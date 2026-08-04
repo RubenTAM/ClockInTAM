@@ -291,7 +291,49 @@
   });
   areaFilter.addEventListener("change", filterWorkers);
 
-  if (workers.length) showWorker(workers[0]);
+  const selectedWorker = browser.dataset.selectedWorker;
+  const initialWorker = workers.find(
+    (worker) => worker.dataset.workerKey === selectedWorker
+  );
+  if (initialWorker) {
+    showWorker(initialWorker);
+  } else if (workers.length) {
+    showWorker(workers[0]);
+  }
+})();
+
+(() => {
+  const dialog = document.querySelector("#home-enable-overtime-dialog");
+  if (!dialog) return;
+
+  const employeeKey = dialog.querySelector("#home-overtime-employee-key");
+  const workDate = dialog.querySelector("#home-overtime-work-date");
+  const employeeName = dialog.querySelector("#home-overtime-employee");
+  const dateLabel = dialog.querySelector("#home-overtime-date");
+  const startInput = dialog.querySelector("#home-overtime-start");
+  const endInput = dialog.querySelector("#home-overtime-end");
+  const hoursInput = dialog.querySelector("#home-overtime-hours");
+
+  document.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-enable-overtime]");
+    if (!button) return;
+    employeeKey.value = button.dataset.employeeKey;
+    workDate.value = button.dataset.workDate;
+    employeeName.textContent = button.dataset.employee;
+    dateLabel.textContent = button.dataset.dateLabel;
+    startInput.value = "17:00";
+    endInput.value = "19:00";
+    hoursInput.value = "2";
+    dialog.showModal();
+  });
+
+  dialog.querySelectorAll("[data-enable-overtime-close]").forEach((button) => {
+    button.addEventListener("click", () => dialog.close());
+  });
+
+  dialog.addEventListener("click", (event) => {
+    if (event.target === dialog) dialog.close();
+  });
 })();
 
 (() => {
@@ -301,6 +343,7 @@
   const employeeName = dialog.querySelector("#home-authorization-name");
   const workDate = dialog.querySelector("#home-authorization-date");
   const allowedRange = dialog.querySelector("#home-authorization-range");
+  const approvedTime = dialog.querySelector("#home-authorization-approved");
   const countedTime = dialog.querySelector("#home-authorization-counted");
 
   document.addEventListener("click", (event) => {
@@ -309,6 +352,7 @@
     employeeName.textContent = button.dataset.employee;
     workDate.textContent = button.dataset.date;
     allowedRange.textContent = button.dataset.range;
+    approvedTime.textContent = button.dataset.approved;
     countedTime.textContent = button.dataset.counted;
     dialog.showModal();
   });

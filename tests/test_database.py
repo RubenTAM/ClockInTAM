@@ -91,8 +91,15 @@ class DatabaseMigrationTests(unittest.TestCase):
                 total = migrated.execute(
                     "SELECT COUNT(*) AS total FROM overtime_authorizations"
                 ).fetchone()["total"]
+                columns = {
+                    row["name"]
+                    for row in migrated.execute(
+                        "PRAGMA table_info('overtime_authorizations')"
+                    ).fetchall()
+                }
 
             self.assertEqual(total, 2)
+            self.assertIn("approved_minutes", columns)
 
 
 if __name__ == "__main__":

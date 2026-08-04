@@ -66,6 +66,9 @@
                         <div class="authorization-slot slot-color-{{ loop.index0 % 4 }}">
                           <span>Autorizado</span>
                           <strong>{{ authorization.allowed_start }}–{{ authorization.allowed_end }}</strong>
+                          {% if authorization.approved_minutes is not none %}
+                            <small>{{ authorization.approved_minutes|minutes }} aprobadas</small>
+                          {% endif %}
                           <form method="post"
                                 action="{{ url_for('delete_authorization', authorization_id=authorization.id) }}"
                                 data-confirm="¿Eliminar la autorización {{ authorization.allowed_start }}–{{ authorization.allowed_end }} de {{ row.employee_name }}?">

@@ -37,7 +37,8 @@
     <p>No se encontraron checadas ni autorizaciones en esta semana.</p>
   </section>
 {% else %}
-  <section class="home-browser" data-home-browser>
+  <section class="home-browser" data-home-browser
+           data-selected-worker="{{ selected_worker }}">
     <aside class="panel home-worker-panel">
       <label for="home-worker-search">Buscar trabajador</label>
       <input id="home-worker-search" type="search"
@@ -55,6 +56,7 @@
         {% for worker in calendar_rows %}
           <button type="button" class="home-worker-option {{ 'active' if loop.first else '' }}"
                   data-home-worker data-worker-name="{{ worker.employee_name|lower }}"
+                  data-worker-key="{{ worker.employee_name_key }}"
                   data-worker-area="{{ worker.area|lower if worker.area else '__none__' }}"
                   data-template="home-profile-{{ loop.index }}">
             {% if worker.photo_filename %}
@@ -109,6 +111,14 @@
               {% for cell in worker.cells %}
                 {% set report = cell.report %}
                 <article class="home-day-card {{ 'today' if cell.is_today else ('incomplete' if cell.is_incomplete else '') }}">
+                  <button type="button" class="enable-overtime-button"
+                          data-enable-overtime
+                          data-employee="{{ worker.employee_name }}"
+                          data-employee-key="{{ worker.employee_name_key }}"
+                          data-work-date="{{ cell.work_date }}"
+                          data-date-label="{{ cell.work_date|date_es }}">
+                    Habilitar tiempo extra
+                  </button>
                   <header>
                     <span>{{ cell.work_date|weekday_short }}</span>
                     <strong>{{ cell.work_date.day }}/{{ cell.work_date.month }}</strong>
@@ -129,10 +139,12 @@
                     <button type="button" class="home-authorization"
                             data-home-authorization
                             data-employee="{{ worker.employee_name }}"
-                            data-date="{{ cell.work_date|date_es }}"
-                            data-range="{{ report.allowed_range }}"
-                            data-counted="{{ report.counted_overtime_minutes|minutes }}">
-                      ✓ Horas extras autorizadas
+                        data-date="{{ cell.work_date|date_es }}"
+                        data-range="{{ report.allowed_range }}"
+                        data-approved="{{ report.approved_minutes|minutes }}"
+                        data-counted="{{ report.counted_overtime_minutes|minutes }}">
+                      <span>✓ Horas extras autorizadas</span>
+                      <small>{{ report.approved_minutes|minutes }} aprobadas</small>
                     </button>
                   {% endif %}
                 </article>
@@ -160,6 +172,62 @@
   {% endfor %}
 {% endif %}
 
+<dialog class="authorization-dialog" id="home-enable-overtime-dialog">
+  <form method="post" action="{{ url_for('create_home_authorization') }}"
+        class="authorization-dialog-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="employee_name_key"
+           id="home-overtime-employee-key">
+    <input type="hidden" name="work_date" id="home-overtime-work-date">
+
+    <div class="dialog-heading">
+      <div>
+        <span class="eyebrow">Autorización de horas extra</span>
+        <h2>Habilitar tiempo extra</h2>
+        <p><strong id="home-overtime-employee"></strong><br>
+          <span id="home-overtime-date"></span></p>
+      </div>
+      <button class="dialog-close" type="button"
+              data-enable-overtime-close aria-label="Cerrar">×</button>
+    </div>
+
+    <fieldset class="dialog-section">
+      <legend>Horario habilitado</legend>
+      <div class="form-grid two">
+        <label>
+          Desde
+          <input type="time" name="allowed_start"
+                 id="home-overtime-start" required>
+        </label>
+        <label>
+          Hasta
+          <input type="time" name="allowed_end"
+                 id="home-overtime-end" required>
+        </label>
+      </div>
+    </fieldset>
+
+    <fieldset class="dialog-section">
+      <legend>Horas extra aprobadas</legend>
+      <label>
+        Cantidad de horas
+        <input type="number" name="approved_hours"
+               id="home-overtime-hours" min="0.25" max="24"
+               step="0.25" value="2" required>
+      </label>
+      <small class="field-help">
+        Esta cantidad será el máximo de tiempo extra que se contabilizará.
+      </small>
+    </fieldset>
+
+    <div class="dialog-actions">
+      <button class="button ghost" type="button"
+              data-enable-overtime-close>Cancelar</button>
+      <button class="button primary" type="submit">Guardar autorización</button>
+    </div>
+  </form>
+</dialog>
+
 <dialog class="report-detail-dialog" id="home-authorization-dialog">
   <section class="report-detail-content">
     <div class="dialog-heading">
@@ -178,6 +246,10 @@
       <div>
         <dt>Horario autorizado</dt>
         <dd id="home-authorization-range"></dd>
+      </div>
+      <div>
+        <dt>Horas extra aprobadas</dt>
+        <dd id="home-authorization-approved"></dd>
       </div>
       <div>
         <dt>Tiempo extra contabilizado</dt>

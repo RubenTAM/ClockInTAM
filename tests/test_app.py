@@ -176,6 +176,8 @@ class AppFlowTests(unittest.TestCase):
         self.assertIn(b"tecnoall-logo.svg", response.data)
         self.assertIn(b"TecnoAll", response.data)
         self.assertIn(b"Jorge Rangel Pulido", response.data)
+        self.assertIn(b"Habilitar tiempo extra", response.data)
+        self.assertIn(b'id="home-enable-overtime-dialog"', response.data)
         self.assertIn(b"Informaci\xc3\xb3n adicional del trabajador", response.data)
         self.assertIn(b"data-additional-info", response.data)
         self.assertIn(b"06:58", response.data)
@@ -188,6 +190,43 @@ class AppFlowTests(unittest.TestCase):
         self.assertIn(b"063%20RANGEL%20PULIDO%20JORGE.jpg", response.data)
         self.assertIn(b"home-worker-photo", response.data)
         self.assertNotIn(b"Espacios reservados", response.data)
+
+    def test_home_can_enable_overtime_with_an_approved_hours_limit(self):
+        self.initialize_admin()
+        self.login()
+
+        response = self.client.post(
+            "/autorizaciones/desde-inicio",
+            data={
+                "csrf_token": self.csrf_token(),
+                "employee_name_key": "ruben humberto lizarraga reyes",
+                "work_date": "2026-08-06",
+                "allowed_start": "17:00",
+                "allowed_end": "20:00",
+                "approved_hours": "1.5",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(
+            b"trabajador=ruben+humberto+lizarraga+reyes",
+            response.headers["Location"].encode(),
+        )
+        with self.app.app_context():
+            authorization = get_db().execute(
+                """
+                SELECT allowed_start, allowed_end, approved_minutes
+                FROM overtime_authorizations
+                WHERE employee_name_key = ? AND work_date = ?
+                """,
+                (
+                    "ruben humberto lizarraga reyes",
+                    "2026-08-06",
+                ),
+            ).fetchone()
+        self.assertEqual(authorization["allowed_start"], "17:00")
+        self.assertEqual(authorization["allowed_end"], "20:00")
+        self.assertEqual(authorization["approved_minutes"], 90)
 
     def test_home_shows_authorized_overtime_button_and_detail(self):
         self.initialize_admin()
@@ -217,6 +256,7 @@ class AppFlowTests(unittest.TestCase):
         self.assertIn(b"1 h 00 min", response.data)
         self.assertNotIn(b"1 h 30 min", response.data)
         self.assertIn(b"data-home-authorization", response.data)
+        self.assertIn(b"Horas extra aprobadas", response.data)
         self.assertIn(b"Horas extras autorizadas", response.data)
         self.assertIn("17:00–18:00".encode(), response.data)
         self.assertIn(b'id="home-authorization-dialog"', response.data)

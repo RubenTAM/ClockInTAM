@@ -7,6 +7,7 @@ import os
 import secrets
 import sqlite3
 from datetime import date, datetime, timedelta
+from decimal import Decimal, InvalidOperation
 from functools import wraps
 from pathlib import Path
 from time import monotonic
@@ -275,6 +276,19 @@ def parse_iso_date(value: str, field_name: str = "fecha") -> date:
 def week_start_for(value: date) -> date:
     days_since_thursday = (value.weekday() - 3) % 7
     return value - timedelta(days=days_since_thursday)
+
+
+def authorized_window_minutes(start_value: str, end_value: str) -> int:
+    try:
+        start = datetime.strptime(start_value, "%H:%M")
+        end = datetime.strptime(end_value, "%H:%M")
+    except (TypeError, ValueError) as exc:
+        raise ValueError("El horario autorizado no es válido.") from exc
+    if end == start:
+        raise ValueError("La hora inicial y final deben ser diferentes.")
+    if end < start:
+        end += timedelta(days=1)
+    return int((end - start).total_seconds() // 60)
 
 
 def local_now() -> datetime:
@@ -663,6 +677,143 @@ def register_routes(app: Flask) -> None:
             loaded_at=loaded_at,
             error=error,
             employee_areas=EMPLOYEE_AREAS,
+            selected_worker=request.args.get("trabajador", ""),
+        )
+
+    @app.post("/autorizaciones/desde-inicio")
+    @login_required
+    def create_home_authorization():
+        validate_csrf()
+        employee_key = request.form.get("employee_name_key", "").strip()
+        work_date_value = request.form.get("work_date", "").strip()
+        allowed_start = request.form.get("allowed_start", "").strip()
+        allowed_end = request.form.get("allowed_end", "").strip()
+        approved_hours_value = request.form.get("approved_hours", "").strip()
+
+        errors = []
+        try:
+            work_date = parse_iso_date(work_date_value)
+        except ValueError as exc:
+            errors.append(str(exc))
+            work_date = local_today()
+        try:
+            window_minutes = authorized_window_minutes(
+                allowed_start,
+                allowed_end,
+            )
+        except ValueError as exc:
+            errors.append(str(exc))
+            window_minutes = 0
+        try:
+            approved_minutes = int(
+                Decimal(approved_hours_value) * Decimal(60)
+            )
+            if approved_minutes <= 0:
+                raise InvalidOperation
+        except (InvalidOperation, ValueError, OverflowError):
+            errors.append("Indica una cantidad válida de horas aprobadas.")
+            approved_minutes = 0
+        if window_minutes and approved_minutes > window_minutes:
+            errors.append(
+                "Las horas aprobadas no pueden superar el horario habilitado."
+            )
+
+        connection = get_db()
+        employee = connection.execute(
+            """
+            SELECT employee_name, employee_name_key
+            FROM employees
+            WHERE employee_name_key = ?
+            """,
+            (employee_key,),
+        ).fetchone()
+        if employee is None:
+            errors.append("El trabajador seleccionado ya no está disponible.")
+
+        if errors:
+            for error in errors:
+                flash(error, "error")
+            return redirect(
+                url_for(
+                    "home",
+                    semana=work_date.isoformat(),
+                    trabajador=employee_key,
+                )
+            )
+
+        now = utc_now()
+        existing = connection.execute(
+            """
+            SELECT id FROM overtime_authorizations
+            WHERE employee_name_key = ? AND work_date = ?
+              AND allowed_start = ? AND allowed_end = ?
+            ORDER BY id LIMIT 1
+            """,
+            (
+                employee_key,
+                work_date.isoformat(),
+                allowed_start,
+                allowed_end,
+            ),
+        ).fetchone()
+        if existing:
+            authorization_id = existing["id"]
+            connection.execute(
+                """
+                UPDATE overtime_authorizations
+                SET approved_minutes = ?, updated_at = ?
+                WHERE id = ?
+                """,
+                (approved_minutes, now, authorization_id),
+            )
+            action = "update"
+        else:
+            cursor = connection.execute(
+                """
+                INSERT INTO overtime_authorizations (
+                    employee_name, employee_name_key, work_date,
+                    allowed_start, allowed_end, approved_minutes,
+                    note, created_by, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, '', ?, ?, ?)
+                """,
+                (
+                    employee["employee_name"],
+                    employee_key,
+                    work_date.isoformat(),
+                    allowed_start,
+                    allowed_end,
+                    approved_minutes,
+                    g.user["id"],
+                    now,
+                    now,
+                ),
+            )
+            authorization_id = cursor.lastrowid
+            action = "create"
+        log_action(
+            g.user["id"],
+            action,
+            "authorization",
+            authorization_id,
+            json.dumps(
+                {
+                    "employee": employee["employee_name"],
+                    "date": work_date.isoformat(),
+                    "start": allowed_start,
+                    "end": allowed_end,
+                    "approved_minutes": approved_minutes,
+                },
+                ensure_ascii=False,
+            ),
+        )
+        connection.commit()
+        flash("El tiempo extra fue habilitado.", "success")
+        return redirect(
+            url_for(
+                "home",
+                semana=work_date.isoformat(),
+                trabajador=employee_key,
+            )
         )
 
     @app.get("/trabajadores")
@@ -754,6 +905,7 @@ def register_routes(app: Flask) -> None:
             WITH authorization_minutes AS (
                 SELECT
                     employee_name_key,
+                    approved_minutes,
                     (
                         CAST(substr(allowed_start, 1, 2) AS INTEGER) * 60
                         + CAST(substr(allowed_start, 4, 2) AS INTEGER)
@@ -770,6 +922,8 @@ def register_routes(app: Flask) -> None:
                 COUNT(DISTINCT employee_name_key) AS employees,
                 COALESCE(SUM(
                     CASE
+                        WHEN approved_minutes IS NOT NULL
+                        THEN approved_minutes
                         WHEN end_minute > start_minute
                         THEN end_minute - start_minute
                         ELSE end_minute + 1440 - start_minute

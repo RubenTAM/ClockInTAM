@@ -209,6 +209,7 @@ def compare_overtime(
         ]
 
     allowed_intervals = []
+    authorization_limits = []
     for item in authorizations:
         start_time = parse_clock(item["allowed_start"])
         end_time = parse_clock(item["allowed_end"])
@@ -218,6 +219,18 @@ def compare_overtime(
             if allowed_end <= allowed_start:
                 allowed_end += timedelta(days=1)
             allowed_intervals.append((allowed_start, allowed_end))
+            interval_minutes = int(
+                (allowed_end - allowed_start).total_seconds() // 60
+            )
+            approved_minutes = item.get("approved_minutes")
+            authorization_limits.append(
+                min(
+                    interval_minutes,
+                    max(0, int(approved_minutes)),
+                )
+                if approved_minutes is not None
+                else interval_minutes
+            )
 
     def merge_intervals(
         intervals: list[tuple[datetime, datetime]],
@@ -230,24 +243,35 @@ def compare_overtime(
                 merged[-1][1] = max(merged[-1][1], end)
         return [(start, end) for start, end in merged]
 
-    allowed_intervals = merge_intervals(allowed_intervals)
-    allowed_minutes = sum(
-        int((end - start).total_seconds() // 60)
-        for start, end in allowed_intervals
-    )
+    individual_allowed_intervals = allowed_intervals
+    allowed_intervals = merge_intervals(individual_allowed_intervals)
+    allowed_minutes = sum(authorization_limits)
 
     authorized_intervals = []
-    for actual_start, actual_end in actual_intervals:
-        for allowed_start, allowed_end in allowed_intervals:
+    authorized_by_authorization = 0
+    for (allowed_start, allowed_end), limit in zip(
+        individual_allowed_intervals,
+        authorization_limits,
+    ):
+        item_intervals = []
+        for actual_start, actual_end in actual_intervals:
             overlap_start = max(actual_start, allowed_start)
             overlap_end = min(actual_end, allowed_end)
             if overlap_end > overlap_start:
-                authorized_intervals.append(
-                    (overlap_start, overlap_end)
-                )
-    authorized_minutes = sum(
+                item_intervals.append((overlap_start, overlap_end))
+                authorized_intervals.append((overlap_start, overlap_end))
+        item_overlap_minutes = sum(
+            int((end - start).total_seconds() // 60)
+            for start, end in merge_intervals(item_intervals)
+        )
+        authorized_by_authorization += min(item_overlap_minutes, limit)
+    authorized_overlap_minutes = sum(
         int((end - start).total_seconds() // 60)
         for start, end in merge_intervals(authorized_intervals)
+    )
+    authorized_minutes = min(
+        authorized_overlap_minutes,
+        authorized_by_authorization,
     )
 
     unauthorized_minutes = max(0, overtime_minutes - authorized_minutes)
@@ -292,6 +316,7 @@ def compare_overtime(
         ),
         "overtime_minutes": overtime_minutes,
         "authorized_minutes": authorized_minutes,
+        "approved_minutes": allowed_minutes,
         "unauthorized_minutes": unauthorized_minutes,
         "unused_minutes": unused_minutes,
         "status": status,
