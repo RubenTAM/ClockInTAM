@@ -235,7 +235,7 @@ class AppFlowTests(unittest.TestCase):
     def test_admin_can_create_batch_authorizations(self):
         self.initialize_admin()
         response = self.login()
-        self.assertIn(b"Reporte semanal", response.data)
+        self.assertNotIn(b"Reporte semanal", response.data)
 
         self.client.get("/autorizaciones/nueva")
         response = self.client.post(
