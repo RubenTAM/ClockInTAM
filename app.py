@@ -80,7 +80,14 @@ PHOTO_NAME_IGNORED = {"fotor", "practicante"}
 EMPLOYEE_DIRECTORY = (
     "Ruben Humberto Lizarraga Reyes",
 )
-EMPLOYEE_AREAS = ("Ingeniería", "Compras/Ventas", "Abquim")
+EMPLOYEE_AREAS = (
+    "Ingeniería",
+    "Compras/Ventas",
+    "Compras/Ventas Mxli",
+    "Contabilidad",
+    "Almacén",
+    "Abquim",
+)
 
 
 def photo_name_key(value: str) -> tuple[str, ...]:
