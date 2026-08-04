@@ -7,6 +7,7 @@ from unittest.mock import patch
 from app import (
     create_app,
     employee_photo_filename,
+    save_employees,
     week_start_for,
     weekly_report_calendar,
 )
@@ -427,6 +428,55 @@ class AppFlowTests(unittest.TestCase):
         self.assertIn(b"Horas autorizadas utilizadas", response.data)
         self.assertNotIn(b"Horas extra detectadas", response.data)
         self.assertNotIn(b"<th>Estado</th>", response.data)
+
+    def test_loaded_workers_are_saved_and_can_be_assigned_to_an_area(self):
+        self.initialize_admin()
+        self.login()
+
+        with self.app.app_context():
+            save_employees(
+                [{
+                    "employee_name": "Ana López",
+                    "employee_name_key": "ana lopez",
+                }]
+            )
+
+        response = self.client.get("/trabajadores")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Ana López".encode(), response.data)
+        self.assertIn(b"Compras/Ventas", response.data)
+
+        response = self.client.post(
+            "/trabajadores/ana%20lopez/area",
+            data={
+                "csrf_token": self.csrf_token(),
+                "area": "Ingeniería",
+            },
+            follow_redirects=True,
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"fue actualizada", response.data)
+
+        with self.app.app_context():
+            save_employees(
+                [{
+                    "employee_name": "ANA LÓPEZ",
+                    "employee_name_key": "ana lopez",
+                }]
+            )
+            employee = get_db().execute(
+                """
+                SELECT employee_name, area FROM employees
+                WHERE employee_name_key = 'ana lopez'
+                """
+            ).fetchone()
+            self.assertEqual(employee["employee_name"], "ANA LÓPEZ")
+            self.assertEqual(employee["area"], "Ingeniería")
+
+        with patch("app.cached_attendance", return_value=[]):
+            response = self.client.get("/?semana=2026-07-23")
+        self.assertIn(b'data-worker-area="ingenier\xc3\xada"', response.data)
+        self.assertIn(b"data-home-area-filter", response.data)
 
     def test_report_calendar_marks_incomplete_punches(self):
         self.initialize_admin()

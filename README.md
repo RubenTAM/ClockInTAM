@@ -4,14 +4,17 @@ Aplicación web interna para registrar autorizaciones de horas extra y
 compararlas con la asistencia consultada directamente desde Hik-Connect.
 
 La aplicación **no es un sistema de nómina** y no conserva las checadas.
-SQLite almacena únicamente usuarios, autorizaciones y el historial de cambios.
-Los datos de asistencia tienen una caché temporal en memoria de cinco minutos.
+SQLite almacena usuarios, autorizaciones, el catálogo de trabajadores con su
+área asignada y el historial de cambios. Los datos de asistencia tienen una
+caché temporal en memoria de cinco minutos.
 
 ## Funciones incluidas
 
 - Configuración segura del primer administrador.
 - Acceso para varios usuarios.
 - Consulta de trabajadores desde Hik-Connect.
+- Catálogo persistente de trabajadores y asignación por área.
+- Búsqueda y filtro de trabajadores por área.
 - Autorizaciones para varias personas y días.
 - Comparación semanal de horas autorizadas y no autorizadas.
 - Semana operativa de TecnoAll de jueves a miércoles.

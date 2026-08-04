@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Trabajadores{% endblock %}
+{% block content %}
+<header class="page-header">
+  <div>
+    <span class="eyebrow">Catálogo del personal</span>
+    <h1>Trabajadores</h1>
+    <p>Asigna un área a cada trabajador cargado desde Hik-Connect.</p>
+  </div>
+  <a class="button secondary"
+     href="{{ url_for('employees', actualizar=1) }}">↻ Actualizar trabajadores</a>
+</header>
+
+{% if error %}
+  <section class="callout error-callout">
+    <strong>No fue posible actualizar los trabajadores</strong>
+    <p>{{ error }}</p>
+  </section>
+{% endif %}
+
+<section class="panel employees-panel" data-employees-browser>
+  <div class="employees-toolbar">
+    <label for="employees-search">Buscar trabajador</label>
+    <input id="employees-search" type="search"
+           placeholder="Escribe un nombre…" autocomplete="off"
+           data-employees-search>
+  </div>
+
+  {% if employees %}
+    <div class="table-scroll">
+      <table class="employees-table">
+        <thead>
+          <tr>
+            <th>Trabajador</th>
+            <th>Área</th>
+            <th><span class="sr-only">Acciones</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for employee in employees %}
+            <tr data-employee-row data-employee-name="{{ employee.employee_name|lower }}">
+              <td>
+                <span class="employee-name-cell">
+                  <span class="worker-avatar">{{ employee.employee_name[0]|upper }}</span>
+                  <strong>{{ employee.employee_name }}</strong>
+                </span>
+              </td>
+              <td colspan="2">
+                <form class="employee-area-form" method="post"
+                      action="{{ url_for('update_employee_area', employee_name_key=employee.employee_name_key) }}">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                  <label class="sr-only" for="area-{{ loop.index }}">
+                    Área de {{ employee.employee_name }}
+                  </label>
+                  <select id="area-{{ loop.index }}" name="area">
+                    <option value="">Sin área asignada</option>
+                    {% for area in employee_areas %}
+                      <option value="{{ area }}" {{ 'selected' if employee.area == area else '' }}>
+                        {{ area }}
+                      </option>
+                    {% endfor %}
+                  </select>
+                  <button class="button small" type="submit">Guardar</button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p class="home-search-empty" data-employees-empty hidden>No hay coincidencias.</p>
+  {% else %}
+    <div class="empty-state">
+      <div class="empty-icon">♟</div>
+      <h2>Aún no hay trabajadores cargados</h2>
+      <p>Usa “Actualizar trabajadores” para consultar la semana actual.</p>
+    </div>
+  {% endif %}
+</section>
+{% endblock %}

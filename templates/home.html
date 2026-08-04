@@ -26,10 +26,11 @@
 
 {% if error %}
   <section class="callout error-callout">
-    <strong>No fue posible consultar los trabajadores</strong>
+    <strong>No fue posible actualizar las checadas</strong>
     <p>{{ error }}</p>
   </section>
-{% elif not calendar_rows %}
+{% endif %}
+{% if not calendar_rows %}
   <section class="panel empty-state">
     <div class="empty-icon">✓</div>
     <h2>No hay trabajadores para mostrar</h2>
@@ -42,10 +43,19 @@
       <input id="home-worker-search" type="search"
              placeholder="Escribe un nombre…" autocomplete="off"
              data-home-search>
+      <label class="home-area-label" for="home-area-filter">Filtrar por área</label>
+      <select id="home-area-filter" data-home-area-filter>
+        <option value="">Todas las áreas</option>
+        {% for area in employee_areas %}
+          <option value="{{ area|lower }}">{{ area }}</option>
+        {% endfor %}
+        <option value="__none__">Sin área asignada</option>
+      </select>
       <div class="home-worker-list" data-home-list>
         {% for worker in calendar_rows %}
           <button type="button" class="home-worker-option {{ 'active' if loop.first else '' }}"
                   data-home-worker data-worker-name="{{ worker.employee_name|lower }}"
+                  data-worker-area="{{ worker.area|lower if worker.area else '__none__' }}"
                   data-template="home-profile-{{ loop.index }}">
             {% if worker.photo_filename %}
               <img class="worker-avatar worker-avatar-photo"

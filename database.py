@@ -31,6 +31,15 @@ CREATE TABLE IF NOT EXISTS overtime_authorizations (
     FOREIGN KEY (created_by) REFERENCES users(id)
 );
 
+CREATE TABLE IF NOT EXISTS employees (
+    employee_name_key TEXT PRIMARY KEY,
+    employee_name TEXT NOT NULL,
+    area TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    last_seen_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS audit_log (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
@@ -47,6 +56,9 @@ ON overtime_authorizations(work_date);
 
 CREATE INDEX IF NOT EXISTS idx_authorizations_employee
 ON overtime_authorizations(employee_name_key);
+
+CREATE INDEX IF NOT EXISTS idx_employees_area
+ON employees(area);
 """
 
 

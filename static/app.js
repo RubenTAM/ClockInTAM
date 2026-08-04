@@ -198,10 +198,32 @@
 })();
 
 (() => {
+  const browser = document.querySelector("[data-employees-browser]");
+  if (!browser) return;
+
+  const search = browser.querySelector("[data-employees-search]");
+  const empty = browser.querySelector("[data-employees-empty]");
+  const rows = [...browser.querySelectorAll("[data-employee-row]")];
+  if (!search) return;
+
+  search.addEventListener("input", () => {
+    const query = search.value.trim().toLocaleLowerCase("es");
+    let visible = 0;
+    rows.forEach((row) => {
+      const matches = row.dataset.employeeName.includes(query);
+      row.hidden = !matches;
+      if (matches) visible += 1;
+    });
+    if (empty) empty.hidden = visible > 0;
+  });
+})();
+
+(() => {
   const browser = document.querySelector("[data-home-browser]");
   if (!browser) return;
 
   const search = browser.querySelector("[data-home-search]");
+  const areaFilter = browser.querySelector("[data-home-area-filter]");
   const profile = browser.querySelector("[data-home-profile]");
   const empty = browser.querySelector("[data-home-empty]");
   const workers = [...browser.querySelectorAll("[data-home-worker]")];
@@ -217,16 +239,21 @@
     button.addEventListener("click", () => showWorker(button));
   });
 
-  search.addEventListener("input", () => {
+  const filterWorkers = () => {
     const query = search.value.trim().toLocaleLowerCase("es");
+    const area = areaFilter.value;
     let visible = 0;
     workers.forEach((button) => {
-      const matches = button.dataset.workerName.includes(query);
+      const matches = button.dataset.workerName.includes(query)
+        && (!area || button.dataset.workerArea === area);
       button.hidden = !matches;
       if (matches) visible += 1;
     });
     empty.hidden = visible > 0;
-  });
+  };
+
+  search.addEventListener("input", filterWorkers);
+  areaFilter.addEventListener("change", filterWorkers);
 
   if (workers.length) showWorker(workers[0]);
 })();

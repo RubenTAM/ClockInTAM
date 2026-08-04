@@ -21,7 +21,7 @@
 
 * { box-sizing: border-box; }
 body { margin: 0; min-height: 100vh; background: var(--canvas); }
-button, input, textarea { font: inherit; }
+button, input, textarea, select { font: inherit; }
 button, a { -webkit-tap-highlight-color: transparent; }
 a { color: var(--green); text-decoration: none; }
 h1, h2, h3, p { margin-top: 0; }
@@ -139,6 +139,8 @@ p { color: var(--muted); line-height: 1.55; }
   padding: 20px; overflow: hidden;
 }
 .home-worker-panel > label { margin-bottom: 8px; }
+.home-worker-panel .home-area-label { display: block; margin-top: 12px; }
+.home-worker-panel select { width: 100%; margin-bottom: 12px; }
 .home-worker-list {
   min-height: 0; display: grid; align-content: start; flex: 1 1 auto;
   gap: 7px; margin-top: 16px; overflow-y: auto;
@@ -236,11 +238,11 @@ p { color: var(--muted); line-height: 1.55; }
 .week-picker { display: flex; align-items: center; gap: 9px; }
 .week-picker label { color: var(--muted); font-size: .8rem; font-weight: 700; }
 label { display: grid; gap: 7px; color: #405766; font-size: .82rem; font-weight: 750; }
-input, textarea {
+input, textarea, select {
   width: 100%; border: 1px solid #cad8e0; border-radius: 10px; padding: 11px 12px;
   color: var(--ink); background: white; outline: none; font-weight: 500;
 }
-input:focus, textarea:focus { border-color: var(--green); box-shadow: 0 0 0 3px rgba(0,104,146,.13); }
+input:focus, textarea:focus, select:focus { border-color: var(--green); box-shadow: 0 0 0 3px rgba(0,104,146,.13); }
 textarea { resize: vertical; }
 .week-picker input { width: auto; padding: 8px 10px; }
 
@@ -507,6 +509,18 @@ td.muted { max-width: 230px; overflow: hidden; text-overflow: ellipsis; }
 .worker-option strong, .worker-option small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .worker-option small { margin-top: 3px; color: var(--muted); font-weight: 500; }
 .worker-option > span:last-child { min-width: 0; }
+
+.employees-panel { padding: 0; overflow: hidden; }
+.employees-toolbar { padding: 20px; border-bottom: 1px solid var(--line); }
+.employees-toolbar label { display: block; margin-bottom: 8px; }
+.employees-toolbar input { width: min(100%, 440px); }
+.employees-table { width: 100%; border-collapse: collapse; }
+.employees-table th, .employees-table td { padding: 14px 20px; border-bottom: 1px solid var(--line); text-align: left; }
+.employees-table th { color: var(--muted); font-size: .75rem; text-transform: uppercase; letter-spacing: .05em; }
+.employees-table tbody tr:last-child td { border-bottom: 0; }
+.employee-name-cell, .employee-area-form { display: flex; align-items: center; gap: 12px; }
+.employee-area-form select { min-width: 210px; }
+.employee-area-form { justify-content: flex-end; }
 .manual-entry { margin-top: 15px; color: var(--green); font-size: .85rem; font-weight: 700; }
 .manual-entry label { margin-top: 13px; color: #405766; }
 .week-input { width: min(300px, 100%); margin-bottom: 16px; }
@@ -602,6 +616,8 @@ td.muted { max-width: 230px; overflow: hidden; text-overflow: ellipsis; }
   .home-browser { grid-template-columns: 1fr; }
   .home-worker-panel { max-height: 340px; }
   .home-worker-list { max-height: 260px; }
+  .employee-area-form { align-items: stretch; flex-direction: column; }
+  .employee-area-form select { min-width: 0; width: 100%; }
   .home-profile-host { overflow: visible; }
   .home-profile { height: auto; }
   .home-person-grid, .home-week-cards { flex: none; }

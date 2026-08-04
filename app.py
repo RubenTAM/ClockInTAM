@@ -80,6 +80,7 @@ PHOTO_NAME_IGNORED = {"fotor", "practicante"}
 EMPLOYEE_DIRECTORY = (
     "Ruben Humberto Lizarraga Reyes",
 )
+EMPLOYEE_AREAS = ("Ingeniería", "Compras/Ventas", "Abquim")
 
 
 def photo_name_key(value: str) -> tuple[str, ...]:
@@ -159,6 +160,16 @@ def create_app(test_config: dict | None = None) -> Flask:
         x_host=1,
     )
     database.init_app(app)
+    with app.app_context():
+        save_employees(
+            [
+                {
+                    "employee_name": employee_name,
+                    "employee_name_key": normalize_name(employee_name),
+                }
+                for employee_name in EMPLOYEE_DIRECTORY
+            ]
+        )
 
     app.extensions["hik_client"] = HikConnectClient(
         app.config["HIK_API_KEY"],
@@ -277,8 +288,50 @@ def cached_attendance(work_date: date, force: bool = False) -> list[dict]:
     client: HikConnectClient = current_app.extensions["hik_client"]
     reports = client.attendance_for_date(work_date)
     rows = build_daily_attendance(reports)
+    save_employees(rows)
     cache[key] = {"saved_at": monotonic(), "rows": rows}
     return rows
+
+
+def save_employees(rows: list[dict]) -> None:
+    """Persist workers discovered in an attendance response."""
+    now = utc_now()
+    employees = {
+        row["employee_name_key"]: row["employee_name"]
+        for row in rows
+        if row.get("employee_name_key") and row.get("employee_name")
+    }
+    if not employees:
+        return
+    connection = get_db()
+    connection.executemany(
+        """
+        INSERT INTO employees (
+            employee_name_key, employee_name, area,
+            created_at, updated_at, last_seen_at
+        ) VALUES (?, ?, '', ?, ?, ?)
+        ON CONFLICT(employee_name_key) DO UPDATE SET
+            employee_name = excluded.employee_name,
+            updated_at = excluded.updated_at,
+            last_seen_at = excluded.last_seen_at
+        """,
+        [
+            (name_key, employee_name, now, now, now)
+            for name_key, employee_name in employees.items()
+        ],
+    )
+    connection.commit()
+
+
+def employee_directory() -> list[dict]:
+    rows = get_db().execute(
+        """
+        SELECT employee_name, employee_name_key, area
+        FROM employees
+        ORDER BY employee_name_key
+        """
+    ).fetchall()
+    return [dict(row) for row in rows]
 
 
 def authorizations_for_week(week_start: date) -> list[dict]:
@@ -373,6 +426,12 @@ def weekly_report_calendar(
         normalize_name(employee_name): employee_name
         for employee_name in EMPLOYEE_DIRECTORY
     }
+    people.update(
+        {
+            row["employee_name_key"]: row["employee_name"]
+            for row in employee_directory()
+        }
+    )
     report_map: dict[tuple[str, date], dict] = {}
     for row in report_rows:
         name_key = row["employee_name_key"]
@@ -577,17 +636,15 @@ def register_routes(app: Flask) -> None:
                 report_rows,
                 week_start,
             )
-            for worker in calendar_rows:
-                worker["area"] = next(
-                    (
-                        cell["report"].get("area", "")
-                        for cell in worker["cells"]
-                        if cell["report"] and cell["report"].get("area")
-                    ),
-                    "",
-                )
         except HikConnectError as exc:
             error = str(exc)
+            calendar_rows, week_days = weekly_report_calendar([], week_start)
+        areas = {
+            row["employee_name_key"]: row["area"]
+            for row in employee_directory()
+        }
+        for worker in calendar_rows:
+            worker["area"] = areas.get(worker["employee_name_key"], "")
         return render_template(
             "home.html",
             calendar_rows=calendar_rows,
@@ -598,7 +655,66 @@ def register_routes(app: Flask) -> None:
             next_week=week_start + timedelta(days=7),
             loaded_at=loaded_at,
             error=error,
+            employee_areas=EMPLOYEE_AREAS,
         )
+
+    @app.get("/trabajadores")
+    @login_required
+    def employees():
+        error = None
+        if request.args.get("actualizar") == "1":
+            try:
+                week_start = week_start_for(local_today())
+                for offset in range(7):
+                    cached_attendance(
+                        week_start + timedelta(days=offset),
+                        force=True,
+                    )
+                flash("El catálogo de trabajadores fue actualizado.", "success")
+                return redirect(url_for("employees"))
+            except HikConnectError as exc:
+                error = str(exc)
+        return render_template(
+            "employees.html",
+            employees=employee_directory(),
+            employee_areas=EMPLOYEE_AREAS,
+            error=error,
+        )
+
+    @app.post("/trabajadores/<path:employee_name_key>/area")
+    @login_required
+    def update_employee_area(employee_name_key: str):
+        validate_csrf()
+        area = request.form.get("area", "").strip()
+        if area and area not in EMPLOYEE_AREAS:
+            abort(400, "El área seleccionada no es válida.")
+        connection = get_db()
+        employee = connection.execute(
+            "SELECT employee_name FROM employees WHERE employee_name_key = ?",
+            (employee_name_key,),
+        ).fetchone()
+        if employee is None:
+            abort(404)
+        connection.execute(
+            """
+            UPDATE employees
+            SET area = ?, updated_at = ?
+            WHERE employee_name_key = ?
+            """,
+            (area, utc_now(), employee_name_key),
+        )
+        log_action(
+            g.user["id"],
+            "update_area",
+            "employee",
+            details=json.dumps(
+                {"employee": employee["employee_name"], "area": area},
+                ensure_ascii=False,
+            ),
+        )
+        connection.commit()
+        flash("El área del trabajador fue actualizada.", "success")
+        return redirect(url_for("employees"))
 
     @app.get("/resumen")
     @login_required
@@ -908,20 +1024,14 @@ def register_routes(app: Flask) -> None:
             reference_date = parse_iso_date(
                 request.args.get("fecha", local_today().isoformat())
             )
-            rows = cached_attendance(
+            cached_attendance(
                 reference_date,
                 force=request.args.get("actualizar") == "1",
             )
-            workers = sorted(
-                (
-                    {
-                        "name": row["employee_name"],
-                        "area": row["area"],
-                    }
-                    for row in rows
-                ),
-                key=lambda row: normalize_name(row["name"]),
-            )
+            workers = [
+                {"name": row["employee_name"], "area": row["area"]}
+                for row in employee_directory()
+            ]
             return jsonify(
                 {
                     "workers": workers,
