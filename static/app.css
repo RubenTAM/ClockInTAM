@@ -511,9 +511,8 @@ td.muted { max-width: 230px; overflow: hidden; text-overflow: ellipsis; }
 .worker-option > span:last-child { min-width: 0; }
 
 .employees-panel { padding: 0; overflow: hidden; }
-.employees-toolbar { padding: 20px; border-bottom: 1px solid var(--line); }
+.employees-toolbar { display: grid; grid-template-columns: minmax(240px, 1fr) minmax(190px, 280px); gap: 14px; padding: 20px; border-bottom: 1px solid var(--line); }
 .employees-toolbar label { display: block; margin-bottom: 8px; }
-.employees-toolbar input { width: min(100%, 440px); }
 .employees-table { width: 100%; border-collapse: collapse; }
 .employees-table th, .employees-table td { padding: 14px 20px; border-bottom: 1px solid var(--line); text-align: left; }
 .employees-table th { color: var(--muted); font-size: .75rem; text-transform: uppercase; letter-spacing: .05em; }
@@ -618,6 +617,7 @@ td.muted { max-width: 230px; overflow: hidden; text-overflow: ellipsis; }
   .home-worker-panel { max-height: 340px; }
   .home-worker-list { max-height: 260px; }
   .employees-table select { min-width: 0; width: 100%; }
+  .employees-toolbar { grid-template-columns: 1fr; }
   .employees-save-bar { align-items: stretch; flex-direction: column; }
   .employees-save-bar .button { width: 100%; }
   .home-profile-host { overflow: visible; }

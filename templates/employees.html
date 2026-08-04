@@ -20,10 +20,22 @@
 
 <section class="panel employees-panel" data-employees-browser>
   <div class="employees-toolbar">
-    <label for="employees-search">Buscar trabajador</label>
-    <input id="employees-search" type="search"
-           placeholder="Escribe un nombre…" autocomplete="off"
-           data-employees-search>
+    <div>
+      <label for="employees-search">Buscar trabajador</label>
+      <input id="employees-search" type="search"
+             placeholder="Escribe un nombre…" autocomplete="off"
+             data-employees-search>
+    </div>
+    <div>
+      <label for="employees-area-filter">Filtrar por área</label>
+      <select id="employees-area-filter" data-employees-area-filter>
+        <option value="">Todas las áreas</option>
+        {% for area in employee_areas %}
+          <option value="{{ area|lower }}">{{ area }}</option>
+        {% endfor %}
+        <option value="__none__">Sin área asignada</option>
+      </select>
+    </div>
   </div>
 
   {% if employees %}
@@ -39,7 +51,9 @@
           </thead>
           <tbody>
             {% for employee in employees %}
-              <tr data-employee-row data-employee-name="{{ employee.employee_name|lower }}">
+              <tr data-employee-row
+                  data-employee-name="{{ employee.employee_name|lower }}"
+                  data-employee-area="{{ employee.area|lower if employee.area else '__none__' }}">
                 <td>
                   <span class="employee-name-cell">
                     <span class="worker-avatar">{{ employee.employee_name[0]|upper }}</span>

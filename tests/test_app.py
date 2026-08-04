@@ -446,6 +446,8 @@ class AppFlowTests(unittest.TestCase):
         self.assertIn("Ana López".encode(), response.data)
         self.assertIn(b"Compras/Ventas", response.data)
         self.assertEqual(response.data.count(b"Guardar todas las \xc3\xa1reas"), 1)
+        self.assertIn(b"data-employees-area-filter", response.data)
+        self.assertIn(b'data-employee-area="__none__"', response.data)
 
         response = self.client.post(
             "/trabajadores/areas",
