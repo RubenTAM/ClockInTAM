@@ -138,38 +138,6 @@
 })();
 
 (() => {
-  const dialog = document.querySelector("#authorization-dialog");
-  if (!dialog) return;
-
-  const employeeInput = dialog.querySelector("#authorization-employee-value");
-  const employeeName = dialog.querySelector("#authorization-employee-name");
-  const startInput = dialog.querySelector("#authorization-start");
-  const endInput = dialog.querySelector("#authorization-end");
-  const dayInputs = [...dialog.querySelectorAll("[data-dialog-day]")];
-
-  document.querySelectorAll("[data-add-authorization]").forEach((button) => {
-    button.addEventListener("click", () => {
-      employeeInput.value = button.dataset.employee;
-      employeeName.textContent = button.dataset.employee;
-      startInput.value = "17:00";
-      endInput.value = "19:00";
-      dayInputs.forEach((input) => {
-        input.checked = false;
-      });
-      dialog.showModal();
-    });
-  });
-
-  dialog.querySelectorAll("[data-dialog-close]").forEach((button) => {
-    button.addEventListener("click", () => dialog.close());
-  });
-
-  dialog.addEventListener("click", (event) => {
-    if (event.target === dialog) dialog.close();
-  });
-})();
-
-(() => {
   const dialog = document.querySelector("#report-detail-dialog");
   if (!dialog) return;
 

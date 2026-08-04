@@ -206,13 +206,13 @@ p { color: var(--muted); line-height: 1.55; }
   overflow: visible;
 }
 .home-day-card {
-  min-height: 278px; height: clamp(278px, 32vh, 305px);
+  min-height: 330px; height: clamp(330px, 38vh, 365px);
   display: flex; flex-direction: column;
-  padding: 10px; border: 2px solid #006892;
+  padding: 14px; border: 2px solid #006892;
   border-radius: 12px; background: white;
 }
 .enable-overtime-button {
-  width: 100%; margin-bottom: 8px; padding: 6px 7px;
+  width: 100%; margin-bottom: 12px; padding: 8px 9px;
   border: 1px solid #9bcfe2; border-radius: 8px;
   color: var(--green-dark); background: var(--green-pale);
   cursor: pointer; font-size: .58rem; font-weight: 850;
@@ -225,14 +225,14 @@ p { color: var(--muted); line-height: 1.55; }
 .home-day-card header { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
 .home-day-card header span { font-size: .78rem; font-weight: 850; text-transform: capitalize; }
 .home-day-card header strong { color: var(--muted); font-size: .72rem; }
-.home-day-card dl { display: grid; gap: 2px; margin: 6px 0 0; }
-.home-day-card dl div { padding-bottom: 3px; border-bottom: 1px solid var(--line); }
+.home-day-card dl { display: grid; gap: 5px; margin: 10px 0 0; }
+.home-day-card dl div { padding-bottom: 6px; border-bottom: 1px solid var(--line); }
 .home-day-card dt { color: var(--muted); font-size: .62rem; }
 .home-day-card dd { margin: 2px 0 0; font-size: .82rem; font-weight: 850; }
 .home-day-card .double-hours dd { color: #1a547a; }
 .home-day-card .triple-hours dd { color: #006892; }
 .home-authorization, .home-incomplete, .home-today {
-  display: block; margin-top: 4px; padding: 4px; border-radius: 8px;
+  display: block; margin-top: 7px; padding: 6px; border-radius: 8px;
   font-size: .65rem; font-weight: 800; text-align: center;
 }
 .home-authorization {
@@ -658,6 +658,6 @@ td.muted { max-width: 230px; overflow: hidden; text-overflow: ellipsis; }
   .home-week-scroll { flex: none; overflow-x: auto; overflow-y: visible; }
   .home-person-grid, .home-week-cards { flex: none; }
   .home-photo-placeholder, .home-person-info { min-height: 220px; height: auto; }
-  .home-day-card { min-height: 205px; height: auto; }
+  .home-day-card { min-height: 315px; height: auto; }
   .home-person-info dl { grid-template-columns: 1fr; }
 }

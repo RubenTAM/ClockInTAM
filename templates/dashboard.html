@@ -7,8 +7,8 @@
     <h1>Hola, {{ g.user['display_name'].split(' ')[0] }}</h1>
     <p>{{ week_start|date_es }} — {{ week_end|date_es }}</p>
   </div>
-  <a class="button primary" href="{{ url_for('new_authorization') }}">
-    <span>＋</span> Nueva autorización
+  <a class="button primary" href="{{ url_for('home') }}">
+    <span>⌂</span> Ir a trabajadores
   </a>
 </header>
 
@@ -37,7 +37,7 @@
         <span class="eyebrow">Próximos permisos</span>
         <h2>Autorizaciones registradas</h2>
       </div>
-      <a href="{{ url_for('authorizations') }}">Ver todas</a>
+      <a href="{{ url_for('home') }}">Ver en Inicio</a>
     </div>
     {% if upcoming %}
       <div class="list">
@@ -79,4 +79,3 @@
   </aside>
 </section>
 {% endblock %}
-

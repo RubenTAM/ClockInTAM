@@ -955,6 +955,8 @@ def register_routes(app: Flask) -> None:
     @app.get("/autorizaciones")
     @login_required
     def authorizations():
+        return redirect(url_for("home"))
+
         requested = request.args.get("semana", local_today().isoformat())
         try:
             week_start = week_start_for(parse_iso_date(requested, "semana"))
@@ -1014,6 +1016,8 @@ def register_routes(app: Flask) -> None:
     @app.route("/autorizaciones/nueva", methods=("GET", "POST"))
     @login_required
     def new_authorization():
+        return redirect(url_for("home"))
+
         default_week = week_start_for(local_today())
         if request.method == "POST":
             validate_csrf()
@@ -1167,6 +1171,8 @@ def register_routes(app: Flask) -> None:
     @app.post("/autorizaciones/<int:authorization_id>/eliminar")
     @login_required
     def delete_authorization(authorization_id: int):
+        return redirect(url_for("home"))
+
         validate_csrf()
         connection = get_db()
         row = connection.execute(

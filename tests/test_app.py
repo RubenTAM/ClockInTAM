@@ -275,134 +275,25 @@ class AppFlowTests(unittest.TestCase):
             response.data,
         )
 
-    def test_admin_can_create_batch_authorizations(self):
-        self.initialize_admin()
-        response = self.login()
-        self.assertNotIn(b"Reporte semanal", response.data)
-
-        self.client.get("/autorizaciones/nueva")
-        response = self.client.post(
-            "/autorizaciones/nueva",
-            data={
-                "csrf_token": self.csrf_token(),
-                "employee_names": [
-                    "Mario Ángel Hernández",
-                    "Jorge Rangel",
-                ],
-                "work_dates": ["2026-07-27", "2026-07-28"],
-                "allowed_start": "17:00",
-                "allowed_end": "19:00",
-                "note": "Cierre semanal",
-                "reference_date": "2026-07-22",
-            },
-            follow_redirects=True,
-        )
-        self.assertIn(b"Se guardaron 4 autorizaciones", response.data)
-        self.assertIn("Mario Ángel Hernández".encode(), response.data)
-        self.assertIn("17:00–19:00".encode(), response.data)
-
-    def test_authorization_page_uses_weekly_calendar(self):
+    def test_legacy_authorization_pages_redirect_without_changes(self):
         self.initialize_admin()
         self.login()
 
-        def attendance_for(day, force=False):
-            if day != date(2026, 7, 23):
-                return []
-            return [
-                {
-                    "employee_name": "Jorge Rangel Pulido",
-                    "employee_name_key": "jorge rangel pulido",
-                    "work_date": day,
-                    "clock_in": time(7, 0),
-                    "clock_out": time(17, 0),
-                    "overtime_minutes": 60,
-                    "area": "Tijuana",
-                }
-            ]
-
-        with patch("app.cached_attendance", side_effect=attendance_for):
-            response = self.client.get(
-                "/autorizaciones?semana=2026-07-23"
-            )
-
-        self.assertEqual(response.status_code, 200)
-        self.assertIn(b"Jorge Rangel Pulido", response.data)
-        self.assertEqual(
-            response.data.count(b"Sin registro de autorizaci"),
-            7,
-        )
-        self.assertIn(b"data-add-authorization", response.data)
-        self.assertIn(b'value="2026-07-23"', response.data)
-        self.assertIn(b'value="2026-07-29"', response.data)
-        self.assertIn(b"Guardar autorizaci", response.data)
-
-    def test_multiple_authorizations_can_be_added_and_deleted(self):
-        self.initialize_admin()
-        self.login()
-        self.client.get("/autorizaciones/nueva")
-
-        for allowed_start, allowed_end in (
-            ("07:00", "08:00"),
-            ("17:00", "19:00"),
+        for method, path in (
+            ("get", "/autorizaciones"),
+            ("get", "/autorizaciones/nueva"),
+            ("post", "/autorizaciones/nueva"),
+            ("post", "/autorizaciones/123/eliminar"),
         ):
-            response = self.client.post(
-                "/autorizaciones/nueva",
-                data={
-                    "csrf_token": self.csrf_token(),
-                    "employee_names": ["Jorge Rangel Pulido"],
-                    "work_dates": ["2026-07-27"],
-                    "allowed_start": allowed_start,
-                    "allowed_end": allowed_end,
-                    "reference_date": "2026-07-23",
-                },
-            )
+            response = getattr(self.client, method)(path)
             self.assertEqual(response.status_code, 302)
+            self.assertTrue(response.headers["Location"].endswith("/"))
 
         with self.app.app_context():
-            rows = get_db().execute(
-                """
-                SELECT id, allowed_start, allowed_end
-                FROM overtime_authorizations
-                ORDER BY id
-                """
-            ).fetchall()
-            self.assertEqual(len(rows), 2)
-            first_id = rows[0]["id"]
-
-        def attendance_for(day, force=False):
-            if day != date(2026, 7, 27):
-                return []
-            return [
-                {
-                    "employee_name": "Jorge Rangel Pulido",
-                    "employee_name_key": "jorge rangel pulido",
-                    "work_date": day,
-                    "clock_in": time(7, 0),
-                    "clock_out": time(19, 0),
-                    "overtime_minutes": 180,
-                    "area": "Tijuana",
-                }
-            ]
-
-        with patch("app.cached_attendance", side_effect=attendance_for):
-            response = self.client.get(
-                "/autorizaciones?semana=2026-07-27"
-            )
-        self.assertIn("07:00–08:00".encode(), response.data)
-        self.assertIn("17:00–19:00".encode(), response.data)
-        self.assertIn(b"slot-color-0", response.data)
-        self.assertIn(b"slot-color-1", response.data)
-
-        response = self.client.post(
-            f"/autorizaciones/{first_id}/eliminar",
-            data={"csrf_token": self.csrf_token()},
-        )
-        self.assertEqual(response.status_code, 302)
-        with self.app.app_context():
-            remaining = get_db().execute(
+            total = get_db().execute(
                 "SELECT COUNT(*) AS total FROM overtime_authorizations"
-            ).fetchone()
-            self.assertEqual(remaining["total"], 1)
+            ).fetchone()["total"]
+        self.assertEqual(total, 0)
 
     def test_login_only_shows_requested_fields(self):
         self.initialize_admin()
@@ -426,17 +317,22 @@ class AppFlowTests(unittest.TestCase):
     def test_weekly_report_compares_live_rows_with_authorization(self):
         self.initialize_admin()
         self.login()
-        self.client.get("/autorizaciones/nueva")
+        with self.app.app_context():
+            save_employees(
+                [{
+                    "employee_name": "Mario Ángel Hernández",
+                    "employee_name_key": "mario angel hernandez",
+                }]
+            )
         self.client.post(
-            "/autorizaciones/nueva",
+            "/autorizaciones/desde-inicio",
             data={
                 "csrf_token": self.csrf_token(),
-                "employee_names": ["Mario Ángel Hernández"],
-                "work_dates": ["2026-07-27"],
+                "employee_name_key": "mario angel hernandez",
+                "work_date": "2026-07-27",
                 "allowed_start": "17:00",
                 "allowed_end": "19:00",
-                "note": "",
-                "reference_date": "2026-07-22",
+                "approved_hours": "2",
             },
         )
 

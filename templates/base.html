@@ -23,10 +23,6 @@
            class="{{ 'active' if request.endpoint == 'home' else '' }}">
           <span class="nav-icon">⌂</span> Inicio
         </a>
-        <a href="{{ url_for('authorizations') }}"
-           class="{{ 'active' if request.endpoint in ('authorizations', 'new_authorization') else '' }}">
-          <span class="nav-icon">✓</span> Autorización
-        </a>
         <a href="{{ url_for('employees') }}"
            class="{{ 'active' if request.endpoint in ('employees', 'update_employee_areas') else '' }}">
           <span class="nav-icon">♟</span> Trabajadores
