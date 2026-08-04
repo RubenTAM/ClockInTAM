@@ -103,38 +103,56 @@
           </article>
         </div>
 
-        <div class="home-week-cards">
-          {% for cell in worker.cells %}
-            {% set report = cell.report %}
-            <article class="home-day-card {{ 'today' if cell.is_today else ('incomplete' if cell.is_incomplete else '') }}">
+        <div class="home-week-scroll">
+          <div class="home-week-track">
+            <div class="home-week-cards">
+              {% for cell in worker.cells %}
+                {% set report = cell.report %}
+                <article class="home-day-card {{ 'today' if cell.is_today else ('incomplete' if cell.is_incomplete else '') }}">
+                  <header>
+                    <span>{{ cell.work_date|weekday_short }}</span>
+                    <strong>{{ cell.work_date.day }}/{{ cell.work_date.month }}</strong>
+                  </header>
+                  <dl>
+                    <div><dt>Hora de entrada</dt><dd>{{ report.clock_in|clock if report else '—' }}</dd></div>
+                    <div><dt>Hora de salida</dt><dd>{{ report.clock_out|clock if report else '—' }}</dd></div>
+                    <div><dt>Tiempo extra</dt><dd>{{ report.counted_overtime_minutes|minutes if report else '0 h 00 min' }}</dd></div>
+                    <div class="double-hours"><dt>Horas dobles</dt><dd>{{ report.double_minutes|minutes if report else '0 h 00 min' }}</dd></div>
+                    <div class="triple-hours"><dt>Horas triples</dt><dd>{{ report.triple_minutes|minutes if report else '0 h 00 min' }}</dd></div>
+                  </dl>
+                  {% if cell.is_today %}
+                    <span class="home-today">Hoy · día en curso</span>
+                  {% elif cell.is_incomplete %}
+                    <span class="home-incomplete">Checada incompleta</span>
+                  {% endif %}
+                  {% if report and report.allowed_range != 'Sin autorización' %}
+                    <button type="button" class="home-authorization"
+                            data-home-authorization
+                            data-employee="{{ worker.employee_name }}"
+                            data-date="{{ cell.work_date|date_es }}"
+                            data-range="{{ report.allowed_range }}"
+                            data-counted="{{ report.counted_overtime_minutes|minutes }}">
+                      ✓ Horas extras autorizadas
+                    </button>
+                  {% endif %}
+                </article>
+              {% endfor %}
+            </div>
+
+            <section class="panel home-additional-info" data-additional-info>
               <header>
-                <span>{{ cell.work_date|weekday_short }}</span>
-                <strong>{{ cell.work_date.day }}/{{ cell.work_date.month }}</strong>
+                <span class="home-additional-icon" aria-hidden="true">▤</span>
+                <div>
+                  <span class="eyebrow">Expediente del trabajador</span>
+                  <h3>Información adicional del trabajador</h3>
+                </div>
               </header>
-              <dl>
-                <div><dt>Hora de entrada</dt><dd>{{ report.clock_in|clock if report else '—' }}</dd></div>
-                <div><dt>Hora de salida</dt><dd>{{ report.clock_out|clock if report else '—' }}</dd></div>
-                <div><dt>Tiempo extra</dt><dd>{{ report.counted_overtime_minutes|minutes if report else '0 h 00 min' }}</dd></div>
-                <div class="double-hours"><dt>Horas dobles</dt><dd>{{ report.double_minutes|minutes if report else '0 h 00 min' }}</dd></div>
-                <div class="triple-hours"><dt>Horas triples</dt><dd>{{ report.triple_minutes|minutes if report else '0 h 00 min' }}</dd></div>
-              </dl>
-              {% if cell.is_today %}
-                <span class="home-today">Hoy · día en curso</span>
-              {% elif cell.is_incomplete %}
-                <span class="home-incomplete">Checada incompleta</span>
-              {% endif %}
-              {% if report and report.allowed_range != 'Sin autorización' %}
-                <button type="button" class="home-authorization"
-                        data-home-authorization
-                        data-employee="{{ worker.employee_name }}"
-                        data-date="{{ cell.work_date|date_es }}"
-                        data-range="{{ report.allowed_range }}"
-                        data-counted="{{ report.counted_overtime_minutes|minutes }}">
-                  ✓ Horas extras autorizadas
-                </button>
-              {% endif %}
-            </article>
-          {% endfor %}
+              <div class="home-files-placeholder">
+                <span aria-hidden="true">＋</span>
+                <p>Espacio reservado para los archivos del trabajador.</p>
+              </div>
+            </section>
+          </div>
         </div>
 
       </section>

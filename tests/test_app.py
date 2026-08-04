@@ -176,6 +176,8 @@ class AppFlowTests(unittest.TestCase):
         self.assertIn(b"tecnoall-logo.svg", response.data)
         self.assertIn(b"TecnoAll", response.data)
         self.assertIn(b"Jorge Rangel Pulido", response.data)
+        self.assertIn(b"Informaci\xc3\xb3n adicional del trabajador", response.data)
+        self.assertIn(b"data-additional-info", response.data)
         self.assertIn(b"06:58", response.data)
         self.assertIn(b"17:02", response.data)
         self.assertNotIn(b"1 h 02 min", response.data)

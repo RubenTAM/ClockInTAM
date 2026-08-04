@@ -195,11 +195,15 @@ p { color: var(--muted); line-height: 1.55; }
 .home-person-info dl div { padding-top: 8px; border-top: 1px solid var(--line); }
 .home-person-info dt { color: var(--muted); font-size: .7rem; font-weight: 750; text-transform: uppercase; }
 .home-person-info dd { margin: 6px 0 0; font-size: .88rem; font-weight: 750; }
+.home-week-scroll {
+  min-width: 0; min-height: 0; flex: 1 1 auto;
+  padding: 1px; overflow: auto;
+}
+.home-week-track { min-width: 1054px; }
 .home-week-cards {
   display: grid; grid-template-columns: repeat(7, minmax(142px, 1fr));
   flex: 0 0 auto; min-height: 0; gap: 10px; align-items: start;
-  overflow-x: auto; overflow-y: hidden;
-  padding: 1px;
+  overflow: visible;
 }
 .home-day-card {
   min-height: 245px; height: clamp(245px, 29vh, 270px);
@@ -229,6 +233,22 @@ p { color: var(--muted); line-height: 1.55; }
 .home-authorization:hover { background: #d4efdf; }
 .home-incomplete { color: var(--red); background: var(--red-pale); }
 .home-today { color: #51469b; background: #e9e5ff; }
+.home-additional-info { margin-top: 12px; padding: 18px 20px; }
+.home-additional-info > header { display: flex; align-items: center; gap: 12px; }
+.home-additional-info .eyebrow { margin-bottom: 4px; }
+.home-additional-info h3 { margin: 0; font-size: 1rem; }
+.home-additional-icon {
+  width: 40px; height: 40px; flex: 0 0 auto; display: grid; place-items: center;
+  border-radius: 11px; color: var(--green-dark); background: var(--green-pale);
+  font-size: 1.25rem; font-weight: 850;
+}
+.home-files-placeholder {
+  display: flex; align-items: center; justify-content: center; gap: 9px;
+  min-height: 62px; margin-top: 14px; padding: 12px;
+  border: 1px dashed #b8cad5; border-radius: 12px; background: #f8fbfc;
+}
+.home-files-placeholder > span { color: var(--green); font-size: 1.2rem; font-weight: 850; }
+.home-files-placeholder p { margin: 0; font-size: .82rem; text-align: center; }
 .steps { margin: 25px 0; padding: 0; list-style: none; }
 .steps li { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
 .steps li > span { width: 31px; height: 31px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 50%; color: var(--green-dark); background: var(--green-pale); font-weight: 850; }
@@ -623,6 +643,7 @@ td.muted { max-width: 230px; overflow: hidden; text-overflow: ellipsis; }
   .employees-save-bar .button { width: 100%; }
   .home-profile-host { overflow: visible; }
   .home-profile { height: auto; }
+  .home-week-scroll { flex: none; overflow-x: auto; overflow-y: visible; }
   .home-person-grid, .home-week-cards { flex: none; }
   .home-photo-placeholder, .home-person-info { min-height: 220px; height: auto; }
   .home-day-card { min-height: 205px; height: auto; }
