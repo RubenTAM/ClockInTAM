@@ -402,7 +402,9 @@ def weekly_report_calendar(
                     counted_overtime_minutes - double_minutes,
                 )
                 weekly_overtime_used += counted_overtime_minutes
-            is_future = work_date > local_today()
+            today = local_today()
+            is_today = work_date == today
+            is_future = work_date > today
             is_non_working = work_date.weekday() == 6 and report is None
             is_incomplete = (
                 not is_future
@@ -417,6 +419,7 @@ def weekly_report_calendar(
                 {
                     "work_date": work_date,
                     "report": report,
+                    "is_today": is_today,
                     "is_future": is_future,
                     "is_non_working": is_non_working,
                     "is_incomplete": is_incomplete,

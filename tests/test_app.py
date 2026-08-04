@@ -124,6 +124,16 @@ class AppFlowTests(unittest.TestCase):
         self.assertEqual(report["double_minutes"], 0)
         self.assertEqual(report["triple_minutes"], 0)
 
+    def test_current_day_is_identified_separately_from_incomplete_punch(self):
+        with self.app.app_context(), patch(
+            "app.local_today", return_value=date(2026, 8, 4)
+        ):
+            workers, _ = weekly_report_calendar([], date(2026, 7, 30))
+
+        current_cell = workers[0]["cells"][5]
+        self.assertTrue(current_cell["is_today"])
+        self.assertTrue(current_cell["is_incomplete"])
+
     def test_employee_photo_is_matched_by_filename_name(self):
         self.assertEqual(
             employee_photo_filename("Jorge Rangel Pulido"),

@@ -193,15 +193,17 @@ p { color: var(--muted); line-height: 1.55; }
 .home-person-info dd { margin: 6px 0 0; font-size: .88rem; font-weight: 750; }
 .home-week-cards {
   display: grid; grid-template-columns: repeat(7, minmax(142px, 1fr));
-  flex: 1.15 1 0; min-height: 275px; gap: 10px;
+  flex: 0 0 auto; min-height: 0; gap: 10px; align-items: start;
   overflow-x: auto; overflow-y: hidden;
   padding: 1px;
 }
 .home-day-card {
-  min-height: 0; height: 100%; padding: 10px; border: 2px solid #006892;
+  min-height: 230px; height: 230px; display: flex; flex-direction: column;
+  padding: 10px; border: 2px solid #006892;
   border-radius: 12px; background: white;
 }
 .home-day-card.incomplete { border-color: #dc4c47; background: #fffafa; }
+.home-day-card.today { border-color: #7c6fd1; background: #f7f5ff; }
 .home-day-card header { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
 .home-day-card header span { font-size: .78rem; font-weight: 850; text-transform: capitalize; }
 .home-day-card header strong { color: var(--muted); font-size: .72rem; }
@@ -211,16 +213,17 @@ p { color: var(--muted); line-height: 1.55; }
 .home-day-card dd { margin: 2px 0 0; font-size: .82rem; font-weight: 850; }
 .home-day-card .double-hours dd { color: #1a547a; }
 .home-day-card .triple-hours dd { color: #006892; }
-.home-authorization, .home-incomplete {
+.home-authorization, .home-incomplete, .home-today {
   display: block; margin-top: 4px; padding: 4px; border-radius: 8px;
   font-size: .65rem; font-weight: 800; text-align: center;
 }
 .home-authorization {
-  width: 100%; border: 0; color: var(--green-dark);
-  background: var(--green-pale); cursor: pointer;
+  width: 100%; margin-top: auto; border: 1px solid #acd9bf;
+  color: #176b45; background: #e5f6ec; cursor: pointer;
 }
-.home-authorization:hover { background: #d8eef5; }
+.home-authorization:hover { background: #d4efdf; }
 .home-incomplete { color: var(--red); background: var(--red-pale); }
+.home-today { color: #51469b; background: #e9e5ff; }
 .steps { margin: 25px 0; padding: 0; list-style: none; }
 .steps li { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
 .steps li > span { width: 31px; height: 31px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 50%; color: var(--green-dark); background: var(--green-pale); font-weight: 850; }

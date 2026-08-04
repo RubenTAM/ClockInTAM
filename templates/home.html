@@ -96,7 +96,7 @@
         <div class="home-week-cards">
           {% for cell in worker.cells %}
             {% set report = cell.report %}
-            <article class="home-day-card {{ 'incomplete' if cell.is_incomplete else '' }}">
+            <article class="home-day-card {{ 'today' if cell.is_today else ('incomplete' if cell.is_incomplete else '') }}">
               <header>
                 <span>{{ cell.work_date|weekday_short }}</span>
                 <strong>{{ cell.work_date.day }}/{{ cell.work_date.month }}</strong>
@@ -108,7 +108,9 @@
                 <div class="double-hours"><dt>Horas dobles</dt><dd>{{ report.double_minutes|minutes if report else '0 h 00 min' }}</dd></div>
                 <div class="triple-hours"><dt>Horas triples</dt><dd>{{ report.triple_minutes|minutes if report else '0 h 00 min' }}</dd></div>
               </dl>
-              {% if cell.is_incomplete %}
+              {% if cell.is_today %}
+                <span class="home-today">Hoy · día en curso</span>
+              {% elif cell.is_incomplete %}
                 <span class="home-incomplete">Checada incompleta</span>
               {% endif %}
               {% if report and report.allowed_range != 'Sin autorización' %}
