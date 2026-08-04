@@ -495,6 +495,10 @@ class AppFlowTests(unittest.TestCase):
         self.assertIn(b'data-worker-area="ingenier\xc3\xada"', response.data)
         self.assertIn(b"data-home-area-filter", response.data)
 
+        stylesheet = self.client.get("/static/app.css")
+        self.assertIn(b".is-filtered-out", stylesheet.data)
+        stylesheet.close()
+
     def test_report_calendar_marks_incomplete_punches(self):
         self.initialize_admin()
         self.login()

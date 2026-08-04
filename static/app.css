@@ -20,6 +20,7 @@
 }
 
 * { box-sizing: border-box; }
+[hidden], .is-filtered-out { display: none !important; }
 body { margin: 0; min-height: 100vh; background: var(--canvas); }
 button, input, textarea, select { font: inherit; }
 button, a { -webkit-tap-highlight-color: transparent; }

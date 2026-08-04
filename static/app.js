@@ -221,6 +221,7 @@
       const matches = normalizeSearch(row.dataset.employeeName).includes(query)
         && (!area || normalizeSearch(row.dataset.employeeArea) === area);
       row.hidden = !matches;
+      row.classList.toggle("is-filtered-out", !matches);
       if (matches) visible += 1;
     });
     if (empty) empty.hidden = visible > 0;
@@ -270,6 +271,7 @@
       const matches = normalizeSearch(button.dataset.workerName).includes(query)
         && (!area || normalizeSearch(button.dataset.workerArea) === area);
       button.hidden = !matches;
+      button.classList.toggle("is-filtered-out", !matches);
       if (matches) matchingWorkers.push(button);
     });
     empty.hidden = matchingWorkers.length > 0;
