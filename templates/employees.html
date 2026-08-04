@@ -27,28 +27,28 @@
   </div>
 
   {% if employees %}
-    <div class="table-scroll">
-      <table class="employees-table">
-        <thead>
-          <tr>
-            <th>Trabajador</th>
-            <th>Área</th>
-            <th><span class="sr-only">Acciones</span></th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for employee in employees %}
-            <tr data-employee-row data-employee-name="{{ employee.employee_name|lower }}">
-              <td>
-                <span class="employee-name-cell">
-                  <span class="worker-avatar">{{ employee.employee_name[0]|upper }}</span>
-                  <strong>{{ employee.employee_name }}</strong>
-                </span>
-              </td>
-              <td colspan="2">
-                <form class="employee-area-form" method="post"
-                      action="{{ url_for('update_employee_area', employee_name_key=employee.employee_name_key) }}">
-                  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <form method="post" action="{{ url_for('update_employee_areas') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <div class="table-scroll">
+        <table class="employees-table">
+          <thead>
+            <tr>
+              <th>Trabajador</th>
+              <th>Área</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for employee in employees %}
+              <tr data-employee-row data-employee-name="{{ employee.employee_name|lower }}">
+                <td>
+                  <span class="employee-name-cell">
+                    <span class="worker-avatar">{{ employee.employee_name[0]|upper }}</span>
+                    <strong>{{ employee.employee_name }}</strong>
+                  </span>
+                </td>
+                <td>
+                  <input type="hidden" name="employee_name_key"
+                         value="{{ employee.employee_name_key }}">
                   <label class="sr-only" for="area-{{ loop.index }}">
                     Área de {{ employee.employee_name }}
                   </label>
@@ -60,14 +60,17 @@
                       </option>
                     {% endfor %}
                   </select>
-                  <button class="button small" type="submit">Guardar</button>
-                </form>
-              </td>
-            </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="employees-save-bar">
+        <p>Puedes cambiar varias áreas y guardarlas todas al terminar.</p>
+        <button class="button primary" type="submit">Guardar todas las áreas</button>
+      </div>
+    </form>
     <p class="home-search-empty" data-employees-empty hidden>No hay coincidencias.</p>
   {% else %}
     <div class="empty-state">

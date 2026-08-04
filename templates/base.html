@@ -28,7 +28,7 @@
           <span class="nav-icon">✓</span> Autorización
         </a>
         <a href="{{ url_for('employees') }}"
-           class="{{ 'active' if request.endpoint in ('employees', 'update_employee_area') else '' }}">
+           class="{{ 'active' if request.endpoint in ('employees', 'update_employee_areas') else '' }}">
           <span class="nav-icon">♟</span> Trabajadores
         </a>
         <a href="{{ url_for('users') }}"

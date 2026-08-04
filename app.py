@@ -681,39 +681,59 @@ def register_routes(app: Flask) -> None:
             error=error,
         )
 
-    @app.post("/trabajadores/<path:employee_name_key>/area")
+    @app.post("/trabajadores/areas")
     @login_required
-    def update_employee_area(employee_name_key: str):
+    def update_employee_areas():
         validate_csrf()
-        area = request.form.get("area", "").strip()
-        if area and area not in EMPLOYEE_AREAS:
+        employee_keys = request.form.getlist("employee_name_key")
+        areas = [area.strip() for area in request.form.getlist("area")]
+        if len(employee_keys) != len(areas):
+            abort(400, "No fue posible relacionar trabajadores y áreas.")
+        if any(area and area not in EMPLOYEE_AREAS for area in areas):
             abort(400, "El área seleccionada no es válida.")
+
         connection = get_db()
-        employee = connection.execute(
-            "SELECT employee_name FROM employees WHERE employee_name_key = ?",
-            (employee_name_key,),
-        ).fetchone()
-        if employee is None:
-            abort(404)
-        connection.execute(
-            """
-            UPDATE employees
-            SET area = ?, updated_at = ?
-            WHERE employee_name_key = ?
-            """,
-            (area, utc_now(), employee_name_key),
-        )
+        employees_by_key = {
+            row["employee_name_key"]: dict(row)
+            for row in connection.execute(
+                "SELECT employee_name_key, employee_name, area FROM employees"
+            ).fetchall()
+        }
+        if any(key not in employees_by_key for key in employee_keys):
+            abort(400, "La lista de trabajadores cambió. Recarga la página.")
+
+        changes = []
+        now = utc_now()
+        for employee_key, area in zip(employee_keys, areas):
+            employee = employees_by_key[employee_key]
+            if employee["area"] == area:
+                continue
+            connection.execute(
+                """
+                UPDATE employees
+                SET area = ?, updated_at = ?
+                WHERE employee_name_key = ?
+                """,
+                (area, now, employee_key),
+            )
+            changes.append(
+                {"employee": employee["employee_name"], "area": area}
+            )
+
         log_action(
             g.user["id"],
-            "update_area",
-            "employee",
+            "update_areas",
+            "employees",
             details=json.dumps(
-                {"employee": employee["employee_name"], "area": area},
+                {"changes": changes},
                 ensure_ascii=False,
             ),
         )
         connection.commit()
-        flash("El área del trabajador fue actualizada.", "success")
+        if changes:
+            flash("Las áreas de los trabajadores fueron actualizadas.", "success")
+        else:
+            flash("No había cambios de áreas por guardar.", "success")
         return redirect(url_for("employees"))
 
     @app.get("/resumen")

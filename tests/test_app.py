@@ -445,17 +445,22 @@ class AppFlowTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("Ana López".encode(), response.data)
         self.assertIn(b"Compras/Ventas", response.data)
+        self.assertEqual(response.data.count(b"Guardar todas las \xc3\xa1reas"), 1)
 
         response = self.client.post(
-            "/trabajadores/ana%20lopez/area",
+            "/trabajadores/areas",
             data={
                 "csrf_token": self.csrf_token(),
-                "area": "Ingeniería",
+                "employee_name_key": [
+                    "ana lopez",
+                    "ruben humberto lizarraga reyes",
+                ],
+                "area": ["Ingeniería", "Abquim"],
             },
             follow_redirects=True,
         )
         self.assertEqual(response.status_code, 200)
-        self.assertIn(b"fue actualizada", response.data)
+        self.assertIn(b"fueron actualizadas", response.data)
 
         with self.app.app_context():
             save_employees(
@@ -472,6 +477,13 @@ class AppFlowTests(unittest.TestCase):
             ).fetchone()
             self.assertEqual(employee["employee_name"], "ANA LÓPEZ")
             self.assertEqual(employee["area"], "Ingeniería")
+            ruben = get_db().execute(
+                """
+                SELECT area FROM employees
+                WHERE employee_name_key = 'ruben humberto lizarraga reyes'
+                """
+            ).fetchone()
+            self.assertEqual(ruben["area"], "Abquim")
 
         with patch("app.cached_attendance", return_value=[]):
             response = self.client.get("/?semana=2026-07-23")

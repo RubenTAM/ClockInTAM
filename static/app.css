@@ -518,9 +518,10 @@ td.muted { max-width: 230px; overflow: hidden; text-overflow: ellipsis; }
 .employees-table th, .employees-table td { padding: 14px 20px; border-bottom: 1px solid var(--line); text-align: left; }
 .employees-table th { color: var(--muted); font-size: .75rem; text-transform: uppercase; letter-spacing: .05em; }
 .employees-table tbody tr:last-child td { border-bottom: 0; }
-.employee-name-cell, .employee-area-form { display: flex; align-items: center; gap: 12px; }
-.employee-area-form select { min-width: 210px; }
-.employee-area-form { justify-content: flex-end; }
+.employee-name-cell { display: flex; align-items: center; gap: 12px; }
+.employees-table select { min-width: 210px; }
+.employees-save-bar { display: flex; align-items: center; justify-content: flex-end; gap: 18px; padding: 18px 20px; border-top: 1px solid var(--line); background: #f8fbfc; }
+.employees-save-bar p { margin: 0; font-size: .82rem; }
 .manual-entry { margin-top: 15px; color: var(--green); font-size: .85rem; font-weight: 700; }
 .manual-entry label { margin-top: 13px; color: #405766; }
 .week-input { width: min(300px, 100%); margin-bottom: 16px; }
@@ -616,8 +617,9 @@ td.muted { max-width: 230px; overflow: hidden; text-overflow: ellipsis; }
   .home-browser { grid-template-columns: 1fr; }
   .home-worker-panel { max-height: 340px; }
   .home-worker-list { max-height: 260px; }
-  .employee-area-form { align-items: stretch; flex-direction: column; }
-  .employee-area-form select { min-width: 0; width: 100%; }
+  .employees-table select { min-width: 0; width: 100%; }
+  .employees-save-bar { align-items: stretch; flex-direction: column; }
+  .employees-save-bar .button { width: 100%; }
   .home-profile-host { overflow: visible; }
   .home-profile { height: auto; }
   .home-person-grid, .home-week-cards { flex: none; }
