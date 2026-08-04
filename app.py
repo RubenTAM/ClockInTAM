@@ -816,6 +816,66 @@ def register_routes(app: Flask) -> None:
             )
         )
 
+    @app.post("/autorizaciones/desde-inicio/eliminar")
+    @login_required
+    def delete_home_authorizations():
+        validate_csrf()
+        employee_key = request.form.get("employee_name_key", "").strip()
+        try:
+            work_date = parse_iso_date(
+                request.form.get("work_date", "").strip()
+            )
+        except ValueError:
+            abort(400, "La fecha de la autorización no es válida.")
+
+        connection = get_db()
+        rows = connection.execute(
+            """
+            SELECT id, employee_name, allowed_start, allowed_end
+            FROM overtime_authorizations
+            WHERE employee_name_key = ? AND work_date = ?
+            """,
+            (employee_key, work_date.isoformat()),
+        ).fetchall()
+        if rows:
+            connection.execute(
+                """
+                DELETE FROM overtime_authorizations
+                WHERE employee_name_key = ? AND work_date = ?
+                """,
+                (employee_key, work_date.isoformat()),
+            )
+            log_action(
+                g.user["id"],
+                "delete",
+                "authorizations",
+                details=json.dumps(
+                    {
+                        "employee": rows[0]["employee_name"],
+                        "date": work_date.isoformat(),
+                        "intervals": [
+                            {
+                                "start": row["allowed_start"],
+                                "end": row["allowed_end"],
+                            }
+                            for row in rows
+                        ],
+                    },
+                    ensure_ascii=False,
+                ),
+            )
+            connection.commit()
+            flash("El tiempo extra autorizado fue eliminado.", "success")
+        else:
+            flash("La autorización ya no estaba disponible.", "error")
+        return redirect(
+            url_for(
+                "home",
+                semana=work_date.isoformat(),
+                trabajador=employee_key,
+            )
+        )
+
     @app.get("/trabajadores")
     @login_required
     def employees():

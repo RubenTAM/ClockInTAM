@@ -167,7 +167,7 @@ p { color: var(--muted); line-height: 1.55; }
 }
 .home-person-grid {
   display: grid; grid-template-columns: minmax(245px, .65fr) minmax(320px, 1fr);
-  flex: 0 0 auto; height: clamp(235px, 31vh, 285px);
+  flex: 0 0 auto; height: clamp(175px, 22vh, 205px);
   min-height: 0; gap: 16px; margin-bottom: 12px;
 }
 .home-photo-placeholder {
@@ -183,9 +183,9 @@ p { color: var(--muted); line-height: 1.55; }
   box-shadow: 0 10px 28px rgba(27, 57, 84, .12);
 }
 .home-photo-placeholder span {
-  width: 76px; height: 76px; display: grid; place-items: center;
+  width: 58px; height: 58px; display: grid; place-items: center;
   margin: auto; border-radius: 50%; color: var(--green-dark);
-  background: var(--green-pale); font-size: 2rem; font-weight: 850;
+  background: var(--green-pale); font-size: 1.55rem; font-weight: 850;
 }
 .home-photo-placeholder small { font-weight: 700; }
 .worker-avatar-photo { display: block; object-fit: cover; }
@@ -206,7 +206,7 @@ p { color: var(--muted); line-height: 1.55; }
   overflow: visible;
 }
 .home-day-card {
-  min-height: 330px; height: clamp(330px, 38vh, 365px);
+  min-height: 385px; height: auto;
   display: flex; flex-direction: column;
   padding: 14px; border: 2px solid #006892;
   border-radius: 12px; background: white;
@@ -232,11 +232,11 @@ p { color: var(--muted); line-height: 1.55; }
 .home-day-card .double-hours dd { color: #1a547a; }
 .home-day-card .triple-hours dd { color: #006892; }
 .home-authorization, .home-incomplete, .home-today {
-  display: block; margin-top: 7px; padding: 6px; border-radius: 8px;
+  display: block; margin: 0; padding: 7px 6px; border-radius: 8px;
   font-size: .65rem; font-weight: 800; text-align: center;
 }
 .home-authorization {
-  width: 100%; margin-top: auto; border: 1px solid #acd9bf;
+  width: 100%; border: 1px solid #acd9bf;
   color: #176b45; background: #e5f6ec; cursor: pointer;
 }
 .home-authorization span, .home-authorization small { display: block; }
@@ -244,6 +244,12 @@ p { color: var(--muted); line-height: 1.55; }
 .home-authorization:hover { background: #d4efdf; }
 .home-incomplete { color: var(--red); background: var(--red-pale); }
 .home-today { color: #51469b; background: #e9e5ff; }
+.home-day-statuses {
+  display: grid; gap: 7px; margin-top: auto; padding-top: 10px;
+}
+.home-delete-authorization { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
+.danger-button { width: 100%; color: white; background: var(--red); }
+.danger-button:hover { background: #8f1d14; }
 .home-additional-info { margin-top: 12px; padding: 18px 20px; }
 .home-additional-info > header { display: flex; align-items: center; gap: 12px; }
 .home-additional-info .eyebrow { margin-bottom: 4px; }
@@ -657,7 +663,7 @@ td.muted { max-width: 230px; overflow: hidden; text-overflow: ellipsis; }
   .home-profile { height: auto; }
   .home-week-scroll { flex: none; overflow-x: auto; overflow-y: visible; }
   .home-person-grid, .home-week-cards { flex: none; }
-  .home-photo-placeholder, .home-person-info { min-height: 220px; height: auto; }
-  .home-day-card { min-height: 315px; height: auto; }
+  .home-photo-placeholder, .home-person-info { min-height: 180px; height: auto; }
+  .home-day-card { min-height: 385px; height: auto; }
   .home-person-info dl { grid-template-columns: 1fr; }
 }

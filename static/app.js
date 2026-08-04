@@ -313,6 +313,12 @@
   const allowedRange = dialog.querySelector("#home-authorization-range");
   const approvedTime = dialog.querySelector("#home-authorization-approved");
   const countedTime = dialog.querySelector("#home-authorization-counted");
+  const deleteEmployeeKey = dialog.querySelector(
+    "#home-delete-authorization-employee-key"
+  );
+  const deleteWorkDate = dialog.querySelector(
+    "#home-delete-authorization-work-date"
+  );
 
   document.addEventListener("click", (event) => {
     const button = event.target.closest("[data-home-authorization]");
@@ -322,6 +328,8 @@
     allowedRange.textContent = button.dataset.range;
     approvedTime.textContent = button.dataset.approved;
     countedTime.textContent = button.dataset.counted;
+    deleteEmployeeKey.value = button.dataset.employeeKey;
+    deleteWorkDate.value = button.dataset.workDate;
     dialog.showModal();
   });
 

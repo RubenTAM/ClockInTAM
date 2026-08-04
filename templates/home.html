@@ -130,23 +130,27 @@
                     <div class="double-hours"><dt>Horas dobles</dt><dd>{{ report.double_minutes|minutes if report else '0 h 00 min' }}</dd></div>
                     <div class="triple-hours"><dt>Horas triples</dt><dd>{{ report.triple_minutes|minutes if report else '0 h 00 min' }}</dd></div>
                   </dl>
-                  {% if cell.is_today %}
-                    <span class="home-today">Hoy · día en curso</span>
-                  {% elif cell.is_incomplete %}
-                    <span class="home-incomplete">Checada incompleta</span>
-                  {% endif %}
-                  {% if report and report.allowed_range != 'Sin autorización' %}
-                    <button type="button" class="home-authorization"
-                            data-home-authorization
-                            data-employee="{{ worker.employee_name }}"
-                        data-date="{{ cell.work_date|date_es }}"
-                        data-range="{{ report.allowed_range }}"
-                        data-approved="{{ report.approved_minutes|minutes }}"
-                        data-counted="{{ report.counted_overtime_minutes|minutes }}">
-                      <span>✓ Horas extras autorizadas</span>
-                      <small>{{ report.approved_minutes|minutes }} aprobadas</small>
-                    </button>
-                  {% endif %}
+                  <div class="home-day-statuses">
+                    {% if cell.is_today %}
+                      <span class="home-today">Hoy · día en curso</span>
+                    {% elif cell.is_incomplete %}
+                      <span class="home-incomplete">Checada incompleta</span>
+                    {% endif %}
+                    {% if report and report.allowed_range != 'Sin autorización' %}
+                      <button type="button" class="home-authorization"
+                              data-home-authorization
+                              data-employee="{{ worker.employee_name }}"
+                              data-employee-key="{{ worker.employee_name_key }}"
+                              data-work-date="{{ cell.work_date }}"
+                              data-date="{{ cell.work_date|date_es }}"
+                              data-range="{{ report.allowed_range }}"
+                              data-approved="{{ report.approved_minutes|minutes }}"
+                              data-counted="{{ report.counted_overtime_minutes|minutes }}">
+                        <span>✓ Horas extras autorizadas</span>
+                        <small>{{ report.approved_minutes|minutes }} aprobadas</small>
+                      </button>
+                    {% endif %}
+                  </div>
                 </article>
               {% endfor %}
             </div>
@@ -256,6 +260,19 @@
         <dd id="home-authorization-counted"></dd>
       </div>
     </dl>
+    <form method="post"
+          action="{{ url_for('delete_home_authorizations') }}"
+          class="home-delete-authorization"
+          data-confirm="¿Eliminar todo el tiempo extra autorizado de este trabajador para este día?">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="employee_name_key"
+             id="home-delete-authorization-employee-key">
+      <input type="hidden" name="work_date"
+             id="home-delete-authorization-work-date">
+      <button class="button danger-button" type="submit">
+        Eliminar tiempo extra autorizado
+      </button>
+    </form>
   </section>
 </dialog>
 {% endblock %}

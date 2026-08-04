@@ -228,6 +228,21 @@ class AppFlowTests(unittest.TestCase):
         self.assertEqual(authorization["allowed_end"], "20:00")
         self.assertEqual(authorization["approved_minutes"], 90)
 
+        response = self.client.post(
+            "/autorizaciones/desde-inicio/eliminar",
+            data={
+                "csrf_token": self.csrf_token(),
+                "employee_name_key": "ruben humberto lizarraga reyes",
+                "work_date": "2026-08-06",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        with self.app.app_context():
+            total = get_db().execute(
+                "SELECT COUNT(*) AS total FROM overtime_authorizations"
+            ).fetchone()["total"]
+        self.assertEqual(total, 0)
+
     def test_home_shows_authorized_overtime_button_and_detail(self):
         self.initialize_admin()
         self.login()
@@ -257,6 +272,7 @@ class AppFlowTests(unittest.TestCase):
         self.assertNotIn(b"1 h 30 min", response.data)
         self.assertIn(b"data-home-authorization", response.data)
         self.assertIn(b"Horas extra aprobadas", response.data)
+        self.assertIn(b"Eliminar tiempo extra autorizado", response.data)
         self.assertIn(b"Horas extras autorizadas", response.data)
         self.assertIn("17:00–18:00".encode(), response.data)
         self.assertIn(b'id="home-authorization-dialog"', response.data)
