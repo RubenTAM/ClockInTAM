@@ -144,6 +144,36 @@ class ReportingTests(unittest.TestCase):
         self.assertEqual(result["unused_minutes"], 0)
         self.assertEqual(result["status_key"], "exceeded")
 
+    def test_limit_applies_across_early_and_late_overtime(self):
+        attendance = build_daily_attendance(
+            [
+                {
+                    "fullName": "Andrés Lizárraga",
+                    "clockInDate": "2026/07/27",
+                    "clockInTime": "07:00",
+                    "clockOutDate": "2026/07/27",
+                    "clockOutTime": "19:00",
+                }
+            ]
+        )
+        authorization = {
+            "employee_name": "Andrés Lizárraga",
+            "employee_name_key": "andres lizarraga",
+            "work_date": "2026-07-27",
+            "allowed_start": "07:00",
+            "allowed_end": "19:00",
+            "approved_minutes": 120,
+            "note": "",
+        }
+
+        result = compare_overtime(attendance[0], authorization)
+
+        self.assertEqual(result["overtime_minutes"], 180)
+        self.assertEqual(result["actual_range"], "07:00–08:00, 17:00–19:00")
+        self.assertEqual(result["approved_minutes"], 120)
+        self.assertEqual(result["authorized_minutes"], 120)
+        self.assertEqual(result["unauthorized_minutes"], 60)
+
     def test_combines_multiple_authorized_intervals_without_duplicates(self):
         attendance = build_daily_attendance(
             [
