@@ -220,6 +220,13 @@ p { color: var(--muted); line-height: 1.55; }
 }
 .enable-overtime-button:hover { border-color: var(--green); background: #d9edf5; }
 .field-help { display: block; margin-top: 8px; color: var(--muted); line-height: 1.45; }
+.established-schedule-value {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 13px 14px; border: 1px solid var(--line); border-radius: 10px;
+  background: #f8fbfc;
+}
+.established-schedule-value span { color: var(--muted); font-weight: 750; }
+.established-schedule-value strong { color: var(--green-dark); font-size: 1rem; }
 .home-day-card.incomplete { border-color: #dc4c47; background: #fffafa; }
 .home-day-card.today { border-color: #7c6fd1; background: #f7f5ff; }
 .home-day-card header { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }

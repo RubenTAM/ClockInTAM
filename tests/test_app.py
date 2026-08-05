@@ -178,6 +178,8 @@ class AppFlowTests(unittest.TestCase):
         self.assertIn(b"Jorge Rangel Pulido", response.data)
         self.assertIn(b"Habilitar tiempo extra", response.data)
         self.assertIn(b'id="home-enable-overtime-dialog"', response.data)
+        self.assertIn(b"Horario establecido", response.data)
+        self.assertIn(b'id="home-established-schedule"', response.data)
         self.assertIn(b"Informaci\xc3\xb3n adicional del trabajador", response.data)
         self.assertIn(b"data-additional-info", response.data)
         self.assertIn(b"06:58", response.data)
@@ -447,6 +449,7 @@ class AppFlowTests(unittest.TestCase):
         with patch("app.cached_attendance", return_value=[]):
             response = self.client.get("/?semana=2026-07-23")
         self.assertIn(b'data-worker-area="ingenier\xc3\xada"', response.data)
+        self.assertIn(b'data-show-established-schedule="0"', response.data)
         self.assertIn(b"data-home-area-filter", response.data)
 
         stylesheet = self.client.get("/static/app.css")

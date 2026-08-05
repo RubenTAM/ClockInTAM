@@ -281,6 +281,19 @@
   const startInput = dialog.querySelector("#home-overtime-start");
   const endInput = dialog.querySelector("#home-overtime-end");
   const hoursInput = dialog.querySelector("#home-overtime-hours");
+  const establishedSchedule = dialog.querySelector(
+    "#home-established-schedule"
+  );
+  const establishedDay = dialog.querySelector(
+    "#home-established-schedule-day"
+  );
+  const establishedHours = dialog.querySelector(
+    "#home-established-schedule-hours"
+  );
+  const weekdayNames = [
+    "Domingo", "Lunes", "Martes", "Miércoles",
+    "Jueves", "Viernes", "Sábado",
+  ];
 
   document.addEventListener("click", (event) => {
     const button = event.target.closest("[data-enable-overtime]");
@@ -289,6 +302,17 @@
     workDate.value = button.dataset.workDate;
     employeeName.textContent = button.dataset.employee;
     dateLabel.textContent = button.dataset.dateLabel;
+    const selectedDate = new Date(`${button.dataset.workDate}T12:00:00`);
+    const weekday = selectedDate.getDay();
+    establishedSchedule.hidden = button.dataset.showEstablishedSchedule === "0";
+    establishedDay.textContent = weekdayNames[weekday];
+    if (weekday === 0) {
+      establishedHours.textContent = "Sin horario establecido";
+    } else if (weekday === 6) {
+      establishedHours.textContent = "08:30–13:00";
+    } else {
+      establishedHours.textContent = "08:00–17:00";
+    }
     startInput.value = "17:00";
     endInput.value = "19:00";
     hoursInput.value = "2";

@@ -115,6 +115,7 @@
                           data-enable-overtime
                           data-employee="{{ worker.employee_name }}"
                           data-employee-key="{{ worker.employee_name_key }}"
+                          data-show-established-schedule="{{ '0' if worker.area == 'Abquim' else '1' }}"
                           data-work-date="{{ cell.work_date }}"
                           data-date-label="{{ cell.work_date|date_es }}">
                     Habilitar tiempo extra
@@ -194,6 +195,16 @@
       <button class="dialog-close" type="button"
               data-enable-overtime-close aria-label="Cerrar">×</button>
     </div>
+
+    <fieldset class="dialog-section established-schedule"
+              id="home-established-schedule">
+      <legend>Horario establecido</legend>
+      <div class="established-schedule-value">
+        <span id="home-established-schedule-day"></span>
+        <strong id="home-established-schedule-hours"></strong>
+      </div>
+      <small class="field-help">Horario informativo; no se puede editar.</small>
+    </fieldset>
 
     <fieldset class="dialog-section">
       <legend>Horario habilitado</legend>
