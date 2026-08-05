@@ -97,9 +97,16 @@ class DatabaseMigrationTests(unittest.TestCase):
                         "PRAGMA table_info('overtime_authorizations')"
                     ).fetchall()
                 }
+                employee_columns = {
+                    row["name"]
+                    for row in migrated.execute(
+                        "PRAGMA table_info('employees')"
+                    ).fetchall()
+                }
 
             self.assertEqual(total, 2)
             self.assertIn("approved_minutes", columns)
+            self.assertIn("employee_code", employee_columns)
 
 
 if __name__ == "__main__":

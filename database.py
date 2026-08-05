@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS overtime_authorizations (
 CREATE TABLE IF NOT EXISTS employees (
     employee_name_key TEXT PRIMARY KEY,
     employee_name TEXT NOT NULL,
+    employee_code TEXT NOT NULL DEFAULT '',
     area TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
@@ -90,7 +91,24 @@ def init_db() -> None:
     connection.executescript(SCHEMA)
     migrate_multiple_authorizations(connection)
     migrate_approved_minutes(connection)
+    migrate_employee_code(connection)
     connection.commit()
+
+
+def migrate_employee_code(connection: sqlite3.Connection) -> None:
+    columns = {
+        row["name"]
+        for row in connection.execute(
+            "PRAGMA table_info('employees')"
+        ).fetchall()
+    }
+    if "employee_code" not in columns:
+        connection.execute(
+            """
+            ALTER TABLE employees
+            ADD COLUMN employee_code TEXT NOT NULL DEFAULT ''
+            """
+        )
 
 
 def migrate_approved_minutes(connection: sqlite3.Connection) -> None:

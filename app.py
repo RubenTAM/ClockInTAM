@@ -73,7 +73,9 @@ MONTH_NAMES = (
 PHOTO_DIRECTORY = Path(__file__).resolve().parent / "fotos"
 PHOTO_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
 PHOTO_NAME_ALIASES = {
+    "dalia": "dalila",
     "feliz": "felix",
+    "plascencia": "plasencia",
     "reyez": "reyes",
     "susniaga": "suniaga",
 }
@@ -81,14 +83,72 @@ PHOTO_NAME_IGNORED = {"fotor", "practicante"}
 EMPLOYEE_DIRECTORY = (
     "Ruben Humberto Lizarraga Reyes",
 )
-EMPLOYEE_AREAS = (
-    "Ingeniería",
-    "Compras/Ventas",
-    "Compras/Ventas Mxli",
-    "Contabilidad",
-    "Almacén",
-    "Abquim",
+KNOWN_EMPLOYEE_CODES = (
+    ("001", "LIZARRAGA CARRAZCO VLADIMIR"),
+    ("003", "LIZARRAGA CARRAZCO PETRA NOEMI"),
+    ("009", "VALDEZ GUZMAN JOSE"),
+    ("012", "MARTINEZ MARTINEZ ERIKA IRIDEA"),
+    ("013", "GUZMAN GAMEZ LUIS ANGEL"),
+    ("014", "MARTINEZ MARTINEZ JESUS MANUEL"),
+    ("016", "HERRERA CELIS JESUS ALFONSO"),
+    ("017", "LIZARRAGA REYES RUBEN HUMBERTO"),
+    ("018", "CAMACHO ALONSO HECTOR ANTONIO"),
+    ("020", "HERNANDEZ VELAZQUEZ MARIO ANGEL"),
+    ("024", "LOPEZ FELIX LUIS GUSTAVO"),
+    ("025", "CASTELLANOS LANDGRAVE JESSICA ALEJANDRA"),
+    ("027", "LIZARRAGA CARRAZCO RUBEN ILLIA"),
+    ("036", "TLATEMPA PAISANO KAREN JAZMIN"),
+    ("037", "GUTIERREZ ESCARREGA MARIA FERNANDA"),
+    ("051", "VALENZUELA FLORES LUIS"),
+    ("053", "ZUÑIGA ESTRADA JESUS MANUEL"),
+    ("061", "PALMA SERRATO JOSEFINA"),
+    ("063", "RANGEL PULIDO JORGE"),
+    ("069", "CASTILLO AGUILAR MARTIN DAVID"),
+    ("071", "LOPEZ JAUREGUI GERARDO"),
+    ("073", "VARGAS SANZON LUIS DE JESUS"),
+    ("077", "SANCHEZ PEREZ RICARDO JOEL"),
+    ("080", "SANCHEZ REYNA EDUARDO"),
+    ("082", "TISCAREÑO CINTORA SEBASTIAN"),
+    ("086", "MEJIA MORALES GERONIMO IVAN"),
+    ("089", "LOPEZ ZAMORA MARIA FERNANDA"),
+    ("090", "RODRIGUEZ GUZMAN ARABELLA"),
+    ("094", "RODRIGUEZ PLASENCIA DIANA JAZMIN"),
+    ("095", "REYES DIAZ HEIDI JOHANA"),
+    ("096", "CEBALLOS RESENDIZ KURT SAMUEL"),
+    ("098", "TREJO HIGUERA DADINIRT GUADALUPE"),
+    ("100", "CORTES PEREZ IRAIDA DALILA"),
+    ("101", "CHAVEZ CABRERA JUAN"),
+    ("102", "BAEZ MEZA JOSE LUIS"),
+    ("103", "LIZARRAGA FLORES ANDRES VLADIMIR"),
+    ("104", "CERVANTES PEREDIA RANDY EMMANUEL"),
+    ("105", "MARTINEZ LIZARRAGA LUIS NATIVIDAD"),
+    ("106", "FLORES LOPEZ EMILIO ESAU"),
+    ("107", "GUZMAN GAMEZ PEDRO ANTONIO"),
+    ("108", "SUNIAGA MEJIAS MARCOS ELIAS"),
 )
+
+
+def employee_identity_key(value: str) -> tuple[str, ...]:
+    """Match employee names even when surnames are listed first."""
+    return tuple(
+        sorted(
+            PHOTO_NAME_ALIASES.get(token, token)
+            for token in normalize_name(value).split()
+        )
+    )
+
+
+EMPLOYEE_CODES_BY_NAME = {
+    employee_identity_key(name): code
+    for code, name in KNOWN_EMPLOYEE_CODES
+}
+
+
+def known_employee_code(employee_name: str) -> str:
+    return EMPLOYEE_CODES_BY_NAME.get(
+        employee_identity_key(employee_name),
+        "",
+    )
 
 
 def photo_name_key(value: str) -> tuple[str, ...]:
@@ -317,28 +377,50 @@ def cached_attendance(work_date: date, force: bool = False) -> list[dict]:
 def save_employees(rows: list[dict]) -> None:
     """Persist workers discovered in an attendance response."""
     now = utc_now()
-    employees = {
-        row["employee_name_key"]: row["employee_name"]
-        for row in rows
-        if row.get("employee_name_key") and row.get("employee_name")
-    }
+    employees = {}
+    for row in rows:
+        name_key = row.get("employee_name_key")
+        employee_name = row.get("employee_name")
+        if not name_key or not employee_name:
+            continue
+        employees[name_key] = {
+            "name": employee_name,
+            "code": known_employee_code(employee_name),
+            "group": str(row.get("group_name") or "").strip(),
+        }
     if not employees:
         return
     connection = get_db()
     connection.executemany(
         """
         INSERT INTO employees (
-            employee_name_key, employee_name, area,
+            employee_name_key, employee_name, employee_code, area,
             created_at, updated_at, last_seen_at
-        ) VALUES (?, ?, '', ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(employee_name_key) DO UPDATE SET
             employee_name = excluded.employee_name,
+            employee_code = CASE
+                WHEN excluded.employee_code <> '' THEN excluded.employee_code
+                ELSE employees.employee_code
+            END,
+            area = CASE
+                WHEN excluded.area <> '' THEN excluded.area
+                ELSE employees.area
+            END,
             updated_at = excluded.updated_at,
             last_seen_at = excluded.last_seen_at
         """,
         [
-            (name_key, employee_name, now, now, now)
-            for name_key, employee_name in employees.items()
+            (
+                name_key,
+                employee["name"],
+                employee["code"],
+                employee["group"],
+                now,
+                now,
+                now,
+            )
+            for name_key, employee in employees.items()
         ],
     )
     connection.commit()
@@ -347,12 +429,24 @@ def save_employees(rows: list[dict]) -> None:
 def employee_directory() -> list[dict]:
     rows = get_db().execute(
         """
-        SELECT employee_name, employee_name_key, area
+        SELECT employee_name, employee_name_key, employee_code, area
         FROM employees
         ORDER BY employee_name_key
         """
     ).fetchall()
     return [dict(row) for row in rows]
+
+
+def employee_groups() -> list[str]:
+    rows = get_db().execute(
+        """
+        SELECT DISTINCT area
+        FROM employees
+        WHERE TRIM(area) <> ''
+        ORDER BY area COLLATE NOCASE
+        """
+    ).fetchall()
+    return [row["area"] for row in rows]
 
 
 def authorizations_for_week(week_start: date) -> list[dict]:
@@ -660,12 +754,14 @@ def register_routes(app: Flask) -> None:
         except HikConnectError as exc:
             error = str(exc)
             calendar_rows, week_days = weekly_report_calendar([], week_start)
-        areas = {
-            row["employee_name_key"]: row["area"]
+        directory = {
+            row["employee_name_key"]: row
             for row in employee_directory()
         }
         for worker in calendar_rows:
-            worker["area"] = areas.get(worker["employee_name_key"], "")
+            employee = directory.get(worker["employee_name_key"], {})
+            worker["area"] = employee.get("area", "")
+            worker["employee_code"] = employee.get("employee_code", "")
         return render_template(
             "home.html",
             calendar_rows=calendar_rows,
@@ -676,7 +772,7 @@ def register_routes(app: Flask) -> None:
             next_week=week_start + timedelta(days=7),
             loaded_at=loaded_at,
             error=error,
-            employee_areas=EMPLOYEE_AREAS,
+            employee_areas=employee_groups(),
             selected_worker=request.args.get("trabajador", ""),
         )
 
@@ -895,64 +991,9 @@ def register_routes(app: Flask) -> None:
         return render_template(
             "employees.html",
             employees=employee_directory(),
-            employee_areas=EMPLOYEE_AREAS,
+            employee_areas=employee_groups(),
             error=error,
         )
-
-    @app.post("/trabajadores/areas")
-    @login_required
-    def update_employee_areas():
-        validate_csrf()
-        employee_keys = request.form.getlist("employee_name_key")
-        areas = [area.strip() for area in request.form.getlist("area")]
-        if len(employee_keys) != len(areas):
-            abort(400, "No fue posible relacionar trabajadores y áreas.")
-        if any(area and area not in EMPLOYEE_AREAS for area in areas):
-            abort(400, "El área seleccionada no es válida.")
-
-        connection = get_db()
-        employees_by_key = {
-            row["employee_name_key"]: dict(row)
-            for row in connection.execute(
-                "SELECT employee_name_key, employee_name, area FROM employees"
-            ).fetchall()
-        }
-        if any(key not in employees_by_key for key in employee_keys):
-            abort(400, "La lista de trabajadores cambió. Recarga la página.")
-
-        changes = []
-        now = utc_now()
-        for employee_key, area in zip(employee_keys, areas):
-            employee = employees_by_key[employee_key]
-            if employee["area"] == area:
-                continue
-            connection.execute(
-                """
-                UPDATE employees
-                SET area = ?, updated_at = ?
-                WHERE employee_name_key = ?
-                """,
-                (area, now, employee_key),
-            )
-            changes.append(
-                {"employee": employee["employee_name"], "area": area}
-            )
-
-        log_action(
-            g.user["id"],
-            "update_areas",
-            "employees",
-            details=json.dumps(
-                {"changes": changes},
-                ensure_ascii=False,
-            ),
-        )
-        connection.commit()
-        if changes:
-            flash("Las áreas de los trabajadores fueron actualizadas.", "success")
-        else:
-            flash("No había cambios de áreas por guardar.", "success")
-        return redirect(url_for("employees"))
 
     @app.get("/resumen")
     @login_required
@@ -1276,7 +1317,11 @@ def register_routes(app: Flask) -> None:
                 force=request.args.get("actualizar") == "1",
             )
             workers = [
-                {"name": row["employee_name"], "area": row["area"]}
+                {
+                    "name": row["employee_name"],
+                    "employeeCode": row["employee_code"],
+                    "groupName": row["area"],
+                }
                 for row in employee_directory()
             ]
             return jsonify(

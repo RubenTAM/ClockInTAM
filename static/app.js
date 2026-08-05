@@ -186,7 +186,9 @@
     const area = normalizeSearch(areaFilter.value);
     let visible = 0;
     rows.forEach((row) => {
-      const matches = normalizeSearch(row.dataset.employeeName).includes(query)
+      const matchesSearch = normalizeSearch(row.dataset.employeeName).includes(query)
+        || normalizeSearch(row.dataset.employeeCode || "").includes(query);
+      const matches = matchesSearch
         && (!area || normalizeSearch(row.dataset.employeeArea) === area);
       row.hidden = !matches;
       row.classList.toggle("is-filtered-out", !matches);
@@ -236,7 +238,9 @@
     const area = normalizeSearch(areaFilter.value);
     const matchingWorkers = [];
     workers.forEach((button) => {
-      const matches = normalizeSearch(button.dataset.workerName).includes(query)
+      const matchesSearch = normalizeSearch(button.dataset.workerName).includes(query)
+        || normalizeSearch(button.dataset.workerCode || "").includes(query);
+      const matches = matchesSearch
         && (!area || normalizeSearch(button.dataset.workerArea) === area);
       button.hidden = !matches;
       button.classList.toggle("is-filtered-out", !matches);

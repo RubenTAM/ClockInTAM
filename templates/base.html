@@ -24,7 +24,7 @@
           <span class="nav-icon">⌂</span> Inicio
         </a>
         <a href="{{ url_for('employees') }}"
-           class="{{ 'active' if request.endpoint in ('employees', 'update_employee_areas') else '' }}">
+           class="{{ 'active' if request.endpoint == 'employees' else '' }}">
           <span class="nav-icon">♟</span> Trabajadores
         </a>
         <a href="{{ url_for('users') }}"

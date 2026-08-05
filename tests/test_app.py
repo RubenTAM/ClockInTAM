@@ -7,6 +7,7 @@ from unittest.mock import patch
 from app import (
     create_app,
     employee_photo_filename,
+    known_employee_code,
     save_employees,
     week_start_for,
     weekly_report_calendar,
@@ -147,6 +148,12 @@ class AppFlowTests(unittest.TestCase):
         self.assertIsNone(
             employee_photo_filename("Trabajador Sin Fotografia"),
         )
+
+    def test_employee_codes_match_name_order_and_known_variants(self):
+        self.assertEqual(known_employee_code("Jorge Rangel Pulido"), "063")
+        self.assertEqual(known_employee_code("Heidi Johana Reyez Diaz"), "095")
+        self.assertEqual(known_employee_code("Luis Gustavo Lopez Feliz"), "024")
+        self.assertEqual(known_employee_code("Trabajador Pendiente"), "")
 
     def test_home_searches_workers_and_shows_week_profile(self):
         self.initialize_admin()
@@ -385,71 +392,70 @@ class AppFlowTests(unittest.TestCase):
         self.assertNotIn(b"Horas extra detectadas", response.data)
         self.assertNotIn(b"<th>Estado</th>", response.data)
 
-    def test_loaded_workers_are_saved_and_can_be_assigned_to_an_area(self):
+    def test_workers_use_hikvision_groups_and_known_employee_codes(self):
         self.initialize_admin()
         self.login()
 
         with self.app.app_context():
             save_employees(
                 [{
+                    "employee_name": "Jorge Rangel Pulido",
+                    "employee_name_key": "jorge rangel pulido",
+                    "group_name": "TecnoAll - Ingenieria",
+                }, {
                     "employee_name": "Ana López",
                     "employee_name_key": "ana lopez",
+                    "group_name": "TecnoAll - Compras",
                 }]
             )
 
         response = self.client.get("/trabajadores")
         self.assertEqual(response.status_code, 200)
         self.assertIn("Ana López".encode(), response.data)
-        self.assertIn(b"Compras/Ventas", response.data)
-        self.assertIn(b"Compras/Ventas Mxli", response.data)
-        self.assertIn(b"Contabilidad", response.data)
-        self.assertIn("Almacén".encode(), response.data)
-        self.assertEqual(response.data.count(b"Guardar todas las \xc3\xa1reas"), 1)
+        self.assertIn(b"TecnoAll - Ingenieria", response.data)
+        self.assertIn(b"TecnoAll - Compras", response.data)
+        self.assertIn(b"063", response.data)
+        self.assertNotIn(b"Guardar todas las \xc3\xa1reas", response.data)
+        self.assertNotIn(b'<select id="area-', response.data)
         self.assertIn(b"data-employees-area-filter", response.data)
-        self.assertIn(b'data-employee-area="__none__"', response.data)
+        self.assertIn(
+            b'data-employee-area="tecnoall - ingenieria"',
+            response.data,
+        )
 
         response = self.client.post(
             "/trabajadores/areas",
             data={
                 "csrf_token": self.csrf_token(),
-                "employee_name_key": [
-                    "ana lopez",
-                    "ruben humberto lizarraga reyes",
-                ],
-                "area": ["Ingeniería", "Abquim"],
             },
-            follow_redirects=True,
         )
-        self.assertEqual(response.status_code, 200)
-        self.assertIn(b"fueron actualizadas", response.data)
+        self.assertEqual(response.status_code, 404)
 
         with self.app.app_context():
             save_employees(
                 [{
-                    "employee_name": "ANA LÓPEZ",
-                    "employee_name_key": "ana lopez",
+                    "employee_name": "RANGEL PULIDO JORGE",
+                    "employee_name_key": "jorge rangel pulido",
+                    "group_name": "TecnoAll - Ventas Tijuana",
                 }]
             )
             employee = get_db().execute(
                 """
-                SELECT employee_name, area FROM employees
-                WHERE employee_name_key = 'ana lopez'
+                SELECT employee_name, employee_code, area FROM employees
+                WHERE employee_name_key = 'jorge rangel pulido'
                 """
             ).fetchone()
-            self.assertEqual(employee["employee_name"], "ANA LÓPEZ")
-            self.assertEqual(employee["area"], "Ingeniería")
-            ruben = get_db().execute(
-                """
-                SELECT area FROM employees
-                WHERE employee_name_key = 'ruben humberto lizarraga reyes'
-                """
-            ).fetchone()
-            self.assertEqual(ruben["area"], "Abquim")
+            self.assertEqual(employee["employee_name"], "RANGEL PULIDO JORGE")
+            self.assertEqual(employee["employee_code"], "063")
+            self.assertEqual(employee["area"], "TecnoAll - Ventas Tijuana")
 
         with patch("app.cached_attendance", return_value=[]):
             response = self.client.get("/?semana=2026-07-23")
-        self.assertIn(b'data-worker-area="ingenier\xc3\xada"', response.data)
-        self.assertIn(b'data-show-established-schedule="0"', response.data)
+        self.assertIn(
+            b'data-worker-area="tecnoall - ventas tijuana"',
+            response.data,
+        )
+        self.assertIn(b'data-worker-code="063"', response.data)
         self.assertIn(b"data-home-area-filter", response.data)
 
         stylesheet = self.client.get("/static/app.css")

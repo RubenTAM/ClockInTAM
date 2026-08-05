@@ -127,6 +127,7 @@ def build_daily_attendance(reports: list[dict]) -> list[dict]:
             {
                 "employee_name": name,
                 "employee_name_key": key[0],
+                "group_name": str(source.get("groupName") or "").strip(),
                 "work_date": work_date,
                 "clock_in": None,
                 "clock_out": None,
@@ -147,6 +148,9 @@ def build_daily_attendance(reports: list[dict]) -> list[dict]:
             or str(source.get("clockInArea") or "").strip()
             or row["area"]
         )
+        group_name = str(source.get("groupName") or "").strip()
+        if group_name:
+            row["group_name"] = group_name
 
     rows = list(grouped.values())
     for row in rows:

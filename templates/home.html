@@ -44,19 +44,20 @@
       <input id="home-worker-search" type="search"
              placeholder="Escribe un nombre…" autocomplete="off"
              data-home-search>
-      <label class="home-area-label" for="home-area-filter">Filtrar por área</label>
+      <label class="home-area-label" for="home-area-filter">Filtrar por grupo</label>
       <select id="home-area-filter" data-home-area-filter>
-        <option value="">Todas las áreas</option>
+        <option value="">Todos los grupos</option>
         {% for area in employee_areas %}
           <option value="{{ area|lower }}">{{ area }}</option>
         {% endfor %}
-        <option value="__none__">Sin área asignada</option>
+        <option value="__none__">Sin grupo registrado</option>
       </select>
       <div class="home-worker-list" data-home-list>
         {% for worker in calendar_rows %}
           <button type="button" class="home-worker-option {{ 'active' if loop.first else '' }}"
                   data-home-worker data-worker-name="{{ worker.employee_name|lower }}"
                   data-worker-key="{{ worker.employee_name_key }}"
+                  data-worker-code="{{ worker.employee_code|lower }}"
                   data-worker-area="{{ worker.area|lower if worker.area else '__none__' }}"
                   data-template="home-profile-{{ loop.index }}">
             {% if worker.photo_filename %}
@@ -68,7 +69,10 @@
             {% endif %}
             <span>
               <strong>{{ worker.employee_name }}</strong>
-              <small>{{ worker.area or 'Sin área registrada' }}</small>
+              <small>
+                {% if worker.employee_code %}No. {{ worker.employee_code }} · {% endif %}
+                {{ worker.area or 'Sin grupo registrado' }}
+              </small>
             </span>
           </button>
         {% endfor %}
@@ -97,7 +101,8 @@
             <span class="eyebrow">Información del trabajador</span>
             <h2>{{ worker.employee_name }}</h2>
             <dl>
-              <div><dt>Área</dt><dd>{{ worker.area or 'Sin información' }}</dd></div>
+              <div><dt>No. empleado</dt><dd>{{ worker.employee_code or 'Pendiente' }}</dd></div>
+              <div><dt>Grupo Hikvision</dt><dd>{{ worker.area or 'Sin información' }}</dd></div>
               <div><dt>Puesto</dt><dd>Sin información</dd></div>
               <div><dt>Teléfono</dt><dd>Sin información</dd></div>
               <div><dt>Correo</dt><dd>Sin información</dd></div>
@@ -115,7 +120,7 @@
                           data-enable-overtime
                           data-employee="{{ worker.employee_name }}"
                           data-employee-key="{{ worker.employee_name_key }}"
-                          data-show-established-schedule="{{ '0' if worker.area == 'Abquim' else '1' }}"
+                          data-show-established-schedule="{{ '0' if worker.area.startswith('Abquim') else '1' }}"
                           data-work-date="{{ cell.work_date }}"
                           data-date-label="{{ cell.work_date|date_es }}">
                     Habilitar tiempo extra

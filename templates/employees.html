@@ -5,7 +5,7 @@
   <div>
     <span class="eyebrow">Catálogo del personal</span>
     <h1>Trabajadores</h1>
-    <p>Asigna un área a cada trabajador cargado desde Hik-Connect.</p>
+    <p>Los grupos se asignan automáticamente con la información de Hikvision.</p>
   </div>
   <a class="button secondary"
      href="{{ url_for('employees', actualizar=1) }}">↻ Actualizar trabajadores</a>
@@ -27,64 +27,50 @@
              data-employees-search>
     </div>
     <div>
-      <label for="employees-area-filter">Filtrar por área</label>
+      <label for="employees-area-filter">Filtrar por grupo</label>
       <select id="employees-area-filter" data-employees-area-filter>
-        <option value="">Todas las áreas</option>
+        <option value="">Todos los grupos</option>
         {% for area in employee_areas %}
           <option value="{{ area|lower }}">{{ area }}</option>
         {% endfor %}
-        <option value="__none__">Sin área asignada</option>
+        <option value="__none__">Sin grupo registrado</option>
       </select>
     </div>
   </div>
 
   {% if employees %}
-    <form method="post" action="{{ url_for('update_employee_areas') }}">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <div class="table-scroll">
-        <table class="employees-table">
-          <thead>
-            <tr>
-              <th>Trabajador</th>
-              <th>Área</th>
+    <div class="table-scroll">
+      <table class="employees-table">
+        <thead>
+          <tr>
+            <th>No. empleado</th>
+            <th>Trabajador</th>
+            <th>Grupo Hikvision</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for employee in employees %}
+            <tr data-employee-row
+                data-employee-name="{{ employee.employee_name|lower }}"
+                data-employee-code="{{ employee.employee_code|lower }}"
+                data-employee-area="{{ employee.area|lower if employee.area else '__none__' }}">
+              <td class="employee-code">
+                {{ employee.employee_code or '—' }}
+              </td>
+              <td>
+                <span class="employee-name-cell">
+                  <span class="worker-avatar">{{ employee.employee_name[0]|upper }}</span>
+                  <strong>{{ employee.employee_name }}</strong>
+                </span>
+              </td>
+              <td>
+                {{ employee.area or 'Sin grupo registrado' }}
+              </td>
             </tr>
-          </thead>
-          <tbody>
-            {% for employee in employees %}
-              <tr data-employee-row
-                  data-employee-name="{{ employee.employee_name|lower }}"
-                  data-employee-area="{{ employee.area|lower if employee.area else '__none__' }}">
-                <td>
-                  <span class="employee-name-cell">
-                    <span class="worker-avatar">{{ employee.employee_name[0]|upper }}</span>
-                    <strong>{{ employee.employee_name }}</strong>
-                  </span>
-                </td>
-                <td>
-                  <input type="hidden" name="employee_name_key"
-                         value="{{ employee.employee_name_key }}">
-                  <label class="sr-only" for="area-{{ loop.index }}">
-                    Área de {{ employee.employee_name }}
-                  </label>
-                  <select id="area-{{ loop.index }}" name="area">
-                    <option value="">Sin área asignada</option>
-                    {% for area in employee_areas %}
-                      <option value="{{ area }}" {{ 'selected' if employee.area == area else '' }}>
-                        {{ area }}
-                      </option>
-                    {% endfor %}
-                  </select>
-                </td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-      <div class="employees-save-bar">
-        <p>Puedes cambiar varias áreas y guardarlas todas al terminar.</p>
-        <button class="button primary" type="submit">Guardar todas las áreas</button>
-      </div>
-    </form>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
     <p class="home-search-empty" data-employees-empty hidden>No hay coincidencias.</p>
   {% else %}
     <div class="empty-state">

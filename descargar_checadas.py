@@ -242,7 +242,7 @@ def crear_registro(
         "dispositivo": normalizar_texto(dispositivo),
         "area": normalizar_texto(area),
         "departamento": normalizar_texto(
-            persona.get("fullPath")
+            persona.get("groupName") or persona.get("fullPath")
         ),
         "horas_trabajadas": normalizar_texto(
             persona.get("workDuration")

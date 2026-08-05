@@ -28,6 +28,7 @@ class ReportingTests(unittest.TestCase):
                     "clockOutTime": "20:00",
                     "overtimeDuration": "03:00",
                     "clockOutArea": "Tijuana",
+                    "groupName": "TecnoAll - Ingenieria",
                 }
             ]
         )
@@ -35,6 +36,7 @@ class ReportingTests(unittest.TestCase):
         self.assertEqual(rows[0]["clock_in"], time(6, 0))
         self.assertEqual(rows[0]["clock_out"], time(20, 0))
         self.assertEqual(rows[0]["overtime_minutes"], 300)
+        self.assertEqual(rows[0]["group_name"], "TecnoAll - Ingenieria")
 
     def test_weekday_overtime_uses_company_schedule(self):
         self.assertEqual(
