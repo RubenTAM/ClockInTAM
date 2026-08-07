@@ -34,6 +34,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 
 import database
 from database import get_db, log_action, utc_now
+from excel_reports import build_expediente_rows, create_expedientes_workbook
 from hikconnect import HikConnectClient, HikConnectError
 from reporting import (
     build_daily_attendance,
@@ -1448,6 +1449,54 @@ def register_routes(app: Flask) -> None:
         return Response(
             output.getvalue(),
             mimetype="text/csv; charset=utf-8",
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"'
+            },
+        )
+
+    @app.get("/expedientes.xlsx")
+    @login_required
+    def employee_records_xlsx():
+        try:
+            week_start = week_start_for(
+                parse_iso_date(
+                    request.args.get("semana", local_today().isoformat())
+                )
+            )
+            group_name = request.args.get("grupo", "").strip()
+            active_groups = [
+                group
+                for group in employee_groups()
+                if not is_inactive_group(group)
+            ]
+            if group_name and group_name not in active_groups:
+                abort(400, "El grupo Hikvision seleccionado no es válido.")
+            report_rows, _loaded_at, _attendance_dates = report_for_week(
+                week_start
+            )
+        except (ValueError, HikConnectError) as exc:
+            flash(str(exc), "error")
+            return redirect(url_for("home"))
+
+        rows = build_expediente_rows(
+            report_rows,
+            employee_directory(),
+            week_start,
+            local_today(),
+            group_name,
+        )
+        workbook = create_expedientes_workbook(
+            rows,
+            week_start,
+            group_name,
+        )
+        filename = f"expedientes_{week_start.isoformat()}.xlsx"
+        return Response(
+            workbook,
+            mimetype=(
+                "application/vnd.openxmlformats-officedocument."
+                "spreadsheetml.sheet"
+            ),
             headers={
                 "Content-Disposition": f'attachment; filename="{filename}"'
             },

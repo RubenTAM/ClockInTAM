@@ -1,5 +1,7 @@
 import tempfile
 import unittest
+import io
+import zipfile
 from datetime import date, time
 from pathlib import Path
 from unittest.mock import patch
@@ -471,6 +473,70 @@ class AppFlowTests(unittest.TestCase):
         stylesheet = self.client.get("/static/app.css")
         self.assertIn(b".is-filtered-out", stylesheet.data)
         stylesheet.close()
+
+    def test_excel_records_are_filtered_by_group_with_incidents(self):
+        self.initialize_admin()
+        self.login()
+        with self.app.app_context():
+            save_employees(
+                [
+                    {
+                        "employee_name": "Jorge Rangel Pulido",
+                        "employee_name_key": "jorge rangel pulido",
+                        "group_name": "TecnoAll - Ingenieria",
+                    },
+                    {
+                        "employee_name": "Ana López",
+                        "employee_name_key": "ana lopez",
+                        "group_name": "TecnoAll - Compras",
+                    },
+                    {
+                        "employee_name": "Persona Inactiva",
+                        "employee_name_key": "persona inactiva",
+                        "group_name": "TecnoAll - Bajas e Inactivos",
+                    },
+                ]
+            )
+        report_rows = [
+            {
+                "employee_name": "Jorge Rangel Pulido",
+                "employee_name_key": "jorge rangel pulido",
+                "work_date": date(2026, 7, 23),
+                "clock_in": time(8, 20),
+                "clock_out": None,
+                "approved_minutes": 120,
+                "authorized_minutes": 60,
+            }
+        ]
+        with patch(
+            "app.report_for_week",
+            return_value=(report_rows, None, {date(2026, 7, 23)}),
+        ), patch("app.local_today", return_value=date(2026, 7, 29)):
+            response = self.client.get(
+                "/expedientes.xlsx",
+                query_string={
+                    "semana": "2026-07-23",
+                    "grupo": "TecnoAll - Ingenieria",
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.mimetype,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+        self.assertIn(b"expedientes_2026-07-23.xlsx", response.headers[
+            "Content-Disposition"
+        ].encode())
+        with zipfile.ZipFile(io.BytesIO(response.data)) as workbook:
+            strings = workbook.read("xl/sharedStrings.xml").decode("utf-8")
+            styles = workbook.read("xl/styles.xml").decode("utf-8")
+        self.assertIn("Jorge Rangel Pulido", strings)
+        self.assertNotIn("Ana López", strings)
+        self.assertNotIn("Persona Inactiva", strings)
+        self.assertIn("No checó salida · Llegada tarde", strings)
+        self.assertIn("Ausencia a laborar", strings)
+        self.assertIn("FFC62828", styles)
 
     def test_report_calendar_marks_incomplete_punches(self):
         self.initialize_admin()
