@@ -408,6 +408,10 @@ class AppFlowTests(unittest.TestCase):
                     "employee_name": "Ana López",
                     "employee_name_key": "ana lopez",
                     "group_name": "TecnoAll - Compras",
+                }, {
+                    "employee_name": "Persona Inactiva",
+                    "employee_name_key": "persona inactiva",
+                    "group_name": "TecnoAll - Bajas e Inactivos",
                 }]
             )
 
@@ -416,6 +420,8 @@ class AppFlowTests(unittest.TestCase):
         self.assertIn("Ana López".encode(), response.data)
         self.assertIn(b"TecnoAll - Ingenieria", response.data)
         self.assertIn(b"TecnoAll - Compras", response.data)
+        self.assertIn(b"Persona Inactiva", response.data)
+        self.assertIn(b"TecnoAll - Bajas e Inactivos", response.data)
         self.assertIn(b"063", response.data)
         self.assertNotIn(b"Guardar todas las \xc3\xa1reas", response.data)
         self.assertNotIn(b'<select id="area-', response.data)
@@ -459,6 +465,8 @@ class AppFlowTests(unittest.TestCase):
         )
         self.assertIn(b'data-worker-code="063"', response.data)
         self.assertIn(b"data-home-area-filter", response.data)
+        self.assertNotIn(b"Persona Inactiva", response.data)
+        self.assertNotIn(b"TecnoAll - Bajas e Inactivos", response.data)
 
         stylesheet = self.client.get("/static/app.css")
         self.assertIn(b".is-filtered-out", stylesheet.data)

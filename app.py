@@ -449,6 +449,10 @@ def employee_groups() -> list[str]:
     return [row["area"] for row in rows]
 
 
+def is_inactive_group(group_name: str) -> bool:
+    return "bajas e inactivos" in normalize_name(group_name)
+
+
 def authorizations_for_week(week_start: date) -> list[dict]:
     week_end = week_start + timedelta(days=6)
     rows = get_db().execute(
@@ -762,6 +766,11 @@ def register_routes(app: Flask) -> None:
             employee = directory.get(worker["employee_name_key"], {})
             worker["area"] = employee.get("area", "")
             worker["employee_code"] = employee.get("employee_code", "")
+        calendar_rows = [
+            worker
+            for worker in calendar_rows
+            if not is_inactive_group(worker["area"])
+        ]
         return render_template(
             "home.html",
             calendar_rows=calendar_rows,
@@ -772,7 +781,11 @@ def register_routes(app: Flask) -> None:
             next_week=week_start + timedelta(days=7),
             loaded_at=loaded_at,
             error=error,
-            employee_areas=employee_groups(),
+            employee_areas=[
+                group
+                for group in employee_groups()
+                if not is_inactive_group(group)
+            ],
             selected_worker=request.args.get("trabajador", ""),
         )
 
