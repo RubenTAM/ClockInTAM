@@ -121,9 +121,13 @@ p { color: var(--muted); line-height: 1.55; }
 .date-tile small { margin-top: 2px; font-size: .63rem; }
 .quick-panel { padding: 25px; }
 .home-header { margin-bottom: 18px; }
-.home-header-actions { align-items: center; flex-wrap: wrap; justify-content: flex-end; }
-.excel-export-form { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
-.excel-export-form select { min-width: 230px; max-width: 310px; }
+.home-header-actions { align-items: flex-end; justify-content: flex-end; margin-left: auto; }
+.excel-export-form { display: flex; flex-direction: column; align-items: flex-end; gap: 9px; }
+.excel-export-buttons { display: flex; align-items: center; gap: 8px; }
+.excel-export-buttons .button { min-width: 190px; }
+.excel-group-field { display: flex; align-items: center; justify-content: flex-end; gap: 10px; margin: 0; }
+.excel-group-field span { color: var(--muted); font-size: .75rem; font-weight: 800; white-space: nowrap; }
+.excel-group-field select { width: 280px; }
 .home-page { overflow: hidden; }
 .home-page .app-main {
   height: 100vh; min-height: 0; display: flex; flex-direction: column;
@@ -639,8 +643,11 @@ td.muted { max-width: 230px; overflow: hidden; text-overflow: ellipsis; }
   .page-header { align-items: stretch; flex-direction: column; }
   .page-header .button { width: 100%; }
   .header-actions { flex-direction: column; }
-  .excel-export-form { align-items: stretch; flex-direction: column; }
-  .excel-export-form select { min-width: 0; max-width: none; width: 100%; }
+  .home-header-actions, .excel-export-form { align-items: stretch; margin-left: 0; }
+  .excel-export-buttons { flex-direction: column; }
+  .excel-export-buttons .button { min-width: 0; width: 100%; }
+  .excel-group-field { align-items: stretch; flex-direction: column; gap: 6px; }
+  .excel-group-field select { width: 100%; }
   .week-nav { justify-content: space-between; }
   .week-picker label { display: none; }
   .week-picker { flex: 1; }

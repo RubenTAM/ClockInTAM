@@ -292,6 +292,8 @@ class AppFlowTests(unittest.TestCase):
         self.assertIn(b"Expediente Supervisor", response.data)
         self.assertIn(b"Expediente Contador", response.data)
         self.assertIn(b'/expediente-contador.xlsx', response.data)
+        self.assertIn(b"Grupo para el reporte", response.data)
+        self.assertNotIn(b"Actualizar datos", response.data)
 
     def test_home_keeps_directory_worker_without_attendance_visible(self):
         self.initialize_admin()

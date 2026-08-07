@@ -12,21 +12,23 @@
     <form class="excel-export-form" method="get"
           action="{{ url_for('employee_records_xlsx') }}">
       <input type="hidden" name="semana" value="{{ week_start }}">
-      <label class="sr-only" for="excel-group">Grupo para descargar</label>
-      <select id="excel-group" name="grupo">
-        <option value="">Todos los grupos activos</option>
-        {% for area in employee_areas %}
-          <option value="{{ area }}">{{ area }}</option>
-        {% endfor %}
-      </select>
-      <button class="button primary" type="submit">Expediente Supervisor</button>
-      <button class="button secondary" type="submit"
-              formaction="{{ url_for('accountant_records_xlsx') }}">
-        Expediente Contador
-      </button>
+      <div class="excel-export-buttons">
+        <button class="button primary" type="submit">Expediente Supervisor</button>
+        <button class="button secondary" type="submit"
+                formaction="{{ url_for('accountant_records_xlsx') }}">
+          Expediente Contador
+        </button>
+      </div>
+      <label class="excel-group-field" for="excel-group">
+        <span>Grupo para el reporte</span>
+        <select id="excel-group" name="grupo">
+          <option value="">Todos los grupos activos</option>
+          {% for area in employee_areas %}
+            <option value="{{ area }}">{{ area }}</option>
+          {% endfor %}
+        </select>
+      </label>
     </form>
-    <a class="button secondary"
-       href="{{ url_for('home', semana=week_start, actualizar=1) }}">↻ Actualizar datos</a>
   </div>
 </header>
 
