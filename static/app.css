@@ -121,8 +121,8 @@ p { color: var(--muted); line-height: 1.55; }
 .date-tile small { margin-top: 2px; font-size: .63rem; }
 .quick-panel { padding: 25px; }
 .home-header { margin-bottom: 18px; }
-.home-header-actions { align-items: center; }
-.excel-export-form { display: flex; align-items: center; gap: 8px; }
+.home-header-actions { align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+.excel-export-form { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
 .excel-export-form select { min-width: 230px; max-width: 310px; }
 .home-page { overflow: hidden; }
 .home-page .app-main {

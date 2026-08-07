@@ -289,6 +289,9 @@ class AppFlowTests(unittest.TestCase):
         self.assertIn(b"Horas extras autorizadas", response.data)
         self.assertIn("17:00–18:00".encode(), response.data)
         self.assertIn(b'id="home-authorization-dialog"', response.data)
+        self.assertIn(b"Expediente Supervisor", response.data)
+        self.assertIn(b"Expediente Contador", response.data)
+        self.assertIn(b'/expediente-contador.xlsx', response.data)
 
     def test_home_keeps_directory_worker_without_attendance_visible(self):
         self.initialize_admin()
@@ -537,6 +540,64 @@ class AppFlowTests(unittest.TestCase):
         self.assertIn("No checó salida · Llegada tarde", strings)
         self.assertIn("Ausencia a laborar", strings)
         self.assertIn("FFC62828", styles)
+
+    def test_accountant_excel_has_seven_days_and_overtime_codes(self):
+        self.initialize_admin()
+        self.login()
+        with self.app.app_context():
+            save_employees(
+                [
+                    {
+                        "employee_name": "Jorge Rangel Pulido",
+                        "employee_name_key": "jorge rangel pulido",
+                        "group_name": "TecnoAll - Ingenieria",
+                    },
+                    {
+                        "employee_name": "Ana López",
+                        "employee_name_key": "ana lopez",
+                        "group_name": "TecnoAll - Compras",
+                    },
+                ]
+            )
+        report_rows = [
+            {
+                "employee_name": "Jorge Rangel Pulido",
+                "employee_name_key": "jorge rangel pulido",
+                "work_date": date(2026, 7, 23),
+                "authorized_minutes": 480,
+            },
+            {
+                "employee_name": "Jorge Rangel Pulido",
+                "employee_name_key": "jorge rangel pulido",
+                "work_date": date(2026, 7, 24),
+                "authorized_minutes": 180,
+            },
+        ]
+        with patch(
+            "app.report_for_week",
+            return_value=(report_rows, None, {date(2026, 7, 23)}),
+        ):
+            response = self.client.get(
+                "/expediente-contador.xlsx",
+                query_string={
+                    "semana": "2026-07-23",
+                    "grupo": "TecnoAll - Ingenieria",
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(
+            b"expediente_contador_2026-07-23.xlsx",
+            response.headers["Content-Disposition"].encode(),
+        )
+        with zipfile.ZipFile(io.BytesIO(response.data)) as workbook:
+            strings = workbook.read("xl/sharedStrings.xml").decode("utf-8")
+        self.assertIn("Jorge Rangel Pulido", strings)
+        self.assertNotIn("Ana López", strings)
+        self.assertIn("Jue 23/07", strings)
+        self.assertIn("Mié 29/07", strings)
+        self.assertIn("8HE2", strings)
+        self.assertIn("1HE2 / 2HE3", strings)
 
     def test_report_calendar_marks_incomplete_punches(self):
         self.initialize_admin()

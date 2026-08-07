@@ -19,7 +19,11 @@
           <option value="{{ area }}">{{ area }}</option>
         {% endfor %}
       </select>
-      <button class="button primary" type="submit">Descargar Excel</button>
+      <button class="button primary" type="submit">Expediente Supervisor</button>
+      <button class="button secondary" type="submit"
+              formaction="{{ url_for('accountant_records_xlsx') }}">
+        Expediente Contador
+      </button>
     </form>
     <a class="button secondary"
        href="{{ url_for('home', semana=week_start, actualizar=1) }}">↻ Actualizar datos</a>
