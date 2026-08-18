@@ -166,33 +166,6 @@
 })();
 
 (() => {
-  const home = document.querySelector("[data-supervisor-home]");
-  if (!home) return;
-
-  const normalizeSearch = (value) => value
-    .trim()
-    .toLocaleLowerCase("es")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
-  const search = home.querySelector("[data-supervisor-search]");
-  const rows = [...home.querySelectorAll("[data-supervisor-worker]")];
-  const empty = home.querySelector("[data-supervisor-empty]");
-  if (!search) return;
-
-  const filterWorkers = () => {
-    const query = normalizeSearch(search.value);
-    let visible = 0;
-    rows.forEach((row) => {
-      const matches = normalizeSearch(row.dataset.workerName).includes(query);
-      row.hidden = !matches;
-      if (matches) visible += 1;
-    });
-    empty.hidden = visible > 0;
-  };
-  search.addEventListener("input", filterWorkers);
-})();
-
-(() => {
   const normalizeSearch = (value) => value
     .trim()
     .toLocaleLowerCase("es")
@@ -247,16 +220,18 @@
   const areaFilter = browser.querySelector("[data-home-area-filter]");
   const profile = browser.querySelector("[data-home-profile]");
   const empty = browser.querySelector("[data-home-empty]");
+  const preview = browser.querySelector("[data-home-preview]");
   const workers = [...browser.querySelectorAll("[data-home-worker]")];
+  const choices = preview ? [preview, ...workers] : workers;
 
   const showWorker = (button) => {
     const template = document.getElementById(button.dataset.template);
     if (!template) return;
-    workers.forEach((worker) => worker.classList.toggle("active", worker === button));
+    choices.forEach((choice) => choice.classList.toggle("active", choice === button));
     profile.replaceChildren(template.content.cloneNode(true));
   };
 
-  workers.forEach((button) => {
+  choices.forEach((button) => {
     button.addEventListener("click", () => showWorker(button));
   });
 
@@ -264,6 +239,7 @@
     const query = normalizeSearch(search.value);
     const area = normalizeSearch(areaFilter.value);
     const matchingWorkers = [];
+    if (preview) preview.hidden = Boolean(query || area);
     workers.forEach((button) => {
       const matchesSearch = normalizeSearch(button.dataset.workerName).includes(query)
         || normalizeSearch(button.dataset.workerCode || "").includes(query);
@@ -274,10 +250,12 @@
       if (matches) matchingWorkers.push(button);
     });
     empty.hidden = matchingWorkers.length > 0;
-    if (matchingWorkers.length) {
+    if (preview && !preview.hidden) {
+      showWorker(preview);
+    } else if (matchingWorkers.length) {
       showWorker(matchingWorkers[0]);
     } else {
-      workers.forEach((worker) => worker.classList.remove("active"));
+      choices.forEach((choice) => choice.classList.remove("active"));
       profile.replaceChildren();
     }
   };
@@ -296,6 +274,8 @@
   );
   if (initialWorker) {
     showWorker(initialWorker);
+  } else if (preview) {
+    showWorker(preview);
   } else if (workers.length) {
     showWorker(workers[0]);
   }

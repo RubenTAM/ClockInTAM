@@ -129,15 +129,14 @@ p { color: var(--muted); line-height: 1.55; }
 .excel-group-field span { color: var(--muted); font-size: .75rem; font-weight: 800; white-space: nowrap; }
 .excel-group-field select { width: 280px; }
 .supervisor-export-scope { color: var(--muted); font-size: .75rem; font-weight: 800; }
-.supervisor-home { min-height: 0; display: flex; flex: 1 1 auto; flex-direction: column; gap: 14px; }
-.supervisor-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.supervisor-preview { min-height: 0; height: 100%; display: flex; flex-direction: column; gap: 12px; }
+.supervisor-preview-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .supervisor-metric {
   padding: 16px 18px; border: 1px solid var(--line); border-top: 4px solid var(--green);
   border-radius: 14px; background: white; box-shadow: var(--shadow);
 }
 .supervisor-metric.danger { border-top-color: var(--red); }
 .supervisor-metric.overtime { border-top-color: #147a5b; }
-.supervisor-metric.warning { border-top-color: var(--orange); }
 .supervisor-metric span, .supervisor-metric small { display: block; color: var(--muted); }
 .supervisor-metric span { font-size: .76rem; font-weight: 800; }
 .supervisor-metric strong { display: block; margin: 6px 0 2px; font-size: 1.55rem; }
@@ -146,7 +145,6 @@ p { color: var(--muted); line-height: 1.55; }
 .supervisor-team-header { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 18px 20px; border-bottom: 1px solid var(--line); }
 .supervisor-team-header h2, .supervisor-team-header p { margin-bottom: 0; }
 .supervisor-team-header p { margin-top: 4px; font-size: .8rem; }
-.supervisor-search { flex: 0 1 310px; }
 .supervisor-table-wrap { min-height: 0; flex: 1 1 auto; overflow: auto; }
 .supervisor-table { width: 100%; border-collapse: collapse; }
 .supervisor-table th, .supervisor-table td { padding: 13px 18px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: middle; }
@@ -162,9 +160,7 @@ p { color: var(--muted); line-height: 1.55; }
 .summary-count { padding: 5px 8px; }
 .summary-count.danger, .incident-badge.danger { color: var(--red); background: var(--red-pale); }
 .summary-count.overtime, .incident-badge.overtime { color: #12664e; background: #e7f6ef; }
-.summary-count.warning, .incident-badge.warning { color: #9a481b; background: var(--orange-pale); }
 .summary-count.clear { color: var(--green-dark); background: var(--green-pale); }
-.incident-badge.pending { color: #7b5520; background: #fff4dd; }
 .supervisor-incidents { min-width: 390px; display: flex; flex-wrap: wrap; gap: 7px; }
 .incident-day { display: inline-flex; align-items: center; gap: 5px; padding: 4px; border: 1px solid var(--line); border-radius: 9px; }
 .incident-day > strong { padding: 0 4px; font-size: .66rem; }
@@ -204,6 +200,8 @@ p { color: var(--muted); line-height: 1.55; }
 }
 .home-worker-option:hover { background: #f1f6f9; }
 .home-worker-option.active { border-color: #b8d6e4; background: var(--green-pale); }
+.home-preview-option { margin-bottom: 4px; border-color: #c7dce7; background: #f7fbfd; }
+.home-preview-icon { font-size: 1rem; }
 .home-worker-option > span:last-child { min-width: 0; }
 .home-worker-option strong, .home-worker-option small {
   display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -673,7 +671,6 @@ td.muted { max-width: 230px; overflow: hidden; text-overflow: ellipsis; }
   .day-grid { grid-template-columns: repeat(4, 1fr); }
   .home-browser { grid-template-columns: 240px minmax(0, 1fr); }
   .home-person-grid { grid-template-columns: 1fr; }
-  .supervisor-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .home-photo-placeholder { min-height: 220px; }
 }
 
@@ -714,10 +711,9 @@ td.muted { max-width: 230px; overflow: hidden; text-overflow: ellipsis; }
   .dialog-actions { align-items: stretch; flex-direction: column-reverse; }
   .dialog-actions .button { width: 100%; }
   .home-browser { grid-template-columns: 1fr; }
-  .supervisor-home { flex: none; }
-  .supervisor-metrics { grid-template-columns: 1fr; }
+  .supervisor-preview { height: auto; }
+  .supervisor-preview-metrics { grid-template-columns: 1fr; }
   .supervisor-team-header { align-items: stretch; flex-direction: column; }
-  .supervisor-search { flex-basis: auto; }
   .supervisor-table-wrap { overflow-x: auto; }
   .user-area-form { width: 100%; order: 5; }
   .user-area-form select { width: 100%; }

@@ -472,46 +472,41 @@ def same_group(first: str, second: str) -> bool:
 
 
 def supervisor_incident_summary(calendar_rows: list[dict]) -> dict:
-    """Build a compact weekly roll-up for every worker in a supervisor group."""
+    """Build the supervisor preview from missing punches and approved overtime."""
     totals = {
         "workers": len(calendar_rows),
         "with_incidents": 0,
         "incomplete": 0,
         "authorized_minutes": 0,
-        "unauthorized_minutes": 0,
     }
     for worker in calendar_rows:
         incidents = []
         worker_authorized = 0
-        worker_unauthorized = 0
         worker_incomplete = 0
         for cell in worker["cells"]:
             report = cell["report"]
             day_incidents = []
             if cell["is_incomplete"] and not cell["is_today"]:
-                worker_incomplete += 1
-                if report and report.get("clock_in") and not report.get("clock_out"):
-                    day_incidents.append(("danger", "Falta salida"))
-                elif report and report.get("clock_out") and not report.get("clock_in"):
-                    day_incidents.append(("danger", "Falta entrada"))
-                else:
-                    day_incidents.append(("danger", "Sin checada"))
+                if not report or not report.get("clock_in"):
+                    worker_incomplete += 1
+                    day_incidents.append(
+                        ("danger", "Sin checada de entrada")
+                    )
+                if not report or not report.get("clock_out"):
+                    worker_incomplete += 1
+                    day_incidents.append(
+                        ("danger", "Sin checada de salida")
+                    )
             if report:
-                authorized = int(report.get("authorized_minutes", 0))
-                unauthorized = int(report.get("unauthorized_minutes", 0))
-                unused = int(report.get("unused_minutes", 0))
+                authorized = int(report.get("approved_minutes", 0))
                 worker_authorized += authorized
-                worker_unauthorized += unauthorized
                 if authorized:
                     day_incidents.append(
-                        ("overtime", f"{format_minutes(authorized)} extra")
+                        (
+                            "overtime",
+                            f"{format_minutes(authorized)} autorizadas",
+                        )
                     )
-                if unauthorized:
-                    day_incidents.append(
-                        ("warning", f"{format_minutes(unauthorized)} sin autorizar")
-                    )
-                if unused and not authorized:
-                    day_incidents.append(("pending", "Autorización no utilizada"))
             if day_incidents:
                 incidents.append(
                     {
@@ -522,12 +517,10 @@ def supervisor_incident_summary(calendar_rows: list[dict]) -> dict:
         worker["summary_incidents"] = incidents
         worker["summary_incomplete"] = worker_incomplete
         worker["summary_authorized_minutes"] = worker_authorized
-        worker["summary_unauthorized_minutes"] = worker_unauthorized
         if incidents:
             totals["with_incidents"] += 1
         totals["incomplete"] += worker_incomplete
         totals["authorized_minutes"] += worker_authorized
-        totals["unauthorized_minutes"] += worker_unauthorized
     return totals
 
 

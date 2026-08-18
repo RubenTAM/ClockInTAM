@@ -250,7 +250,8 @@ class AppFlowTests(unittest.TestCase):
                 "clock_out": time(18, 0),
                 "overtime_minutes": 60,
                 "authorized_minutes": 60,
-                "unauthorized_minutes": 0,
+                "approved_minutes": 60,
+                "unauthorized_minutes": 45,
                 "unused_minutes": 0,
             }
         ]
@@ -261,12 +262,21 @@ class AppFlowTests(unittest.TestCase):
             response = self.client.get("/?semana=2026-07-23")
 
         self.assertEqual(response.status_code, 200)
-        self.assertIn(b"Resumen del equipo", response.data)
+        self.assertIn(b"Vista de trabajadores", response.data)
+        self.assertIn(b"data-home-browser", response.data)
+        self.assertIn(b"data-home-preview", response.data)
         self.assertIn(b"Incidencias del equipo", response.data)
         self.assertIn(b"Jorge Rangel Pulido", response.data)
         self.assertNotIn("Ana López".encode(), response.data)
-        self.assertIn(b"1 h 00 min extra", response.data)
-        self.assertNotIn(b"Informaci\xc3\xb3n del trabajador", response.data)
+        self.assertIn(b"1 h 00 min autorizadas", response.data)
+        self.assertIn(b"Sin checada de entrada", response.data)
+        self.assertIn(b"Sin checada de salida", response.data)
+        self.assertNotIn(b"sin autorizar", response.data)
+        self.assertIn(b"Informaci\xc3\xb3n del trabajador", response.data)
+        self.assertLess(
+            response.data.index(b"Vista previa"),
+            response.data.index(b"Jorge Rangel Pulido"),
+        )
 
         with self.app.app_context():
             user = get_db().execute(
