@@ -161,6 +161,13 @@ p { color: var(--muted); line-height: 1.55; }
 .summary-count.danger, .incident-badge.danger { color: var(--red); background: var(--red-pale); }
 .summary-count.overtime, .incident-badge.overtime { color: #12664e; background: #e7f6ef; }
 .summary-count.clear { color: var(--green-dark); background: var(--green-pale); }
+.summary-overtime-stack, .incident-overtime-stack {
+  display: inline-flex; align-items: flex-start; flex-direction: column; gap: 2px;
+  padding: 6px 8px; border-radius: 9px; color: #12664e; background: #e7f6ef;
+  font-size: .67rem; white-space: nowrap;
+}
+.summary-overtime-stack strong, .incident-overtime-stack strong { font-size: .67rem; }
+.summary-overtime-stack small, .incident-overtime-stack small { color: #28755f; font-size: .62rem; font-weight: 800; }
 .supervisor-incidents { min-width: 390px; display: flex; flex-wrap: wrap; gap: 7px; }
 .incident-day { display: inline-flex; align-items: center; gap: 5px; padding: 4px; border: 1px solid var(--line); border-radius: 9px; }
 .incident-day > strong { padding: 0 4px; font-size: .66rem; }

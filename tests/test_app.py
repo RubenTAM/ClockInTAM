@@ -10,6 +10,7 @@ from app import (
     create_app,
     employee_photo_filename,
     known_employee_code,
+    rounded_overtime_minutes,
     save_employees,
     week_start_for,
     weekly_report_calendar,
@@ -108,6 +109,38 @@ class AppFlowTests(unittest.TestCase):
         self.assertEqual(workers[0]["cells"][0]["report"]["triple_minutes"], 0)
         self.assertEqual(workers[0]["cells"][1]["report"]["double_minutes"], 60)
         self.assertEqual(workers[0]["cells"][1]["report"]["triple_minutes"], 60)
+
+    def test_home_rounds_overtime_only_from_fifty_minutes(self):
+        rows = [
+            {
+                "employee_name": "Jorge Rangel Pulido",
+                "employee_name_key": "jorge rangel pulido",
+                "work_date": date(2026, 7, 23),
+                "authorized_minutes": 49,
+                "approved_minutes": 49,
+            },
+            {
+                "employee_name": "Jorge Rangel Pulido",
+                "employee_name_key": "jorge rangel pulido",
+                "work_date": date(2026, 7, 24),
+                "authorized_minutes": 50,
+                "approved_minutes": 50,
+            },
+        ]
+
+        with self.app.app_context():
+            workers, _ = weekly_report_calendar(rows, date(2026, 7, 23))
+
+        first_report = workers[0]["cells"][0]["report"]
+        second_report = workers[0]["cells"][1]["report"]
+        self.assertEqual(rounded_overtime_minutes(49), 0)
+        self.assertEqual(rounded_overtime_minutes(50), 60)
+        self.assertEqual(first_report["rounded_counted_overtime_minutes"], 0)
+        self.assertEqual(first_report["rounded_double_minutes"], 0)
+        self.assertEqual(first_report["rounded_approved_minutes"], 0)
+        self.assertEqual(second_report["rounded_counted_overtime_minutes"], 60)
+        self.assertEqual(second_report["rounded_double_minutes"], 60)
+        self.assertEqual(second_report["rounded_approved_minutes"], 60)
 
     def test_unapproved_overtime_is_not_counted_on_home(self):
         rows = [
@@ -269,6 +302,7 @@ class AppFlowTests(unittest.TestCase):
         self.assertIn(b"Jorge Rangel Pulido", response.data)
         self.assertNotIn("Ana López".encode(), response.data)
         self.assertIn(b"1 h 00 min autorizadas", response.data)
+        self.assertIn(b"1 h 00 min dobles", response.data)
         self.assertIn(b"Sin checada de entrada", response.data)
         self.assertIn(b"Sin checada de salida", response.data)
         self.assertNotIn(b"sin autorizar", response.data)

@@ -133,7 +133,12 @@
           <article class="supervisor-metric overtime">
             <span>Horas extra autorizadas</span>
             <strong>{{ supervisor_totals.authorized_minutes|minutes }}</strong>
-            <small>para el grupo de Ingeniería</small>
+            <small>
+              {{ supervisor_totals.double_minutes|minutes }} dobles
+              {% if supervisor_totals.triple_minutes %}
+                · {{ supervisor_totals.triple_minutes|minutes }} triples
+              {% endif %}
+            </small>
           </article>
         </div>
 
@@ -178,7 +183,15 @@
                           <span class="summary-count danger">{{ worker.summary_incomplete }} checada{{ 's' if worker.summary_incomplete != 1 else '' }} faltante{{ 's' if worker.summary_incomplete != 1 else '' }}</span>
                         {% endif %}
                         {% if worker.summary_authorized_minutes %}
-                          <span class="summary-count overtime">{{ worker.summary_authorized_minutes|minutes }} autorizadas</span>
+                          <span class="summary-overtime-stack">
+                            <strong>{{ worker.summary_authorized_minutes|minutes }} autorizadas</strong>
+                            {% if worker.summary_double_minutes %}
+                              <small>{{ worker.summary_double_minutes|minutes }} dobles</small>
+                            {% endif %}
+                            {% if worker.summary_triple_minutes %}
+                              <small>{{ worker.summary_triple_minutes|minutes }} triples</small>
+                            {% endif %}
+                          </span>
                         {% endif %}
                         {% if not worker.summary_incidents %}
                           <span class="summary-count clear">✓ Sin incidencias</span>
@@ -190,9 +203,20 @@
                         {% for incident in worker.summary_incidents %}
                           <div class="incident-day">
                             <strong>{{ incident.work_date|weekday_short }} {{ incident.work_date.day }}/{{ incident.work_date.month }}</strong>
-                            {% for style, label in incident['items'] %}
-                              <span class="incident-badge {{ style }}">{{ label }}</span>
+                            {% for label in incident.missing_punches %}
+                              <span class="incident-badge danger">{{ label }}</span>
                             {% endfor %}
+                            {% if incident.authorized_minutes %}
+                              <span class="incident-overtime-stack">
+                                <strong>{{ incident.authorized_minutes|minutes }} autorizadas</strong>
+                                {% if incident.double_minutes %}
+                                  <small>{{ incident.double_minutes|minutes }} dobles</small>
+                                {% endif %}
+                                {% if incident.triple_minutes %}
+                                  <small>{{ incident.triple_minutes|minutes }} triples</small>
+                                {% endif %}
+                              </span>
+                            {% endif %}
                           </div>
                         {% else %}
                           <span class="no-incidents">Todo en orden esta semana</span>
@@ -257,9 +281,9 @@
                   <dl>
                     <div><dt>Hora de entrada</dt><dd>{{ report.clock_in|clock if report else '—' }}</dd></div>
                     <div><dt>Hora de salida</dt><dd>{{ report.clock_out|clock if report else '—' }}</dd></div>
-                    <div><dt>Tiempo extra</dt><dd>{{ report.counted_overtime_minutes|minutes if report else '0 h 00 min' }}</dd></div>
-                    <div class="double-hours"><dt>Horas dobles</dt><dd>{{ report.double_minutes|minutes if report else '0 h 00 min' }}</dd></div>
-                    <div class="triple-hours"><dt>Horas triples</dt><dd>{{ report.triple_minutes|minutes if report else '0 h 00 min' }}</dd></div>
+                    <div><dt>Tiempo extra</dt><dd>{{ report.rounded_counted_overtime_minutes|minutes if report else '0 h 00 min' }}</dd></div>
+                    <div class="double-hours"><dt>Horas dobles</dt><dd>{{ report.rounded_double_minutes|minutes if report else '0 h 00 min' }}</dd></div>
+                    <div class="triple-hours"><dt>Horas triples</dt><dd>{{ report.rounded_triple_minutes|minutes if report else '0 h 00 min' }}</dd></div>
                   </dl>
                   <div class="home-day-statuses">
                     {% if cell.is_today %}
@@ -275,10 +299,16 @@
                               data-work-date="{{ cell.work_date }}"
                               data-date="{{ cell.work_date|date_es }}"
                               data-range="{{ report.allowed_range }}"
-                              data-approved="{{ report.approved_minutes|minutes }}"
-                              data-counted="{{ report.counted_overtime_minutes|minutes }}">
+                              data-approved="{{ report.rounded_approved_minutes|minutes }}"
+                              data-counted="{{ report.rounded_counted_overtime_minutes|minutes }}">
                         <span>✓ Horas extras autorizadas</span>
-                        <small>{{ report.approved_minutes|minutes }} aprobadas</small>
+                        <small>{{ report.rounded_approved_minutes|minutes }} aprobadas</small>
+                        {% if report.rounded_double_minutes %}
+                          <small>{{ report.rounded_double_minutes|minutes }} dobles</small>
+                        {% endif %}
+                        {% if report.rounded_triple_minutes %}
+                          <small>{{ report.rounded_triple_minutes|minutes }} triples</small>
+                        {% endif %}
                       </button>
                     {% endif %}
                   </div>

@@ -39,6 +39,7 @@ from excel_reports import (
     build_expediente_rows,
     create_accountant_workbook,
     create_expedientes_workbook,
+    round_overtime_code_hours,
 )
 from hikconnect import HikConnectClient, HikConnectError
 from reporting import (
@@ -471,6 +472,11 @@ def same_group(first: str, second: str) -> bool:
     return normalize_name(first) == normalize_name(second)
 
 
+def rounded_overtime_minutes(minutes: int) -> int:
+    """Apply the company 50-minute threshold and return whole-hour minutes."""
+    return round_overtime_code_hours(minutes) * 60
+
+
 def supervisor_incident_summary(calendar_rows: list[dict]) -> dict:
     """Build the supervisor preview from missing punches and approved overtime."""
     totals = {
@@ -478,49 +484,62 @@ def supervisor_incident_summary(calendar_rows: list[dict]) -> dict:
         "with_incidents": 0,
         "incomplete": 0,
         "authorized_minutes": 0,
+        "double_minutes": 0,
+        "triple_minutes": 0,
     }
     for worker in calendar_rows:
         incidents = []
         worker_authorized = 0
+        worker_double = 0
+        worker_triple = 0
         worker_incomplete = 0
         for cell in worker["cells"]:
             report = cell["report"]
-            day_incidents = []
+            missing_punches = []
             if cell["is_incomplete"] and not cell["is_today"]:
                 if not report or not report.get("clock_in"):
                     worker_incomplete += 1
-                    day_incidents.append(
-                        ("danger", "Sin checada de entrada")
-                    )
+                    missing_punches.append("Sin checada de entrada")
                 if not report or not report.get("clock_out"):
                     worker_incomplete += 1
-                    day_incidents.append(
-                        ("danger", "Sin checada de salida")
-                    )
+                    missing_punches.append("Sin checada de salida")
+            authorized = 0
+            double_minutes = 0
+            triple_minutes = 0
             if report:
-                authorized = int(report.get("approved_minutes", 0))
+                authorized = rounded_overtime_minutes(
+                    int(report.get("approved_minutes", 0))
+                )
+                double_minutes = int(
+                    report.get("rounded_double_minutes", 0)
+                )
+                triple_minutes = int(
+                    report.get("rounded_triple_minutes", 0)
+                )
                 worker_authorized += authorized
-                if authorized:
-                    day_incidents.append(
-                        (
-                            "overtime",
-                            f"{format_minutes(authorized)} autorizadas",
-                        )
-                    )
-            if day_incidents:
+                worker_double += double_minutes
+                worker_triple += triple_minutes
+            if missing_punches or authorized:
                 incidents.append(
                     {
                         "work_date": cell["work_date"],
-                        "items": day_incidents,
+                        "missing_punches": missing_punches,
+                        "authorized_minutes": authorized,
+                        "double_minutes": double_minutes,
+                        "triple_minutes": triple_minutes,
                     }
                 )
         worker["summary_incidents"] = incidents
         worker["summary_incomplete"] = worker_incomplete
         worker["summary_authorized_minutes"] = worker_authorized
+        worker["summary_double_minutes"] = worker_double
+        worker["summary_triple_minutes"] = worker_triple
         if incidents:
             totals["with_incidents"] += 1
         totals["incomplete"] += worker_incomplete
         totals["authorized_minutes"] += worker_authorized
+        totals["double_minutes"] += worker_double
+        totals["triple_minutes"] += worker_triple
     return totals
 
 
@@ -649,6 +668,20 @@ def weekly_report_calendar(
                 report["triple_minutes"] = max(
                     0,
                     counted_overtime_minutes - double_minutes,
+                )
+                report["rounded_counted_overtime_minutes"] = (
+                    rounded_overtime_minutes(counted_overtime_minutes)
+                )
+                report["rounded_approved_minutes"] = (
+                    rounded_overtime_minutes(
+                        int(report.get("approved_minutes", 0))
+                    )
+                )
+                report["rounded_double_minutes"] = (
+                    rounded_overtime_minutes(report["double_minutes"])
+                )
+                report["rounded_triple_minutes"] = (
+                    rounded_overtime_minutes(report["triple_minutes"])
                 )
                 weekly_overtime_used += counted_overtime_minutes
             today = local_today()
