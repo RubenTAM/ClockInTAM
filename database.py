@@ -42,6 +42,18 @@ CREATE TABLE IF NOT EXISTS employees (
     last_seen_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS vacations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    employee_name TEXT NOT NULL,
+    employee_name_key TEXT NOT NULL,
+    start_date TEXT NOT NULL,
+    end_date TEXT NOT NULL,
+    created_by INTEGER NOT NULL,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (created_by) REFERENCES users(id),
+    CHECK (end_date >= start_date)
+);
+
 CREATE TABLE IF NOT EXISTS audit_log (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
@@ -61,6 +73,12 @@ ON overtime_authorizations(employee_name_key);
 
 CREATE INDEX IF NOT EXISTS idx_employees_area
 ON employees(area);
+
+CREATE INDEX IF NOT EXISTS idx_vacations_dates
+ON vacations(start_date, end_date);
+
+CREATE INDEX IF NOT EXISTS idx_vacations_employee
+ON vacations(employee_name_key);
 """
 
 

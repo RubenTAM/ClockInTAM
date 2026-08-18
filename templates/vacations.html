@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block title %}Vacaciones · Tiempo{% endblock %}
+{% block content %}
+<header class="page-header">
+  <div>
+    <span class="eyebrow">Ausencias autorizadas</span>
+    <h1>Vacaciones</h1>
+    <p>Selecciona un trabajador y registra su periodo de vacaciones.</p>
+  </div>
+</header>
+
+<section class="vacations-layout" data-vacations-page>
+  <article class="panel vacations-workers-panel">
+    <div class="vacations-toolbar">
+      <form method="get">
+        <label for="vacation-group">Grupo de trabajadores</label>
+        <select id="vacation-group" name="grupo" onchange="this.form.submit()">
+          {% for area in employee_areas %}
+            <option value="{{ area }}" {{ 'selected' if area == selected_group else '' }}>
+              {{ area }}
+            </option>
+          {% endfor %}
+        </select>
+      </form>
+      <label>
+        Buscar trabajador
+        <input type="search" placeholder="Escribe un nombre…"
+               autocomplete="off" data-vacation-search>
+      </label>
+    </div>
+    <div class="vacation-worker-grid" data-vacation-workers>
+      {% for employee in employees %}
+        <button type="button" class="vacation-worker-card"
+                data-vacation-worker
+                data-worker-name="{{ employee.employee_name|lower }} {{ employee.employee_code|lower }}"
+                data-employee-key="{{ employee.employee_name_key }}"
+                data-employee-name="{{ employee.employee_name }}">
+          {% if employee.photo_filename %}
+            <img class="worker-avatar worker-avatar-photo"
+                 src="{{ url_for('employee_photo', filename=employee.photo_filename) }}"
+                 alt="Foto de {{ employee.employee_name }}">
+          {% else %}
+            <span class="worker-avatar">{{ employee.employee_name[0]|upper }}</span>
+          {% endif %}
+          <span>
+            <strong>{{ employee.employee_name }}</strong>
+            <small>{% if employee.employee_code %}No. {{ employee.employee_code }} · {% endif %}{{ employee.area }}</small>
+          </span>
+          <span class="vacation-add" aria-hidden="true">＋</span>
+        </button>
+      {% else %}
+        <p class="worker-state">No hay trabajadores en este grupo.</p>
+      {% endfor %}
+    </div>
+    <p class="home-search-empty" data-vacation-empty hidden>No hay coincidencias.</p>
+  </article>
+
+  <aside class="panel vacations-records-panel">
+    <div class="panel-header">
+      <div>
+        <h2>Periodos registrados</h2>
+        <p>{{ selected_group or 'Selecciona un grupo' }}</p>
+      </div>
+    </div>
+    <div class="vacation-records">
+      {% for vacation in vacation_rows %}
+        <article class="vacation-record">
+          <div>
+            <strong>{{ vacation.employee_name }}</strong>
+            <span>{{ vacation.start_date|date_es }} — {{ vacation.end_date|date_es }}</span>
+            <small>Registrado por {{ vacation.created_by_name }}</small>
+          </div>
+          <form method="post"
+                action="{{ url_for('delete_vacation', vacation_id=vacation.id) }}"
+                data-confirm="¿Eliminar este periodo de vacaciones?">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button type="submit" class="danger-link">Eliminar</button>
+          </form>
+        </article>
+      {% else %}
+        <div class="empty-state compact">
+          <span class="empty-icon">☀</span>
+          <p>No hay vacaciones registradas para este grupo.</p>
+        </div>
+      {% endfor %}
+    </div>
+  </aside>
+</section>
+
+<dialog class="authorization-dialog vacation-dialog" id="vacation-dialog">
+  <form method="post" action="{{ url_for('create_vacation') }}"
+        class="authorization-dialog-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="employee_name_key" id="vacation-employee-key">
+    <input type="hidden" name="group_name" value="{{ selected_group }}">
+    <div class="dialog-heading">
+      <div>
+        <span class="eyebrow">Nuevo periodo</span>
+        <h2>Registrar vacaciones</h2>
+        <p id="vacation-employee-name"></p>
+      </div>
+      <button type="button" class="dialog-close" data-vacation-close
+              aria-label="Cerrar">×</button>
+    </div>
+    <div class="vacation-date-grid">
+      <label>
+        Desde
+        <input type="date" name="start_date" id="vacation-start" required>
+      </label>
+      <label>
+        Hasta
+        <input type="date" name="end_date" id="vacation-end" required>
+      </label>
+    </div>
+    <p class="vacation-help">
+      Estos días se mostrarán en amarillo y no generarán alertas por falta de checada.
+    </p>
+    <div class="dialog-actions">
+      <button type="button" class="button ghost" data-vacation-close>Cancelar</button>
+      <button type="submit" class="button primary">Aplicar vacaciones</button>
+    </div>
+  </form>
+</dialog>
+{% endblock %}

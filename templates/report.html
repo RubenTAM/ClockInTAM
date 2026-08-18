@@ -77,11 +77,14 @@
                 {% for cell in worker.cells %}
                   {% set report = cell.report %}
                   <td class="report-day-cell
+                             {{ 'vacation' if cell.is_vacation else '' }}
                              {{ 'incomplete' if cell.is_incomplete else '' }}
                              {{ 'future' if cell.is_future else '' }}
                              {{ 'non-working' if cell.is_non_working else '' }}
                              {{ 'has-authorization' if report and report.allowed_range != 'Sin autorización' else '' }}">
-                    {% if cell.is_future %}
+                    {% if cell.is_vacation %}
+                      <span class="vacation-label">☀ Vacaciones</span>
+                    {% elif cell.is_future %}
                       <span class="future-label">Pendiente</span>
                       {% if report and report.allowed_range != 'Sin autorización' %}
                         <span class="authorization-badge">✓ Horas extra permitidas</span>
@@ -129,7 +132,7 @@
           <div class="worker-week-detail">
             {% for cell in worker.cells %}
               {% set report = cell.report %}
-              <article class="{{ 'incomplete' if cell.is_incomplete else '' }}">
+              <article class="{{ 'vacation' if cell.is_vacation else ('incomplete' if cell.is_incomplete else '') }}">
                 <div class="worker-day-heading">
                   <strong>{{ cell.work_date|date_es }}</strong>
                   <span>
@@ -138,7 +141,9 @@
                     {{ report.clock_out|clock if report else '—' }}
                   </span>
                 </div>
-                {% if report and report.allowed_range != 'Sin autorización' %}
+                {% if cell.is_vacation %}
+                  <p class="vacation-text">Vacaciones autorizadas.</p>
+                {% elif report and report.allowed_range != 'Sin autorización' %}
                   <dl>
                     <div>
                       <dt>Horas extra permitidas</dt>

@@ -160,6 +160,7 @@ p { color: var(--muted); line-height: 1.55; }
 .summary-count { padding: 5px 8px; }
 .summary-count.danger, .incident-badge.danger { color: var(--red); background: var(--red-pale); }
 .summary-count.overtime, .incident-badge.overtime { color: #12664e; background: #e7f6ef; }
+.summary-count.vacation, .incident-badge.vacation { color: #875d00; background: #fff0b8; }
 .summary-count.clear { color: var(--green-dark); background: var(--green-pale); }
 .summary-overtime-stack, .incident-overtime-stack {
   display: inline-flex; align-items: flex-start; flex-direction: column; gap: 2px;
@@ -284,6 +285,8 @@ p { color: var(--muted); line-height: 1.55; }
 .established-schedule-value strong { color: var(--green-dark); font-size: 1rem; }
 .home-day-card.incomplete { border-color: #dc4c47; background: #fffafa; }
 .home-day-card.today { border-color: #7c6fd1; background: #f7f5ff; }
+.home-day-card.vacation { border-color: #d59a18; background: #fff9e7; }
+.home-vacation { display: block; padding: 7px; border-radius: 8px; color: #765000; background: #ffe9a0; font-size: .68rem; font-weight: 850; text-align: center; }
 .home-day-card header { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
 .home-day-card header span { font-size: .78rem; font-weight: 850; text-transform: capitalize; }
 .home-day-card header strong { color: var(--muted); font-size: .72rem; }
@@ -424,9 +427,37 @@ td.muted { max-width: 230px; overflow: hidden; text-overflow: ellipsis; }
 .report-day-cell.incomplete .punch-times strong,
 .punch-alert { color: var(--red); }
 .authorization-badge { color: var(--green-dark); background: var(--green-pale); }
+.vacation-label { display: inline-flex; padding: 7px 9px; border-radius: 8px; color: #765000; background: #ffe9a0; font-size: .68rem; font-weight: 850; }
 .report-day-cell.non-working { color: #849089; background: #f5f7f6; }
 .report-day-cell.future { color: #718079; background: #f8faf9; }
+.report-day-cell.vacation { color: #765000; background: #fff9e7; }
 .non-working-label, .future-label { font-size: .72rem; font-weight: 750; }
+.worker-week-detail article.vacation { border-color: #e4bd58; background: #fff9e7; }
+.vacation-text { color: #765000; font-weight: 800; }
+
+.vacations-layout { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(330px, .75fr); gap: 18px; align-items: start; }
+.vacations-workers-panel, .vacations-records-panel { overflow: hidden; }
+.vacations-toolbar { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; padding: 20px; border-bottom: 1px solid var(--line); }
+.vacations-toolbar form, .vacations-toolbar label { display: grid; gap: 6px; margin: 0; color: var(--muted); font-size: .72rem; font-weight: 800; }
+.vacation-worker-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding: 18px; }
+.vacation-worker-card { min-width: 0; display: flex; align-items: center; gap: 11px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; color: var(--ink); background: white; cursor: pointer; text-align: left; }
+.vacation-worker-card:hover { border-color: #e0b53e; background: #fffaf0; }
+.vacation-worker-card > span:nth-child(2) { min-width: 0; flex: 1; }
+.vacation-worker-card strong, .vacation-worker-card small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vacation-worker-card strong { font-size: .8rem; }
+.vacation-worker-card small { margin-top: 3px; color: var(--muted); font-size: .66rem; }
+.vacation-add { color: #9b7009; font-size: 1.25rem; }
+.vacations-records-panel .panel-header { padding: 19px 20px; border-bottom: 1px solid var(--line); }
+.vacations-records-panel .panel-header p { margin: 3px 0 0; font-size: .75rem; }
+.vacation-records { max-height: 620px; overflow: auto; }
+.vacation-record { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 15px 18px; border-bottom: 1px solid var(--line); }
+.vacation-record strong, .vacation-record span, .vacation-record small { display: block; }
+.vacation-record strong { font-size: .8rem; }
+.vacation-record span { margin-top: 4px; color: #765000; font-size: .73rem; font-weight: 800; }
+.vacation-record small { margin-top: 3px; color: var(--muted); font-size: .65rem; }
+.vacation-date-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin-top: 22px; }
+.vacation-date-grid label { display: grid; gap: 7px; color: var(--muted); font-size: .75rem; font-weight: 800; }
+.vacation-help { margin: 15px 0 0; padding: 12px; border-radius: 9px; color: #765000; background: #fff5d3; font-size: .75rem; }
 
 .report-detail-dialog {
   width: min(700px, calc(100% - 32px)); max-height: min(820px, calc(100vh - 40px));
@@ -675,6 +706,7 @@ td.muted { max-width: 230px; overflow: hidden; text-overflow: ellipsis; }
   .metric-grid { grid-template-columns: 1fr; }
   .metric-card { min-height: 125px; }
   .dashboard-grid, .users-grid { grid-template-columns: 1fr; }
+  .vacations-layout { grid-template-columns: 1fr; }
   .day-grid { grid-template-columns: repeat(4, 1fr); }
   .home-browser { grid-template-columns: 240px minmax(0, 1fr); }
   .home-person-grid { grid-template-columns: 1fr; }
@@ -728,6 +760,7 @@ td.muted { max-width: 230px; overflow: hidden; text-overflow: ellipsis; }
   .home-worker-panel { max-height: 340px; }
   .home-worker-list { max-height: 260px; }
   .employees-toolbar { grid-template-columns: 1fr; }
+  .vacations-toolbar, .vacation-worker-grid, .vacation-date-grid { grid-template-columns: 1fr; }
   .home-profile-host { overflow: visible; }
   .home-profile { height: auto; }
   .home-week-scroll { flex: none; overflow-x: auto; overflow-y: visible; }

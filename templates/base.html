@@ -31,6 +31,10 @@
            class="{{ 'active' if request.endpoint == 'users' else '' }}">
           <span class="nav-icon">●</span> Usuarios
         </a>
+        <a href="{{ url_for('vacations') }}"
+           class="{{ 'active' if request.endpoint in ('vacations', 'create_vacation', 'delete_vacation') else '' }}">
+          <span class="nav-icon">☀</span> Vacaciones
+        </a>
       </nav>
       <div class="sidebar-footer">
         <a class="user-chip" href="{{ url_for('account') }}">

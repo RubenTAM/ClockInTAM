@@ -182,6 +182,9 @@
                         {% if worker.summary_incomplete %}
                           <span class="summary-count danger">{{ worker.summary_incomplete }} checada{{ 's' if worker.summary_incomplete != 1 else '' }} faltante{{ 's' if worker.summary_incomplete != 1 else '' }}</span>
                         {% endif %}
+                        {% if worker.summary_vacation_days %}
+                          <span class="summary-count vacation">☀ {{ worker.summary_vacation_days }} día{{ 's' if worker.summary_vacation_days != 1 else '' }} de vacaciones</span>
+                        {% endif %}
                         {% if worker.summary_authorized_minutes %}
                           <span class="summary-overtime-stack">
                             <strong>{{ worker.summary_authorized_minutes|minutes }} autorizadas</strong>
@@ -203,6 +206,9 @@
                         {% for incident in worker.summary_incidents %}
                           <div class="incident-day">
                             <strong>{{ incident.work_date|weekday_short }} {{ incident.work_date.day }}/{{ incident.work_date.month }}</strong>
+                            {% if incident.is_vacation %}
+                              <span class="incident-badge vacation">☀ Vacaciones</span>
+                            {% endif %}
                             {% for label in incident.missing_punches %}
                               <span class="incident-badge danger">{{ label }}</span>
                             {% endfor %}
@@ -264,16 +270,18 @@
             <div class="home-week-cards">
               {% for cell in worker.cells %}
                 {% set report = cell.report %}
-                <article class="home-day-card {{ 'today' if cell.is_today else ('incomplete' if cell.is_incomplete else '') }}">
-                  <button type="button" class="enable-overtime-button"
+                <article class="home-day-card {{ 'vacation' if cell.is_vacation else ('today' if cell.is_today else ('incomplete' if cell.is_incomplete else '')) }}">
+                  {% if not cell.is_vacation %}
+                    <button type="button" class="enable-overtime-button"
                           data-enable-overtime
                           data-employee="{{ worker.employee_name }}"
                           data-employee-key="{{ worker.employee_name_key }}"
                           data-show-established-schedule="{{ '0' if worker.area.startswith('Abquim') else '1' }}"
                           data-work-date="{{ cell.work_date }}"
                           data-date-label="{{ cell.work_date|date_es }}">
-                    Habilitar tiempo extra
-                  </button>
+                      Habilitar tiempo extra
+                    </button>
+                  {% endif %}
                   <header>
                     <span>{{ cell.work_date|weekday_short }}</span>
                     <strong>{{ cell.work_date.day }}/{{ cell.work_date.month }}</strong>
@@ -286,7 +294,9 @@
                     <div class="triple-hours"><dt>Horas triples</dt><dd>{{ report.rounded_triple_minutes|minutes if report else '0 h 00 min' }}</dd></div>
                   </dl>
                   <div class="home-day-statuses">
-                    {% if cell.is_today %}
+                    {% if cell.is_vacation %}
+                      <span class="home-vacation">☀ Vacaciones autorizadas</span>
+                    {% elif cell.is_today %}
                       <span class="home-today">Hoy · día en curso</span>
                     {% elif cell.is_incomplete %}
                       <span class="home-incomplete">Checada incompleta</span>

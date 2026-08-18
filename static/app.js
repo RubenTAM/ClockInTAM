@@ -138,6 +138,54 @@
 })();
 
 (() => {
+  const page = document.querySelector("[data-vacations-page]");
+  if (!page) return;
+
+  const search = page.querySelector("[data-vacation-search]");
+  const workers = [...page.querySelectorAll("[data-vacation-worker]")];
+  const empty = page.querySelector("[data-vacation-empty]");
+  const dialog = document.querySelector("#vacation-dialog");
+  const employeeKey = dialog.querySelector("#vacation-employee-key");
+  const employeeName = dialog.querySelector("#vacation-employee-name");
+  const start = dialog.querySelector("#vacation-start");
+  const end = dialog.querySelector("#vacation-end");
+
+  search.addEventListener("input", () => {
+    const query = search.value.trim().toLocaleLowerCase("es");
+    let visible = 0;
+    workers.forEach((worker) => {
+      const matches = worker.dataset.workerName.includes(query);
+      worker.hidden = !matches;
+      if (matches) visible += 1;
+    });
+    empty.hidden = visible !== 0;
+  });
+
+  workers.forEach((worker) => {
+    worker.addEventListener("click", () => {
+      employeeKey.value = worker.dataset.employeeKey;
+      employeeName.textContent = worker.dataset.employeeName;
+      start.value = "";
+      end.value = "";
+      end.min = "";
+      dialog.showModal();
+    });
+  });
+
+  start.addEventListener("change", () => {
+    end.min = start.value;
+    if (!end.value || end.value < start.value) end.value = start.value;
+  });
+
+  dialog.querySelectorAll("[data-vacation-close]").forEach((button) => {
+    button.addEventListener("click", () => dialog.close());
+  });
+  dialog.addEventListener("click", (event) => {
+    if (event.target === dialog) dialog.close();
+  });
+})();
+
+(() => {
   const dialog = document.querySelector("#report-detail-dialog");
   if (!dialog) return;
 

@@ -38,11 +38,13 @@ def build_expediente_rows(
     week_start: date,
     today: date,
     group_name: str = "",
+    vacation_rows: list[dict] | None = None,
 ) -> list[dict]:
     report_map = {
         (row["employee_name_key"], row["work_date"]): row
         for row in report_rows
     }
+    vacation_dates = _vacation_dates(vacation_rows or [], week_start)
     work_days = [
         week_start + timedelta(days=offset)
         for offset in range(7)
@@ -84,11 +86,16 @@ def build_expediente_rows(
                     "used_minutes": int(
                         report.get("authorized_minutes", 0)
                     ),
-                    "notes": attendance_incidents(
-                        work_date,
-                        clock_in,
-                        clock_out,
-                        day_complete=work_date < today,
+                    "notes": (
+                        "Vacaciones"
+                        if (employee["employee_name_key"], work_date)
+                        in vacation_dates
+                        else attendance_incidents(
+                            work_date,
+                            clock_in,
+                            clock_out,
+                            day_complete=work_date < today,
+                        )
                     ),
                 }
             )
@@ -102,16 +109,36 @@ def round_overtime_code_hours(minutes: int) -> int:
     return hours + (1 if remainder >= 50 else 0)
 
 
+def _vacation_dates(vacation_rows: list[dict], week_start: date) -> set[tuple]:
+    dates = set()
+    week_end = week_start + timedelta(days=6)
+    for vacation in vacation_rows:
+        start = vacation["start_date"]
+        end = vacation["end_date"]
+        if isinstance(start, str):
+            start = date.fromisoformat(start)
+        if isinstance(end, str):
+            end = date.fromisoformat(end)
+        current = max(start, week_start)
+        final = min(end, week_end)
+        while current <= final:
+            dates.add((vacation["employee_name_key"], current))
+            current += timedelta(days=1)
+    return dates
+
+
 def build_accountant_rows(
     report_rows: list[dict],
     employees: list[dict],
     week_start: date,
     group_name: str = "",
+    vacation_rows: list[dict] | None = None,
 ) -> list[dict]:
     report_map = {
         (row["employee_name_key"], row["work_date"]): row
         for row in report_rows
     }
+    vacation_dates = _vacation_dates(vacation_rows or [], week_start)
     week_days = [week_start + timedelta(days=offset) for offset in range(7)]
     selected = [
         employee
@@ -131,6 +158,9 @@ def build_accountant_rows(
         weekly_overtime_used = 0
         day_codes = []
         for work_date in week_days:
+            if (employee["employee_name_key"], work_date) in vacation_dates:
+                day_codes.append("VACACIONES")
+                continue
             report = report_map.get(
                 (employee["employee_name_key"], work_date),
                 {},

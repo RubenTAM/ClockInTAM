@@ -591,6 +591,69 @@ class AppFlowTests(unittest.TestCase):
         self.assertNotIn(b"Persona Inactiva", response.data)
         self.assertNotIn(b"TecnoAll - Bajas e Inactivos", response.data)
 
+    def test_vacations_are_saved_and_suppress_missing_punch_alerts(self):
+        self.initialize_admin()
+        self.login()
+        with self.app.app_context():
+            save_employees(
+                [{
+                    "employee_name": "Jorge Rangel Pulido",
+                    "employee_name_key": "jorge rangel pulido",
+                    "group_name": "TecnoAll - Ingenieria",
+                }]
+            )
+
+        page = self.client.get(
+            "/vacaciones?grupo=TecnoAll%20-%20Ingenieria"
+        )
+        self.assertEqual(page.status_code, 200)
+        self.assertIn(b"Registrar vacaciones", page.data)
+        self.assertIn(b"data-vacation-worker", page.data)
+
+        response = self.client.post(
+            "/vacaciones/nueva",
+            data={
+                "csrf_token": self.csrf_token(),
+                "employee_name_key": "jorge rangel pulido",
+                "group_name": "TecnoAll - Ingenieria",
+                "start_date": "2026-08-13",
+                "end_date": "2026-08-14",
+            },
+            follow_redirects=True,
+        )
+        self.assertIn(
+            "periodo de vacaciones fue guardado".encode(),
+            response.data,
+        )
+        with self.app.app_context():
+            vacation = get_db().execute(
+                "SELECT * FROM vacations"
+            ).fetchone()
+            calendar, _days = weekly_report_calendar(
+                [],
+                date(2026, 8, 13),
+                [vacation],
+            )
+            worker = next(
+                item for item in calendar
+                if item["employee_name_key"] == "jorge rangel pulido"
+            )
+            self.assertTrue(worker["cells"][0]["is_vacation"])
+            self.assertFalse(worker["cells"][0]["is_incomplete"])
+
+        with (
+            patch("app.report_for_week", return_value=([], "", set())),
+            patch("app.local_today", return_value=date(2026, 8, 18)),
+        ):
+            home = self.client.get(
+                "/?semana=2026-08-13&trabajador=jorge%20rangel%20pulido"
+            )
+            report = self.client.get("/reporte?semana=2026-08-13")
+        self.assertIn(b"home-day-card vacation", home.data)
+        self.assertIn(b"Vacaciones autorizadas", home.data)
+        self.assertIn(b"report-day-cell\n                             vacation", report.data)
+        self.assertIn(b"Vacaciones", report.data)
+
         stylesheet = self.client.get("/static/app.css")
         self.assertIn(b".is-filtered-out", stylesheet.data)
         stylesheet.close()

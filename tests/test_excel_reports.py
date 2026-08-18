@@ -4,6 +4,7 @@ from datetime import date, time
 from excel_reports import (
     attendance_incidents,
     build_accountant_rows,
+    build_expediente_rows,
     round_overtime_code_hours,
 )
 
@@ -81,6 +82,39 @@ class ExcelReportTests(unittest.TestCase):
             ),
             "Llegada tarde",
         )
+
+    def test_vacations_replace_incidents_and_accountant_codes(self):
+        employee = {
+            "employee_code": "063",
+            "employee_name": "Jorge Rangel Pulido",
+            "employee_name_key": "jorge rangel pulido",
+            "area": "TecnoAll - Ingenieria",
+        }
+        vacations = [{
+            "employee_name_key": "jorge rangel pulido",
+            "start_date": "2026-08-13",
+            "end_date": "2026-08-14",
+        }]
+        expediente = build_expediente_rows(
+            [],
+            [employee],
+            date(2026, 8, 13),
+            date(2026, 8, 18),
+            "TecnoAll - Ingenieria",
+            vacations,
+        )
+        contador = build_accountant_rows(
+            [],
+            [employee],
+            date(2026, 8, 13),
+            "TecnoAll - Ingenieria",
+            vacations,
+        )
+        self.assertEqual(expediente[0]["notes"], "Vacaciones")
+        self.assertEqual(expediente[1]["notes"], "Vacaciones")
+        self.assertEqual(contador[0]["day_codes"][:2], [
+            "VACACIONES", "VACACIONES"
+        ])
 
 
 if __name__ == "__main__":

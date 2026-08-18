@@ -489,12 +489,16 @@ def supervisor_incident_summary(calendar_rows: list[dict]) -> dict:
     }
     for worker in calendar_rows:
         incidents = []
+        worker_vacation_days = 0
         worker_authorized = 0
         worker_double = 0
         worker_triple = 0
         worker_incomplete = 0
         for cell in worker["cells"]:
             report = cell["report"]
+            is_vacation = bool(cell.get("is_vacation"))
+            if is_vacation:
+                worker_vacation_days += 1
             missing_punches = []
             if cell["is_incomplete"] and not cell["is_today"]:
                 if not report or not report.get("clock_in"):
@@ -519,10 +523,11 @@ def supervisor_incident_summary(calendar_rows: list[dict]) -> dict:
                 worker_authorized += authorized
                 worker_double += double_minutes
                 worker_triple += triple_minutes
-            if missing_punches or authorized:
+            if is_vacation or missing_punches or authorized:
                 incidents.append(
                     {
                         "work_date": cell["work_date"],
+                        "is_vacation": is_vacation,
                         "missing_punches": missing_punches,
                         "authorized_minutes": authorized,
                         "double_minutes": double_minutes,
@@ -530,6 +535,7 @@ def supervisor_incident_summary(calendar_rows: list[dict]) -> dict:
                     }
                 )
         worker["summary_incidents"] = incidents
+        worker["summary_vacation_days"] = worker_vacation_days
         worker["summary_incomplete"] = worker_incomplete
         worker["summary_authorized_minutes"] = worker_authorized
         worker["summary_double_minutes"] = worker_double
@@ -558,6 +564,24 @@ def authorizations_for_week(week_start: date) -> list[dict]:
         (week_start.isoformat(), week_end.isoformat()),
     ).fetchall()
     return [dict(row) for row in rows]
+
+
+def vacations_for_range(start_date: date, end_date: date) -> list[dict]:
+    rows = get_db().execute(
+        """
+        SELECT v.*, u.display_name AS created_by_name
+        FROM vacations v
+        JOIN users u ON u.id = v.created_by
+        WHERE v.start_date <= ? AND v.end_date >= ?
+        ORDER BY v.start_date, v.employee_name_key, v.id
+        """,
+        (end_date.isoformat(), start_date.isoformat()),
+    ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def vacations_for_week(week_start: date) -> list[dict]:
+    return vacations_for_range(week_start, week_start + timedelta(days=6))
 
 
 def authorization_calendar_for_week(
@@ -627,6 +651,7 @@ def report_for_week(
 def weekly_report_calendar(
     report_rows: list[dict],
     week_start: date,
+    vacation_rows: list[dict] | None = None,
 ) -> tuple[list[dict], list[date]]:
     week_days = [
         week_start + timedelta(days=offset) for offset in range(7)
@@ -646,6 +671,16 @@ def weekly_report_calendar(
         name_key = row["employee_name_key"]
         people[name_key] = row["employee_name"]
         report_map[(name_key, row["work_date"])] = row
+    vacation_map: dict[tuple[str, date], dict] = {}
+    for vacation in vacation_rows or []:
+        vacation_start = date.fromisoformat(vacation["start_date"])
+        vacation_end = date.fromisoformat(vacation["end_date"])
+        for offset in range((vacation_end - vacation_start).days + 1):
+            vacation_date = vacation_start + timedelta(days=offset)
+            if week_start <= vacation_date <= week_start + timedelta(days=6):
+                vacation_map[(vacation["employee_name_key"], vacation_date)] = (
+                    vacation
+                )
 
     calendar_rows = []
     for name_key, employee_name in sorted(people.items()):
@@ -653,6 +688,7 @@ def weekly_report_calendar(
         weekly_overtime_used = 0
         for work_date in week_days:
             report = report_map.get((name_key, work_date))
+            vacation = vacation_map.get((name_key, work_date))
             if report:
                 counted_overtime_minutes = int(
                     report.get("authorized_minutes", 0)
@@ -687,10 +723,15 @@ def weekly_report_calendar(
             today = local_today()
             is_today = work_date == today
             is_future = work_date > today
-            is_non_working = work_date.weekday() == 6 and report is None
+            is_non_working = (
+                work_date.weekday() == 6
+                and report is None
+                and vacation is None
+            )
             is_incomplete = (
                 not is_future
                 and not is_non_working
+                and vacation is None
                 and (
                     report is None
                     or not report.get("clock_in")
@@ -705,6 +746,8 @@ def weekly_report_calendar(
                     "is_future": is_future,
                     "is_non_working": is_non_working,
                     "is_incomplete": is_incomplete,
+                    "is_vacation": vacation is not None,
+                    "vacation": vacation,
                 }
             )
 
@@ -860,10 +903,13 @@ def register_routes(app: Flask) -> None:
             calendar_rows, week_days = weekly_report_calendar(
                 report_rows,
                 week_start,
+                vacations_for_week(week_start),
             )
         except HikConnectError as exc:
             error = str(exc)
-            calendar_rows, week_days = weekly_report_calendar([], week_start)
+            calendar_rows, week_days = weekly_report_calendar(
+                [], week_start, vacations_for_week(week_start)
+            )
         directory = {
             row["employee_name_key"]: row
             for row in employee_directory()
@@ -1123,6 +1169,170 @@ def register_routes(app: Flask) -> None:
             employee_areas=employee_groups(),
             error=error,
         )
+
+    @app.get("/vacaciones")
+    @login_required
+    def vacations():
+        active_groups = [
+            group for group in employee_groups()
+            if not is_inactive_group(group)
+        ]
+        supervised_area = str(g.user["supervised_area"] or "").strip()
+        if supervised_area:
+            available_groups = [supervised_area]
+            selected_group = supervised_area
+        else:
+            available_groups = active_groups
+            selected_group = request.args.get("grupo", "").strip()
+            if selected_group and selected_group not in active_groups:
+                abort(400, "El grupo seleccionado no es válido.")
+            if not selected_group and active_groups:
+                selected_group = active_groups[0]
+
+        workers = [
+            worker for worker in employee_directory()
+            if selected_group and same_group(worker["area"], selected_group)
+        ]
+        for worker in workers:
+            worker["photo_filename"] = employee_photo_filename(
+                worker["employee_name"]
+            )
+        vacation_rows = get_db().execute(
+            """
+            SELECT v.*, e.area, u.display_name AS created_by_name
+            FROM vacations v
+            LEFT JOIN employees e
+              ON e.employee_name_key = v.employee_name_key
+            JOIN users u ON u.id = v.created_by
+            WHERE (? = '' OR e.area = ? COLLATE NOCASE)
+            ORDER BY v.start_date DESC, v.employee_name_key
+            """,
+            (selected_group, selected_group),
+        ).fetchall()
+        return render_template(
+            "vacations.html",
+            employees=workers,
+            employee_areas=available_groups,
+            selected_group=selected_group,
+            vacation_rows=vacation_rows,
+        )
+
+    @app.post("/vacaciones/nueva")
+    @login_required
+    def create_vacation():
+        validate_csrf()
+        employee_key = request.form.get("employee_name_key", "").strip()
+        group_name = request.form.get("group_name", "").strip()
+        try:
+            start_date = parse_iso_date(
+                request.form.get("start_date", ""), "fecha inicial"
+            )
+            end_date = parse_iso_date(
+                request.form.get("end_date", ""), "fecha final"
+            )
+        except ValueError as exc:
+            flash(str(exc), "error")
+            return redirect(url_for("vacations", grupo=group_name))
+        if end_date < start_date:
+            flash("La fecha final no puede ser anterior a la inicial.", "error")
+            return redirect(url_for("vacations", grupo=group_name))
+
+        connection = get_db()
+        employee = connection.execute(
+            """
+            SELECT employee_name, employee_name_key, area
+            FROM employees WHERE employee_name_key = ?
+            """,
+            (employee_key,),
+        ).fetchone()
+        if employee is None or is_inactive_group(employee["area"]):
+            abort(400, "El trabajador seleccionado no es válido.")
+        supervised_area = str(g.user["supervised_area"] or "").strip()
+        if supervised_area and not same_group(employee["area"], supervised_area):
+            abort(403)
+
+        overlap = connection.execute(
+            """
+            SELECT id FROM vacations
+            WHERE employee_name_key = ?
+              AND start_date <= ? AND end_date >= ?
+            LIMIT 1
+            """,
+            (employee_key, end_date.isoformat(), start_date.isoformat()),
+        ).fetchone()
+        if overlap:
+            flash(
+                "Ese trabajador ya tiene vacaciones en parte de ese periodo.",
+                "error",
+            )
+            return redirect(url_for("vacations", grupo=employee["area"]))
+
+        cursor = connection.execute(
+            """
+            INSERT INTO vacations (
+                employee_name, employee_name_key, start_date, end_date,
+                created_by, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                employee["employee_name"],
+                employee_key,
+                start_date.isoformat(),
+                end_date.isoformat(),
+                g.user["id"],
+                utc_now(),
+            ),
+        )
+        log_action(
+            g.user["id"],
+            "create",
+            "vacation",
+            cursor.lastrowid,
+            json.dumps(
+                {
+                    "employee": employee["employee_name"],
+                    "start": start_date.isoformat(),
+                    "end": end_date.isoformat(),
+                },
+                ensure_ascii=False,
+            ),
+        )
+        connection.commit()
+        flash("El periodo de vacaciones fue guardado.", "success")
+        return redirect(url_for("vacations", grupo=employee["area"]))
+
+    @app.post("/vacaciones/<int:vacation_id>/eliminar")
+    @login_required
+    def delete_vacation(vacation_id: int):
+        validate_csrf()
+        connection = get_db()
+        vacation = connection.execute(
+            """
+            SELECT v.*, e.area FROM vacations v
+            LEFT JOIN employees e
+              ON e.employee_name_key = v.employee_name_key
+            WHERE v.id = ?
+            """,
+            (vacation_id,),
+        ).fetchone()
+        if vacation is None:
+            abort(404)
+        supervised_area = str(g.user["supervised_area"] or "").strip()
+        if supervised_area and not same_group(
+            vacation["area"] or "", supervised_area
+        ):
+            abort(403)
+        connection.execute("DELETE FROM vacations WHERE id = ?", (vacation_id,))
+        log_action(
+            g.user["id"],
+            "delete",
+            "vacation",
+            vacation_id,
+            vacation["employee_name"],
+        )
+        connection.commit()
+        flash("El periodo de vacaciones fue eliminado.", "success")
+        return redirect(url_for("vacations", grupo=vacation["area"] or ""))
 
     @app.get("/resumen")
     @login_required
@@ -1491,6 +1701,7 @@ def register_routes(app: Flask) -> None:
         calendar_rows, week_days = weekly_report_calendar(
             rows,
             week_start,
+            vacations_for_week(week_start),
         )
         return render_template(
             "report.html",
@@ -1541,7 +1752,23 @@ def register_routes(app: Flask) -> None:
                 "Comentario",
             ]
         )
+        vacation_rows = vacations_for_week(week_start)
+        vacation_days = {}
+        for vacation in vacation_rows:
+            current = max(date.fromisoformat(vacation["start_date"]), week_start)
+            final = min(
+                date.fromisoformat(vacation["end_date"]),
+                week_start + timedelta(days=6),
+            )
+            while current <= final:
+                vacation_days[(vacation["employee_name_key"], current)] = vacation
+                current += timedelta(days=1)
+
+        exported_days = set()
         for row in rows:
+            key = (row["employee_name_key"], row["work_date"])
+            vacation = vacation_days.get(key)
+            exported_days.add(key)
             writer.writerow(
                 [
                     row["employee_name"],
@@ -1556,8 +1783,27 @@ def register_routes(app: Flask) -> None:
                     format_minutes(row["overtime_minutes"]),
                     format_minutes(row["authorized_minutes"]),
                     format_minutes(row["unauthorized_minutes"]),
-                    row["status"],
-                    row["note"],
+                    "Vacaciones" if vacation else row["status"],
+                    "Vacaciones autorizadas" if vacation else row["note"],
+                ]
+            )
+        for key, vacation in sorted(
+            vacation_days.items(), key=lambda item: (item[0][0], item[0][1])
+        ):
+            if key in exported_days:
+                continue
+            writer.writerow(
+                [
+                    vacation["employee_name"],
+                    key[1].isoformat(),
+                    "",
+                    "",
+                    "",
+                    "0 h 00 min",
+                    "0 h 00 min",
+                    "0 h 00 min",
+                    "Vacaciones",
+                    "Vacaciones autorizadas",
                 ]
             )
         filename = f"reporte_horas_extra_{week_start.isoformat()}.csv"
@@ -1599,6 +1845,7 @@ def register_routes(app: Flask) -> None:
             week_start,
             local_today(),
             group_name,
+            vacations_for_week(week_start),
         )
         workbook = create_expedientes_workbook(
             rows,
@@ -1646,6 +1893,7 @@ def register_routes(app: Flask) -> None:
             employee_directory(),
             week_start,
             group_name,
+            vacations_for_week(week_start),
         )
         workbook = create_accountant_workbook(
             rows,
