@@ -89,10 +89,43 @@ def close_db(_error=None) -> None:
 def init_db() -> None:
     connection = get_db()
     connection.executescript(SCHEMA)
+    migrate_user_supervised_area(connection)
     migrate_multiple_authorizations(connection)
     migrate_approved_minutes(connection)
     migrate_employee_code(connection)
     connection.commit()
+
+
+def migrate_user_supervised_area(connection: sqlite3.Connection) -> None:
+    """Add supervisor scope and seed the two known Engineering leads."""
+    columns = {
+        row["name"]
+        for row in connection.execute("PRAGMA table_info('users')").fetchall()
+    }
+    if "supervised_area" in columns:
+        return
+
+    connection.execute(
+        """
+        ALTER TABLE users
+        ADD COLUMN supervised_area TEXT NOT NULL DEFAULT ''
+        """
+    )
+    connection.execute(
+        """
+        UPDATE users
+        SET supervised_area = 'TecnoAll - Ingenieria'
+        WHERE (
+            (LOWER(display_name) LIKE '%ruben%'
+             OR LOWER(display_name) LIKE '%rubén%')
+            AND LOWER(display_name) LIKE '%lizarraga%'
+        ) OR (
+            (LOWER(display_name) LIKE '%jose%'
+             OR LOWER(display_name) LIKE '%josé%')
+            AND LOWER(display_name) LIKE '%valdez%'
+        )
+        """
+    )
 
 
 def migrate_employee_code(connection: sqlite3.Connection) -> None:

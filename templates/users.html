@@ -23,8 +23,27 @@
           <span class="avatar">{{ row['display_name'][0]|upper }}</span>
           <span class="list-main">
             <strong>{{ row['display_name'] }}</strong>
-            <small>@{{ row['username'] }}</small>
+            <small>
+              @{{ row['username'] }} ·
+              {{ 'Supervisor de ' ~ row['supervised_area'] if row['supervised_area'] else 'Acceso general' }}
+            </small>
           </span>
+          <form method="post" class="user-area-form"
+                action="{{ url_for('update_user_supervised_area', user_id=row['id']) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <label class="sr-only" for="supervised-area-{{ row['id'] }}">
+              Grupo supervisado por {{ row['display_name'] }}
+            </label>
+            <select id="supervised-area-{{ row['id'] }}" name="supervised_area"
+                    onchange="this.form.submit()">
+              <option value="">Acceso general</option>
+              {% for area in employee_areas %}
+                <option value="{{ area }}" {{ 'selected' if row['supervised_area'] == area else '' }}>
+                  Supervisor · {{ area }}
+                </option>
+              {% endfor %}
+            </select>
+          </form>
           <span class="status-pill {{ 'authorized' if row['active'] else 'normal' }}">
             {{ 'Activo' if row['active'] else 'Inactivo' }}
           </span>
@@ -65,9 +84,17 @@
         <input type="password" name="password" autocomplete="new-password"
                minlength="10" required>
       </label>
+      <label>
+        Grupo supervisado
+        <select name="supervised_area">
+          <option value="">Acceso general a todos los grupos</option>
+          {% for area in employee_areas %}
+            <option value="{{ area }}">{{ area }}</option>
+          {% endfor %}
+        </select>
+      </label>
       <button class="button primary full" type="submit">Crear usuario</button>
     </form>
   </aside>
 </section>
 {% endblock %}
-

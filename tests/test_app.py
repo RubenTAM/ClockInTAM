@@ -204,6 +204,78 @@ class AppFlowTests(unittest.TestCase):
         self.assertIn(b"home-worker-photo", response.data)
         self.assertNotIn(b"Espacios reservados", response.data)
 
+    def test_engineering_supervisor_sees_team_incident_summary(self):
+        self.client.get("/setup")
+        self.client.post(
+            "/setup",
+            data={
+                "csrf_token": self.csrf_token(),
+                "display_name": "Rubén Lizarraga",
+                "username": "ruben",
+                "password": "UnaClaveSegura123",
+                "password_confirmation": "UnaClaveSegura123",
+            },
+        )
+        self.client.get("/login")
+        self.client.post(
+            "/login",
+            data={
+                "csrf_token": self.csrf_token(),
+                "username": "ruben",
+                "password": "UnaClaveSegura123",
+            },
+        )
+        with self.app.app_context():
+            save_employees(
+                [
+                    {
+                        "employee_name": "Jorge Rangel Pulido",
+                        "employee_name_key": "jorge rangel pulido",
+                        "group_name": "TecnoAll - Ingenieria",
+                    },
+                    {
+                        "employee_name": "Ana López",
+                        "employee_name_key": "ana lopez",
+                        "group_name": "TecnoAll - Compras",
+                    },
+                ]
+            )
+
+        report_rows = [
+            {
+                "employee_name": "Jorge Rangel Pulido",
+                "employee_name_key": "jorge rangel pulido",
+                "work_date": date(2026, 7, 23),
+                "clock_in": time(8, 5),
+                "clock_out": time(18, 0),
+                "overtime_minutes": 60,
+                "authorized_minutes": 60,
+                "unauthorized_minutes": 0,
+                "unused_minutes": 0,
+            }
+        ]
+        with patch(
+            "app.report_for_week",
+            return_value=(report_rows, None, {date(2026, 7, 23)}),
+        ), patch("app.local_today", return_value=date(2026, 7, 30)):
+            response = self.client.get("/?semana=2026-07-23")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"Resumen del equipo", response.data)
+        self.assertIn(b"Incidencias del equipo", response.data)
+        self.assertIn(b"Jorge Rangel Pulido", response.data)
+        self.assertNotIn("Ana López".encode(), response.data)
+        self.assertIn(b"1 h 00 min extra", response.data)
+        self.assertNotIn(b"Informaci\xc3\xb3n del trabajador", response.data)
+
+        with self.app.app_context():
+            user = get_db().execute(
+                "SELECT supervised_area FROM users WHERE username = 'ruben'"
+            ).fetchone()
+            self.assertEqual(
+                user["supervised_area"], "TecnoAll - Ingenieria"
+            )
+
     def test_home_can_enable_overtime_with_an_approved_hours_limit(self):
         self.initialize_admin()
         self.login()

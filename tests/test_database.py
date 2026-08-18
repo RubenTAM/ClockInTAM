@@ -44,6 +44,12 @@ class DatabaseMigrationTests(unittest.TestCase):
                     1, 'admin', 'Administrador', 'hash', '2026-07-27T00:00:00Z'
                 );
 
+                INSERT INTO users (
+                    id, username, display_name, password_hash, created_at
+                ) VALUES
+                    (2, 'ruben', 'Rubén Lizarraga', 'hash', '2026-07-27T00:00:00Z'),
+                    (3, 'jose', 'José Valdez', 'hash', '2026-07-27T00:00:00Z');
+
                 INSERT INTO overtime_authorizations (
                     employee_name, employee_name_key, work_date,
                     allowed_start, allowed_end, note, created_by,
@@ -103,10 +109,23 @@ class DatabaseMigrationTests(unittest.TestCase):
                         "PRAGMA table_info('employees')"
                     ).fetchall()
                 }
+                supervisor_areas = {
+                    row["username"]: row["supervised_area"]
+                    for row in migrated.execute(
+                        "SELECT username, supervised_area FROM users"
+                    ).fetchall()
+                }
 
             self.assertEqual(total, 2)
             self.assertIn("approved_minutes", columns)
             self.assertIn("employee_code", employee_columns)
+            self.assertEqual(supervisor_areas["admin"], "")
+            self.assertEqual(
+                supervisor_areas["ruben"], "TecnoAll - Ingenieria"
+            )
+            self.assertEqual(
+                supervisor_areas["jose"], "TecnoAll - Ingenieria"
+            )
 
 
 if __name__ == "__main__":

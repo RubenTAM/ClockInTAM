@@ -37,7 +37,9 @@
           <span class="avatar">{{ g.user['display_name'][0]|upper }}</span>
           <span>
             <strong>{{ g.user['display_name'] }}</strong>
-            <small>Administrador</small>
+            <small>
+              {{ 'Supervisor · ' ~ g.user['supervised_area'] if g.user['supervised_area'] else 'Administrador' }}
+            </small>
           </span>
         </a>
         <form method="post" action="{{ url_for('logout') }}">

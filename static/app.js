@@ -166,6 +166,33 @@
 })();
 
 (() => {
+  const home = document.querySelector("[data-supervisor-home]");
+  if (!home) return;
+
+  const normalizeSearch = (value) => value
+    .trim()
+    .toLocaleLowerCase("es")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+  const search = home.querySelector("[data-supervisor-search]");
+  const rows = [...home.querySelectorAll("[data-supervisor-worker]")];
+  const empty = home.querySelector("[data-supervisor-empty]");
+  if (!search) return;
+
+  const filterWorkers = () => {
+    const query = normalizeSearch(search.value);
+    let visible = 0;
+    rows.forEach((row) => {
+      const matches = normalizeSearch(row.dataset.workerName).includes(query);
+      row.hidden = !matches;
+      if (matches) visible += 1;
+    });
+    empty.hidden = visible > 0;
+  };
+  search.addEventListener("input", filterWorkers);
+})();
+
+(() => {
   const normalizeSearch = (value) => value
     .trim()
     .toLocaleLowerCase("es")

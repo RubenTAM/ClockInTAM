@@ -4,9 +4,14 @@
 {% block content %}
 <header class="page-header home-header">
   <div>
-    <span class="eyebrow">Vista de trabajadores</span>
+    <span class="eyebrow">
+      {{ 'Resumen del equipo' if supervisor_area else 'Vista de trabajadores' }}
+    </span>
     <h1>Inicio</h1>
-    <p>{{ week_start|date_es }} — {{ week_end|date_es }}</p>
+    <p>
+      {{ week_start|date_es }} — {{ week_end|date_es }}
+      {% if supervisor_area %} · {{ supervisor_area }}{% endif %}
+    </p>
   </div>
   <div class="header-actions home-header-actions">
     <form class="excel-export-form" method="get"
@@ -19,15 +24,20 @@
           Expediente Contador
         </button>
       </div>
-      <label class="excel-group-field" for="excel-group">
-        <span>Grupo para el reporte</span>
-        <select id="excel-group" name="grupo">
-          <option value="">Todos los grupos activos</option>
-          {% for area in employee_areas %}
-            <option value="{{ area }}">{{ area }}</option>
-          {% endfor %}
-        </select>
-      </label>
+      {% if supervisor_area %}
+        <input type="hidden" name="grupo" value="{{ supervisor_area }}">
+        <span class="supervisor-export-scope">Reporte de {{ supervisor_area }}</span>
+      {% else %}
+        <label class="excel-group-field" for="excel-group">
+          <span>Grupo para el reporte</span>
+          <select id="excel-group" name="grupo">
+            <option value="">Todos los grupos activos</option>
+            {% for area in employee_areas %}
+              <option value="{{ area }}">{{ area }}</option>
+            {% endfor %}
+          </select>
+        </label>
+      {% endif %}
     </form>
   </div>
 </header>
@@ -55,6 +65,110 @@
     <div class="empty-icon">✓</div>
     <h2>No hay trabajadores para mostrar</h2>
     <p>No se encontraron checadas ni autorizaciones en esta semana.</p>
+  </section>
+{% elif supervisor_area %}
+  <section class="supervisor-home" data-supervisor-home>
+    <div class="supervisor-metrics">
+      <article class="supervisor-metric">
+        <span>Personal del grupo</span>
+        <strong>{{ supervisor_totals.workers }}</strong>
+        <small>{{ supervisor_totals.with_incidents }} con incidencias</small>
+      </article>
+      <article class="supervisor-metric danger">
+        <span>Checadas incompletas</span>
+        <strong>{{ supervisor_totals.incomplete }}</strong>
+        <small>durante la semana</small>
+      </article>
+      <article class="supervisor-metric overtime">
+        <span>Horas extra autorizadas</span>
+        <strong>{{ supervisor_totals.authorized_minutes|minutes }}</strong>
+        <small>tiempo contabilizado</small>
+      </article>
+      <article class="supervisor-metric warning">
+        <span>Tiempo sin autorizar</span>
+        <strong>{{ supervisor_totals.unauthorized_minutes|minutes }}</strong>
+        <small>requiere revisión</small>
+      </article>
+    </div>
+
+    <article class="panel supervisor-team-panel">
+      <header class="supervisor-team-header">
+        <div>
+          <span class="eyebrow">Vista previa semanal</span>
+          <h2>Incidencias del equipo</h2>
+          <p>Una fila por trabajador; sólo se muestran eventos que requieren atención.</p>
+        </div>
+        <label class="supervisor-search">
+          <span class="sr-only">Buscar trabajador</span>
+          <input type="search" placeholder="Buscar trabajador…"
+                 autocomplete="off" data-supervisor-search>
+        </label>
+      </header>
+      <div class="supervisor-table-wrap">
+        <table class="supervisor-table">
+          <thead>
+            <tr>
+              <th>Trabajador</th>
+              <th>Resumen</th>
+              <th>Incidencias de la semana</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for worker in calendar_rows %}
+              <tr data-supervisor-worker
+                  data-worker-name="{{ worker.employee_name|lower }} {{ worker.employee_code|lower }}">
+                <td>
+                  <div class="supervisor-worker">
+                    {% if worker.photo_filename %}
+                      <img class="worker-avatar worker-avatar-photo"
+                           src="{{ url_for('employee_photo', filename=worker.photo_filename) }}"
+                           alt="Foto de {{ worker.employee_name }}">
+                    {% else %}
+                      <span class="worker-avatar">{{ worker.employee_name[0]|upper }}</span>
+                    {% endif %}
+                    <span>
+                      <strong>{{ worker.employee_name }}</strong>
+                      <small>{% if worker.employee_code %}No. {{ worker.employee_code }} · {% endif %}{{ worker.area }}</small>
+                    </span>
+                  </div>
+                </td>
+                <td>
+                  <div class="supervisor-worker-totals">
+                    {% if worker.summary_incomplete %}
+                      <span class="summary-count danger">{{ worker.summary_incomplete }} sin checar</span>
+                    {% endif %}
+                    {% if worker.summary_authorized_minutes %}
+                      <span class="summary-count overtime">{{ worker.summary_authorized_minutes|minutes }} extra</span>
+                    {% endif %}
+                    {% if worker.summary_unauthorized_minutes %}
+                      <span class="summary-count warning">{{ worker.summary_unauthorized_minutes|minutes }} sin autorizar</span>
+                    {% endif %}
+                    {% if not worker.summary_incidents %}
+                      <span class="summary-count clear">✓ Sin incidencias</span>
+                    {% endif %}
+                  </div>
+                </td>
+                <td>
+                  <div class="supervisor-incidents">
+                    {% for incident in worker.summary_incidents %}
+                      <div class="incident-day">
+                        <strong>{{ incident.work_date|weekday_short }} {{ incident.work_date.day }}/{{ incident.work_date.month }}</strong>
+                        {% for style, label in incident['items'] %}
+                          <span class="incident-badge {{ style }}">{{ label }}</span>
+                        {% endfor %}
+                      </div>
+                    {% else %}
+                      <span class="no-incidents">Todo en orden esta semana</span>
+                    {% endfor %}
+                  </div>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <p class="home-search-empty" data-supervisor-empty hidden>No hay coincidencias.</p>
+    </article>
   </section>
 {% else %}
   <section class="home-browser" data-home-browser
