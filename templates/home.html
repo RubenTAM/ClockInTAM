@@ -140,29 +140,43 @@
               {% endif %}
             </small>
           </article>
+          <article class="supervisor-metric vacation">
+            <span>Días de vacaciones</span>
+            <strong>{{ supervisor_totals.vacation_days }}</strong>
+            <small>días esta semana</small>
+          </article>
+          <article class="supervisor-metric workers">
+            <span>Total trabajadores</span>
+            <strong>{{ supervisor_totals.workers }}</strong>
+            <small>activos esta semana</small>
+          </article>
         </div>
 
         <article class="panel supervisor-team-panel">
           <header class="supervisor-team-header">
             <div>
               <span class="eyebrow">Vista previa semanal</span>
-              <h2>Incidencias del equipo</h2>
-              <p>Checadas faltantes y horas extra autorizadas.</p>
+              <h2>Asistencia del equipo</h2>
+              <p>Resumen diario de checadas, vacaciones y horas extra.</p>
             </div>
           </header>
           <div class="supervisor-table-wrap">
-            <table class="supervisor-table">
+            <table class="supervisor-table supervisor-week-table">
               <thead>
                 <tr>
-                  <th>Trabajador</th>
-                  <th>Resumen</th>
-                  <th>Incidencias de la semana</th>
+                  <th class="supervisor-worker-column">Trabajador</th>
+                  {% for day in week_days %}
+                    <th class="supervisor-day-heading">
+                      <span>{{ day|weekday_short }}</span>
+                      <strong>{{ day.day }}/{{ day.month }}</strong>
+                    </th>
+                  {% endfor %}
                 </tr>
               </thead>
               <tbody>
                 {% for worker in calendar_rows %}
                   <tr>
-                    <td>
+                    <td class="supervisor-worker-column">
                       <div class="supervisor-worker">
                         {% if worker.photo_filename %}
                           <img class="worker-avatar worker-avatar-photo"
@@ -177,58 +191,47 @@
                         </span>
                       </div>
                     </td>
-                    <td>
-                      <div class="supervisor-worker-totals">
-                        {% if worker.summary_incomplete %}
-                          <span class="summary-count danger">{{ worker.summary_incomplete }} checada{{ 's' if worker.summary_incomplete != 1 else '' }} faltante{{ 's' if worker.summary_incomplete != 1 else '' }}</span>
-                        {% endif %}
-                        {% if worker.summary_vacation_days %}
-                          <span class="summary-count vacation">☀ {{ worker.summary_vacation_days }} día{{ 's' if worker.summary_vacation_days != 1 else '' }} de vacaciones</span>
-                        {% endif %}
-                        {% if worker.summary_authorized_minutes %}
-                          <span class="summary-overtime-stack">
-                            <strong>{{ worker.summary_authorized_minutes|minutes }} autorizadas</strong>
-                            {% if worker.summary_double_minutes %}
-                              <small>{{ worker.summary_double_minutes|minutes }} dobles</small>
+                    {% for cell in worker.cells %}
+                      {% set report = cell.report %}
+                      {% set has_overtime = report and report.rounded_approved_minutes %}
+                      <td class="supervisor-day-cell">
+                        <div class="supervisor-day-statuses">
+                          {% if cell.is_vacation %}
+                            <span class="supervisor-status vacation">☀ Vacaciones</span>
+                          {% elif cell.is_incomplete and not cell.is_today %}
+                            {% if (not report or not report.clock_in) and (not report or not report.clock_out) %}
+                              <span class="supervisor-status danger">Sin checadas</span>
+                            {% elif not report or not report.clock_in %}
+                              <span class="supervisor-status danger">Sin entrada</span>
+                            {% else %}
+                              <span class="supervisor-status danger">Sin salida</span>
                             {% endif %}
-                            {% if worker.summary_triple_minutes %}
-                              <small>{{ worker.summary_triple_minutes|minutes }} triples</small>
-                            {% endif %}
-                          </span>
-                        {% endif %}
-                        {% if not worker.summary_incidents %}
-                          <span class="summary-count clear">✓ Sin incidencias</span>
-                        {% endif %}
-                      </div>
-                    </td>
-                    <td>
-                      <div class="supervisor-incidents">
-                        {% for incident in worker.summary_incidents %}
-                          <div class="incident-day">
-                            <strong>{{ incident.work_date|weekday_short }} {{ incident.work_date.day }}/{{ incident.work_date.month }}</strong>
-                            {% if incident.is_vacation %}
-                              <span class="incident-badge vacation">☀ Vacaciones</span>
-                            {% endif %}
-                            {% for label in incident.missing_punches %}
-                              <span class="incident-badge danger">{{ label }}</span>
-                            {% endfor %}
-                            {% if incident.authorized_minutes %}
-                              <span class="incident-overtime-stack">
-                                <strong>{{ incident.authorized_minutes|minutes }} autorizadas</strong>
-                                {% if incident.double_minutes %}
-                                  <small>{{ incident.double_minutes|minutes }} dobles</small>
-                                {% endif %}
-                                {% if incident.triple_minutes %}
-                                  <small>{{ incident.triple_minutes|minutes }} triples</small>
-                                {% endif %}
-                              </span>
-                            {% endif %}
-                          </div>
-                        {% else %}
-                          <span class="no-incidents">Todo en orden esta semana</span>
-                        {% endfor %}
-                      </div>
-                    </td>
+                          {% elif cell.is_future %}
+                            <span class="supervisor-status pending">Pendiente</span>
+                          {% elif cell.is_non_working %}
+                            <span class="supervisor-status pending">No laborable</span>
+                          {% elif report and report.clock_in and report.clock_out %}
+                            <span class="supervisor-status clear">✓ Sin incidencias</span>
+                          {% elif cell.is_today %}
+                            <span class="supervisor-status pending">Día en curso</span>
+                          {% else %}
+                            <span class="supervisor-status clear">✓ Sin incidencias</span>
+                          {% endif %}
+                          {% if has_overtime %}
+                            <span class="supervisor-status overtime">+ {{ report.rounded_approved_minutes|minutes }} extra</span>
+                          {% endif %}
+                        </div>
+                        <span class="supervisor-day-time">
+                          {% if cell.is_vacation %}
+                            Todo el día
+                          {% elif report %}
+                            {{ report.clock_in|clock if report.clock_in else '—' }} – {{ report.clock_out|clock if report.clock_out else '—' }}
+                          {% else %}
+                            —
+                          {% endif %}
+                        </span>
+                      </td>
+                    {% endfor %}
                   </tr>
                 {% endfor %}
               </tbody>

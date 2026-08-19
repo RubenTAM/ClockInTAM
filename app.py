@@ -483,6 +483,7 @@ def supervisor_incident_summary(calendar_rows: list[dict]) -> dict:
         "workers": len(calendar_rows),
         "with_incidents": 0,
         "incomplete": 0,
+        "vacation_days": 0,
         "authorized_minutes": 0,
         "double_minutes": 0,
         "triple_minutes": 0,
@@ -543,6 +544,7 @@ def supervisor_incident_summary(calendar_rows: list[dict]) -> dict:
         if incidents:
             totals["with_incidents"] += 1
         totals["incomplete"] += worker_incomplete
+        totals["vacation_days"] += worker_vacation_days
         totals["authorized_minutes"] += worker_authorized
         totals["double_minutes"] += worker_double
         totals["triple_minutes"] += worker_triple

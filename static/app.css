@@ -130,13 +130,15 @@ p { color: var(--muted); line-height: 1.55; }
 .excel-group-field select { width: 280px; }
 .supervisor-export-scope { color: var(--muted); font-size: .75rem; font-weight: 800; }
 .supervisor-preview { min-height: 0; height: 100%; display: flex; flex-direction: column; gap: 12px; }
-.supervisor-preview-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.supervisor-preview-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
 .supervisor-metric {
-  padding: 16px 18px; border: 1px solid var(--line); border-top: 4px solid var(--green);
+  padding: 14px 16px; border: 1px solid var(--line); border-top: 3px solid #2674c8;
   border-radius: 14px; background: white; box-shadow: var(--shadow);
 }
 .supervisor-metric.danger { border-top-color: var(--red); }
 .supervisor-metric.overtime { border-top-color: #147a5b; }
+.supervisor-metric.vacation { border-top-color: #d59a18; }
+.supervisor-metric.workers { border-top-color: #2674c8; }
 .supervisor-metric span, .supervisor-metric small { display: block; color: var(--muted); }
 .supervisor-metric span { font-size: .76rem; font-weight: 800; }
 .supervisor-metric strong { display: block; margin: 6px 0 2px; font-size: 1.55rem; }
@@ -146,34 +148,39 @@ p { color: var(--muted); line-height: 1.55; }
 .supervisor-team-header h2, .supervisor-team-header p { margin-bottom: 0; }
 .supervisor-team-header p { margin-top: 4px; font-size: .8rem; }
 .supervisor-table-wrap { min-height: 0; flex: 1 1 auto; overflow: auto; }
-.supervisor-table { width: 100%; border-collapse: collapse; }
+.supervisor-table { width: 100%; border-collapse: separate; border-spacing: 0; }
 .supervisor-table th, .supervisor-table td { padding: 13px 18px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: middle; }
 .supervisor-table th { position: sticky; top: 0; z-index: 1; color: var(--muted); background: #f8fbfc; font-size: .68rem; letter-spacing: .06em; text-transform: uppercase; }
 .supervisor-table tbody tr:last-child td { border-bottom: 0; }
-.supervisor-worker { min-width: 235px; display: flex; align-items: center; gap: 11px; }
+.supervisor-week-table { min-width: 1120px; table-layout: fixed; }
+.supervisor-week-table th, .supervisor-week-table td { border-right: 1px solid var(--line); }
+.supervisor-week-table th:last-child, .supervisor-week-table td:last-child { border-right: 0; }
+.supervisor-week-table .supervisor-worker-column {
+  position: sticky; left: 0; z-index: 2; width: 245px; background: white;
+  box-shadow: 1px 0 0 var(--line);
+}
+.supervisor-week-table thead .supervisor-worker-column { z-index: 3; background: #f8fbfc; }
+.supervisor-day-heading { width: 125px; text-align: center !important; text-transform: capitalize !important; }
+.supervisor-day-heading span, .supervisor-day-heading strong { display: block; }
+.supervisor-day-heading strong { margin-top: 3px; color: var(--ink); font-size: .73rem; }
+.supervisor-worker { min-width: 0; display: flex; align-items: center; gap: 11px; }
 .supervisor-worker > span:last-child { min-width: 0; }
 .supervisor-worker strong, .supervisor-worker small { display: block; }
-.supervisor-worker strong { font-size: .82rem; }
+.supervisor-worker strong { overflow: hidden; font-size: .76rem; text-overflow: ellipsis; white-space: normal; }
 .supervisor-worker small { margin-top: 3px; color: var(--muted); font-size: .68rem; }
-.supervisor-worker-totals { min-width: 170px; display: flex; flex-wrap: wrap; gap: 5px; }
-.summary-count, .incident-badge { display: inline-flex; align-items: center; border-radius: 999px; font-size: .67rem; font-weight: 800; white-space: nowrap; }
-.summary-count { padding: 5px 8px; }
-.summary-count.danger, .incident-badge.danger { color: var(--red); background: var(--red-pale); }
-.summary-count.overtime, .incident-badge.overtime { color: #12664e; background: #e7f6ef; }
-.summary-count.vacation, .incident-badge.vacation { color: #875d00; background: #fff0b8; }
-.summary-count.clear { color: var(--green-dark); background: var(--green-pale); }
-.summary-overtime-stack, .incident-overtime-stack {
-  display: inline-flex; align-items: flex-start; flex-direction: column; gap: 2px;
-  padding: 6px 8px; border-radius: 9px; color: #12664e; background: #e7f6ef;
-  font-size: .67rem; white-space: nowrap;
+.supervisor-day-cell { height: 78px; padding: 10px 8px !important; text-align: center !important; white-space: normal; }
+.supervisor-day-statuses { display: grid; justify-items: center; gap: 4px; }
+.supervisor-status {
+  display: inline-flex; max-width: 100%; align-items: center; justify-content: center;
+  padding: 5px 8px; border-radius: 999px; font-size: .62rem; font-weight: 850;
+  line-height: 1.15; text-align: center; white-space: nowrap;
 }
-.summary-overtime-stack strong, .incident-overtime-stack strong { font-size: .67rem; }
-.summary-overtime-stack small, .incident-overtime-stack small { color: #28755f; font-size: .62rem; font-weight: 800; }
-.supervisor-incidents { min-width: 390px; display: flex; flex-wrap: wrap; gap: 7px; }
-.incident-day { display: inline-flex; align-items: center; gap: 5px; padding: 4px; border: 1px solid var(--line); border-radius: 9px; }
-.incident-day > strong { padding: 0 4px; font-size: .66rem; }
-.incident-badge { padding: 5px 7px; }
-.no-incidents { color: var(--muted); font-size: .76rem; }
+.supervisor-status.clear { color: #526675; background: #eef2f4; }
+.supervisor-status.danger { color: var(--red); background: var(--red-pale); }
+.supervisor-status.vacation { color: #875d00; background: #fff0b8; }
+.supervisor-status.overtime { color: #12664e; background: #e7f6ef; }
+.supervisor-status.pending { color: #667987; background: #f4f6f7; }
+.supervisor-day-time { display: block; margin-top: 6px; color: #455f75; font-size: .65rem; font-weight: 750; white-space: nowrap; }
 .user-area-form select { width: 230px; padding: 8px 10px; font-size: .76rem; }
 .home-page { overflow: hidden; }
 .home-page .app-main {
