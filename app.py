@@ -477,80 +477,6 @@ def rounded_overtime_minutes(minutes: int) -> int:
     return round_overtime_code_hours(minutes) * 60
 
 
-def supervisor_incident_summary(calendar_rows: list[dict]) -> dict:
-    """Build the supervisor preview from missing punches and approved overtime."""
-    totals = {
-        "workers": len(calendar_rows),
-        "with_incidents": 0,
-        "incomplete": 0,
-        "vacation_days": 0,
-        "authorized_minutes": 0,
-        "double_minutes": 0,
-        "triple_minutes": 0,
-    }
-    for worker in calendar_rows:
-        incidents = []
-        worker_vacation_days = 0
-        worker_authorized = 0
-        worker_double = 0
-        worker_triple = 0
-        worker_incomplete = 0
-        for cell in worker["cells"]:
-            report = cell["report"]
-            is_vacation = bool(cell.get("is_vacation"))
-            if is_vacation:
-                worker_vacation_days += 1
-            missing_punches = []
-            if cell["is_incomplete"] and not cell["is_today"]:
-                if not report or not report.get("clock_in"):
-                    worker_incomplete += 1
-                    missing_punches.append("Sin checada de entrada")
-                if not report or not report.get("clock_out"):
-                    worker_incomplete += 1
-                    missing_punches.append("Sin checada de salida")
-            authorized = 0
-            double_minutes = 0
-            triple_minutes = 0
-            if report:
-                authorized = rounded_overtime_minutes(
-                    int(report.get("approved_minutes", 0))
-                )
-                double_minutes = int(
-                    report.get("rounded_double_minutes", 0)
-                )
-                triple_minutes = int(
-                    report.get("rounded_triple_minutes", 0)
-                )
-                worker_authorized += authorized
-                worker_double += double_minutes
-                worker_triple += triple_minutes
-            if is_vacation or missing_punches or authorized:
-                incidents.append(
-                    {
-                        "work_date": cell["work_date"],
-                        "is_vacation": is_vacation,
-                        "missing_punches": missing_punches,
-                        "authorized_minutes": authorized,
-                        "double_minutes": double_minutes,
-                        "triple_minutes": triple_minutes,
-                    }
-                )
-        worker["summary_incidents"] = incidents
-        worker["summary_vacation_days"] = worker_vacation_days
-        worker["summary_incomplete"] = worker_incomplete
-        worker["summary_authorized_minutes"] = worker_authorized
-        worker["summary_double_minutes"] = worker_double
-        worker["summary_triple_minutes"] = worker_triple
-        if incidents:
-            totals["with_incidents"] += 1
-        totals["incomplete"] += worker_incomplete
-        totals["vacation_days"] += worker_vacation_days
-        totals["authorized_minutes"] += worker_authorized
-        totals["double_minutes"] += worker_double
-        totals["triple_minutes"] += worker_triple
-    return totals
-
-
 def authorizations_for_week(week_start: date) -> list[dict]:
     week_end = week_start + timedelta(days=6)
     rows = get_db().execute(
@@ -679,7 +605,10 @@ def weekly_report_calendar(
         vacation_end = date.fromisoformat(vacation["end_date"])
         for offset in range((vacation_end - vacation_start).days + 1):
             vacation_date = vacation_start + timedelta(days=offset)
-            if week_start <= vacation_date <= week_start + timedelta(days=6):
+            if (
+                week_start <= vacation_date <= week_start + timedelta(days=6)
+                and vacation_date.weekday() != 6
+            ):
                 vacation_map[(vacation["employee_name_key"], vacation_date)] = (
                     vacation
                 )
@@ -932,7 +861,6 @@ def register_routes(app: Flask) -> None:
                 for worker in calendar_rows
                 if same_group(worker["area"], supervisor_area)
             ]
-        supervisor_totals = supervisor_incident_summary(calendar_rows)
         return render_template(
             "home.html",
             calendar_rows=calendar_rows,
@@ -950,7 +878,6 @@ def register_routes(app: Flask) -> None:
             ],
             selected_worker=request.args.get("trabajador", ""),
             supervisor_area=supervisor_area,
-            supervisor_totals=supervisor_totals,
         )
 
     @app.post("/autorizaciones/desde-inicio")
@@ -1763,7 +1690,10 @@ def register_routes(app: Flask) -> None:
                 week_start + timedelta(days=6),
             )
             while current <= final:
-                vacation_days[(vacation["employee_name_key"], current)] = vacation
+                if current.weekday() != 6:
+                    vacation_days[(
+                        vacation["employee_name_key"], current
+                    )] = vacation
                 current += timedelta(days=1)
 
         exported_days = set()
@@ -1968,7 +1898,7 @@ def register_routes(app: Flask) -> None:
                     generate_password_hash(
                         password, method="pbkdf2:sha256"
                     ),
-                    supervised_area or default_supervised_area(display_name),
+                    supervised_area,
                     utc_now(),
                 ),
             )

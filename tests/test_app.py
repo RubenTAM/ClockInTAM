@@ -299,6 +299,8 @@ class AppFlowTests(unittest.TestCase):
         self.assertIn(b"data-home-browser", response.data)
         self.assertIn(b"data-home-preview", response.data)
         self.assertIn(b"Asistencia del equipo", response.data)
+        self.assertNotIn(b"Checadas faltantes</span>", response.data)
+        self.assertNotIn(b"Total trabajadores</span>", response.data)
         self.assertIn(b"Jorge Rangel Pulido", response.data)
         self.assertNotIn("Ana López".encode(), response.data)
         self.assertIn(b"1 h 00 min extra", response.data)
@@ -318,6 +320,71 @@ class AppFlowTests(unittest.TestCase):
             self.assertEqual(
                 user["supervised_area"], "TecnoAll - Ingenieria"
             )
+
+    def test_new_user_with_full_access_sees_all_worker_groups(self):
+        self.initialize_admin()
+        self.login()
+        with self.app.app_context():
+            save_employees(
+                [
+                    {
+                        "employee_name": "Trabajador Ingeniería Prueba",
+                        "employee_name_key": "trabajador ingenieria prueba",
+                        "group_name": "TecnoAll - Ingenieria",
+                    },
+                    {
+                        "employee_name": "Trabajador Compras Prueba",
+                        "employee_name_key": "trabajador compras prueba",
+                        "group_name": "TecnoAll - Compras",
+                    },
+                ]
+            )
+
+        response = self.client.post(
+            "/usuarios/nuevo",
+            data={
+                "csrf_token": self.csrf_token(),
+                "display_name": "José Valdez",
+                "username": "jose",
+                "password": "UnaClaveSegura123",
+                "supervised_area": "",
+            },
+            follow_redirects=True,
+        )
+        self.assertIn(b"Usuario creado correctamente", response.data)
+        with self.app.app_context():
+            jose = get_db().execute(
+                "SELECT id, supervised_area FROM users WHERE username = 'jose'"
+            ).fetchone()
+            self.assertEqual(jose["supervised_area"], "")
+
+        self.client.post(
+            "/logout",
+            data={"csrf_token": self.csrf_token()},
+        )
+        self.client.get("/login")
+        login = self.client.post(
+            "/login",
+            data={
+                "csrf_token": self.csrf_token(),
+                "username": "jose",
+                "password": "UnaClaveSegura123",
+            },
+            follow_redirects=True,
+        )
+        self.assertEqual(login.status_code, 200)
+
+        with patch(
+            "app.report_for_week", return_value=([], None, set())
+        ), patch("app.local_today", return_value=date(2026, 8, 19)):
+            home = self.client.get("/?semana=2026-08-13")
+
+        self.assertIn(b"Trabajador Ingenier", home.data)
+        self.assertIn(b"Trabajador Compras Prueba", home.data)
+        self.assertIn(b"data-home-preview", home.data)
+        self.assertIn(b"Todos los grupos", home.data)
+        self.assertIn(b"Asistencia del equipo", home.data)
+        self.assertNotIn(b"Supervisor &middot;", home.data)
 
     def test_home_can_enable_overtime_with_an_approved_hours_limit(self):
         self.initialize_admin()
@@ -616,7 +683,7 @@ class AppFlowTests(unittest.TestCase):
                 "employee_name_key": "jorge rangel pulido",
                 "group_name": "TecnoAll - Ingenieria",
                 "start_date": "2026-08-13",
-                "end_date": "2026-08-14",
+                "end_date": "2026-08-16",
             },
             follow_redirects=True,
         )
@@ -639,6 +706,9 @@ class AppFlowTests(unittest.TestCase):
             )
             self.assertTrue(worker["cells"][0]["is_vacation"])
             self.assertFalse(worker["cells"][0]["is_incomplete"])
+            self.assertTrue(worker["cells"][2]["is_vacation"])
+            self.assertFalse(worker["cells"][3]["is_vacation"])
+            self.assertTrue(worker["cells"][3]["is_non_working"])
 
         with (
             patch("app.report_for_week", return_value=([], "", set())),

@@ -81,18 +81,18 @@
         <option value="__none__">Sin grupo registrado</option>
       </select>
       <div class="home-worker-list" data-home-list>
-        {% if supervisor_area %}
-          <button type="button" class="home-worker-option home-preview-option active"
-                  data-home-preview data-template="home-supervisor-preview">
-            <span class="worker-avatar home-preview-icon">▤</span>
-            <span>
-              <strong>Vista previa</strong>
-              <small>Incidencias de {{ supervisor_area }}</small>
-            </span>
-          </button>
-        {% endif %}
+        <button type="button" class="home-worker-option home-preview-option active"
+                data-home-preview data-template="home-supervisor-preview">
+          <span class="worker-avatar home-preview-icon">▤</span>
+          <span>
+            <strong>Vista previa</strong>
+            <small>
+              {{ 'Incidencias de ' ~ supervisor_area if supervisor_area else 'Todos los grupos' }}
+            </small>
+          </span>
+        </button>
         {% for worker in calendar_rows %}
-          <button type="button" class="home-worker-option {{ 'active' if loop.first and not supervisor_area else '' }}"
+          <button type="button" class="home-worker-option"
                   data-home-worker data-worker-name="{{ worker.employee_name|lower }}"
                   data-worker-key="{{ worker.employee_name_key }}"
                   data-worker-code="{{ worker.employee_code|lower }}"
@@ -121,37 +121,8 @@
     <div class="home-profile-host" data-home-profile></div>
   </section>
 
-  {% if supervisor_area %}
-    <template id="home-supervisor-preview">
+  <template id="home-supervisor-preview">
       <section class="supervisor-preview" data-supervisor-home>
-        <div class="supervisor-preview-metrics">
-          <article class="supervisor-metric danger">
-            <span>Checadas faltantes</span>
-            <strong>{{ supervisor_totals.incomplete }}</strong>
-            <small>entradas o salidas de la semana</small>
-          </article>
-          <article class="supervisor-metric overtime">
-            <span>Horas extra autorizadas</span>
-            <strong>{{ supervisor_totals.authorized_minutes|minutes }}</strong>
-            <small>
-              {{ supervisor_totals.double_minutes|minutes }} dobles
-              {% if supervisor_totals.triple_minutes %}
-                · {{ supervisor_totals.triple_minutes|minutes }} triples
-              {% endif %}
-            </small>
-          </article>
-          <article class="supervisor-metric vacation">
-            <span>Días de vacaciones</span>
-            <strong>{{ supervisor_totals.vacation_days }}</strong>
-            <small>días esta semana</small>
-          </article>
-          <article class="supervisor-metric workers">
-            <span>Total trabajadores</span>
-            <strong>{{ supervisor_totals.workers }}</strong>
-            <small>activos esta semana</small>
-          </article>
-        </div>
-
         <article class="panel supervisor-team-panel">
           <header class="supervisor-team-header">
             <div>
@@ -239,8 +210,7 @@
           </div>
         </article>
       </section>
-    </template>
-  {% endif %}
+  </template>
 
   {% for worker in calendar_rows %}
     <template id="home-profile-{{ loop.index }}">

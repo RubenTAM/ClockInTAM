@@ -122,7 +122,8 @@ def _vacation_dates(vacation_rows: list[dict], week_start: date) -> set[tuple]:
         current = max(start, week_start)
         final = min(end, week_end)
         while current <= final:
-            dates.add((vacation["employee_name_key"], current))
+            if current.weekday() != 6:
+                dates.add((vacation["employee_name_key"], current))
             current += timedelta(days=1)
     return dates
 

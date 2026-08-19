@@ -93,7 +93,7 @@ class ExcelReportTests(unittest.TestCase):
         vacations = [{
             "employee_name_key": "jorge rangel pulido",
             "start_date": "2026-08-13",
-            "end_date": "2026-08-14",
+            "end_date": "2026-08-16",
         }]
         expediente = build_expediente_rows(
             [],
@@ -112,8 +112,8 @@ class ExcelReportTests(unittest.TestCase):
         )
         self.assertEqual(expediente[0]["notes"], "Vacaciones")
         self.assertEqual(expediente[1]["notes"], "Vacaciones")
-        self.assertEqual(contador[0]["day_codes"][:2], [
-            "VACACIONES", "VACACIONES"
+        self.assertEqual(contador[0]["day_codes"][:4], [
+            "VACACIONES", "VACACIONES", "VACACIONES", ""
         ])
 
 

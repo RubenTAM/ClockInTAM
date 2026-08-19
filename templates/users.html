@@ -25,7 +25,7 @@
             <strong>{{ row['display_name'] }}</strong>
             <small>
               @{{ row['username'] }} ·
-              {{ 'Supervisor de ' ~ row['supervised_area'] if row['supervised_area'] else 'Acceso general' }}
+              {{ 'Supervisor de ' ~ row['supervised_area'] if row['supervised_area'] else 'Acceso total' }}
             </small>
           </span>
           <form method="post" class="user-area-form"
@@ -36,7 +36,7 @@
             </label>
             <select id="supervised-area-{{ row['id'] }}" name="supervised_area"
                     onchange="this.form.submit()">
-              <option value="">Acceso general</option>
+              <option value="">Acceso total · Todos los grupos</option>
               {% for area in employee_areas %}
                 <option value="{{ area }}" {{ 'selected' if row['supervised_area'] == area else '' }}>
                   Supervisor · {{ area }}
@@ -87,7 +87,7 @@
       <label>
         Grupo supervisado
         <select name="supervised_area">
-          <option value="">Acceso general a todos los grupos</option>
+          <option value="">Acceso total · Todos los grupos</option>
           {% for area in employee_areas %}
             <option value="{{ area }}">{{ area }}</option>
           {% endfor %}

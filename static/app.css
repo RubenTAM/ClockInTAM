@@ -130,19 +130,6 @@ p { color: var(--muted); line-height: 1.55; }
 .excel-group-field select { width: 280px; }
 .supervisor-export-scope { color: var(--muted); font-size: .75rem; font-weight: 800; }
 .supervisor-preview { min-height: 0; height: 100%; display: flex; flex-direction: column; gap: 12px; }
-.supervisor-preview-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
-.supervisor-metric {
-  padding: 14px 16px; border: 1px solid var(--line); border-top: 3px solid #2674c8;
-  border-radius: 14px; background: white; box-shadow: var(--shadow);
-}
-.supervisor-metric.danger { border-top-color: var(--red); }
-.supervisor-metric.overtime { border-top-color: #147a5b; }
-.supervisor-metric.vacation { border-top-color: #d59a18; }
-.supervisor-metric.workers { border-top-color: #2674c8; }
-.supervisor-metric span, .supervisor-metric small { display: block; color: var(--muted); }
-.supervisor-metric span { font-size: .76rem; font-weight: 800; }
-.supervisor-metric strong { display: block; margin: 6px 0 2px; font-size: 1.55rem; }
-.supervisor-metric small { font-size: .7rem; }
 .supervisor-team-panel { min-height: 0; display: flex; flex: 1 1 auto; flex-direction: column; overflow: hidden; }
 .supervisor-team-header { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 18px 20px; border-bottom: 1px solid var(--line); }
 .supervisor-team-header h2, .supervisor-team-header p { margin-bottom: 0; }
@@ -758,7 +745,6 @@ td.muted { max-width: 230px; overflow: hidden; text-overflow: ellipsis; }
   .dialog-actions .button { width: 100%; }
   .home-browser { grid-template-columns: 1fr; }
   .supervisor-preview { height: auto; }
-  .supervisor-preview-metrics { grid-template-columns: 1fr; }
   .supervisor-team-header { align-items: stretch; flex-direction: column; }
   .supervisor-table-wrap { overflow-x: auto; }
   .user-area-form { width: 100%; order: 5; }
