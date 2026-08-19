@@ -283,7 +283,7 @@ class AppFlowTests(unittest.TestCase):
                 "clock_out": time(18, 0),
                 "overtime_minutes": 60,
                 "authorized_minutes": 60,
-                "approved_minutes": 60,
+                "approved_minutes": 120,
                 "unauthorized_minutes": 45,
                 "unused_minutes": 0,
             }
@@ -303,7 +303,8 @@ class AppFlowTests(unittest.TestCase):
         self.assertNotIn(b"Total trabajadores</span>", response.data)
         self.assertIn(b"Jorge Rangel Pulido", response.data)
         self.assertNotIn("Ana López".encode(), response.data)
-        self.assertIn(b"1 h 00 min extra", response.data)
+        self.assertIn(b"1 h 00 min extra utilizada", response.data)
+        self.assertNotIn(b"2 h 00 min extra utilizada", response.data)
         self.assertIn(b"Sin checadas", response.data)
         self.assertIn(b"Sin incidencias", response.data)
         self.assertNotIn(b"sin autorizar", response.data)

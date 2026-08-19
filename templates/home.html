@@ -164,7 +164,7 @@
                     </td>
                     {% for cell in worker.cells %}
                       {% set report = cell.report %}
-                      {% set has_overtime = report and report.rounded_approved_minutes %}
+                      {% set used_overtime = report.rounded_counted_overtime_minutes if report else 0 %}
                       <td class="supervisor-day-cell">
                         <div class="supervisor-day-statuses">
                           {% if cell.is_vacation %}
@@ -188,8 +188,8 @@
                           {% else %}
                             <span class="supervisor-status clear">✓ Sin incidencias</span>
                           {% endif %}
-                          {% if has_overtime %}
-                            <span class="supervisor-status overtime">+ {{ report.rounded_approved_minutes|minutes }} extra</span>
+                          {% if used_overtime %}
+                            <span class="supervisor-status overtime">+ {{ used_overtime|minutes }} extra utilizada</span>
                           {% endif %}
                         </div>
                         <span class="supervisor-day-time">
