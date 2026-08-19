@@ -688,6 +688,14 @@ def weekly_report_calendar(
                 "employee_name_key": name_key,
                 "photo_filename": employee_photo_filename(employee_name),
                 "cells": cells,
+                "has_preview_incidents": any(
+                    cell["is_vacation"]
+                    or (cell["is_incomplete"] and not cell["is_today"])
+                    or int((cell["report"] or {}).get(
+                        "rounded_counted_overtime_minutes", 0
+                    )) > 0
+                    for cell in cells
+                ),
                 "authorized_minutes": sum(
                     int((cell["report"] or {}).get(
                         "authorized_minutes", 0

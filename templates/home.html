@@ -130,6 +130,13 @@
               <h2>Asistencia del equipo</h2>
               <p>Resumen diario de checadas, vacaciones y horas extra.</p>
             </div>
+            <label class="supervisor-preview-filter">
+              Mostrar trabajadores
+              <select data-supervisor-preview-filter>
+                <option value="incidents">Con incidencias</option>
+                <option value="all">Todos del grupo</option>
+              </select>
+            </label>
           </header>
           <div class="supervisor-table-wrap">
             <table class="supervisor-table supervisor-week-table">
@@ -146,7 +153,9 @@
               </thead>
               <tbody>
                 {% for worker in calendar_rows %}
-                  <tr>
+                  <tr data-supervisor-worker-row
+                      data-preview-has-incidents="{{ '1' if worker.has_preview_incidents else '0' }}"
+                      data-preview-worker-area="{{ worker.area|lower if worker.area else '__none__' }}">
                     <td class="supervisor-worker-column">
                       <div class="supervisor-worker">
                         {% if worker.photo_filename %}
@@ -207,6 +216,9 @@
                     {% endfor %}
                   </tr>
                 {% endfor %}
+                <tr class="supervisor-preview-empty" data-supervisor-preview-empty hidden>
+                  <td colspan="8">No hay trabajadores con incidencias en este grupo.</td>
+                </tr>
               </tbody>
             </table>
           </div>

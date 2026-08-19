@@ -272,11 +272,46 @@
   const workers = [...browser.querySelectorAll("[data-home-worker]")];
   const choices = preview ? [preview, ...workers] : workers;
 
+  const setupSupervisorPreview = () => {
+    const supervisor = profile.querySelector("[data-supervisor-home]");
+    if (!supervisor) return;
+    const previewFilter = supervisor.querySelector(
+      "[data-supervisor-preview-filter]"
+    );
+    const previewRows = [...supervisor.querySelectorAll(
+      "[data-supervisor-worker-row]"
+    )];
+    const previewEmpty = supervisor.querySelector(
+      "[data-supervisor-preview-empty]"
+    );
+    if (!previewFilter) return;
+
+    const filterPreviewRows = () => {
+      const selectedArea = normalizeSearch(areaFilter.value);
+      const showAll = previewFilter.value === "all";
+      let visible = 0;
+      previewRows.forEach((row) => {
+        const matchesArea = !selectedArea
+          || normalizeSearch(row.dataset.previewWorkerArea) === selectedArea;
+        const matchesIncidents = showAll
+          || row.dataset.previewHasIncidents === "1";
+        const matches = matchesArea && matchesIncidents;
+        row.hidden = !matches;
+        if (matches) visible += 1;
+      });
+      if (previewEmpty) previewEmpty.hidden = visible > 0;
+    };
+
+    previewFilter.addEventListener("change", filterPreviewRows);
+    filterPreviewRows();
+  };
+
   const showWorker = (button) => {
     const template = document.getElementById(button.dataset.template);
     if (!template) return;
     choices.forEach((choice) => choice.classList.toggle("active", choice === button));
     profile.replaceChildren(template.content.cloneNode(true));
+    setupSupervisorPreview();
   };
 
   choices.forEach((button) => {
@@ -287,7 +322,7 @@
     const query = normalizeSearch(search.value);
     const area = normalizeSearch(areaFilter.value);
     const matchingWorkers = [];
-    if (preview) preview.hidden = Boolean(query || area);
+    if (preview) preview.hidden = Boolean(query);
     workers.forEach((button) => {
       const matchesSearch = normalizeSearch(button.dataset.workerName).includes(query)
         || normalizeSearch(button.dataset.workerCode || "").includes(query);

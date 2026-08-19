@@ -134,6 +134,8 @@ p { color: var(--muted); line-height: 1.55; }
 .supervisor-team-header { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 18px 20px; border-bottom: 1px solid var(--line); }
 .supervisor-team-header h2, .supervisor-team-header p { margin-bottom: 0; }
 .supervisor-team-header p { margin-top: 4px; font-size: .8rem; }
+.supervisor-preview-filter { width: 210px; flex: 0 0 auto; font-size: .72rem; }
+.supervisor-preview-filter select { padding: 8px 10px; font-size: .76rem; }
 .supervisor-table-wrap { min-height: 0; flex: 1 1 auto; overflow: auto; }
 .supervisor-table { width: 100%; border-collapse: separate; border-spacing: 0; }
 .supervisor-table th, .supervisor-table td { padding: 13px 18px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: middle; }
@@ -171,6 +173,7 @@ p { color: var(--muted); line-height: 1.55; }
 }
 .supervisor-status.pending { color: #667987; background: #f4f6f7; }
 .supervisor-day-time { display: block; margin-top: 6px; color: #455f75; font-size: .65rem; font-weight: 750; white-space: nowrap; }
+.supervisor-preview-empty td { height: 110px; color: var(--muted); text-align: center; }
 .user-area-form select { width: 230px; padding: 8px 10px; font-size: .76rem; }
 .home-page { overflow: hidden; }
 .home-page .app-main {
@@ -749,6 +752,7 @@ td.muted { max-width: 230px; overflow: hidden; text-overflow: ellipsis; }
   .home-browser { grid-template-columns: 1fr; }
   .supervisor-preview { height: auto; }
   .supervisor-team-header { align-items: stretch; flex-direction: column; }
+  .supervisor-preview-filter { width: 100%; }
   .supervisor-table-wrap { overflow-x: auto; }
   .user-area-form { width: 100%; order: 5; }
   .user-area-form select { width: 100%; }

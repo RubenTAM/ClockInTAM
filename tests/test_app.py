@@ -171,6 +171,50 @@ class AppFlowTests(unittest.TestCase):
         self.assertTrue(current_cell["is_today"])
         self.assertTrue(current_cell["is_incomplete"])
 
+    def test_preview_incident_flag_ignores_normal_days(self):
+        work_days = [
+            date(2026, 8, 13),
+            date(2026, 8, 14),
+            date(2026, 8, 15),
+            date(2026, 8, 17),
+            date(2026, 8, 18),
+            date(2026, 8, 19),
+        ]
+        rows = [
+            {
+                "employee_name": "Jorge Rangel Pulido",
+                "employee_name_key": "jorge rangel pulido",
+                "work_date": work_date,
+                "clock_in": time(8, 0),
+                "clock_out": time(17, 0),
+                "authorized_minutes": 0,
+                "approved_minutes": 0,
+            }
+            for work_date in work_days
+        ]
+        with self.app.app_context(), patch(
+            "app.local_today", return_value=date(2026, 8, 20)
+        ):
+            workers, _ = weekly_report_calendar(
+                rows, date(2026, 8, 13)
+            )
+            worker = next(
+                item for item in workers
+                if item["employee_name_key"] == "jorge rangel pulido"
+            )
+            self.assertFalse(worker["has_preview_incidents"])
+
+            rows[0]["authorized_minutes"] = 60
+            rows[0]["approved_minutes"] = 60
+            workers, _ = weekly_report_calendar(
+                rows, date(2026, 8, 13)
+            )
+            worker = next(
+                item for item in workers
+                if item["employee_name_key"] == "jorge rangel pulido"
+            )
+            self.assertTrue(worker["has_preview_incidents"])
+
     def test_employee_photo_is_matched_by_filename_name(self):
         self.assertEqual(
             employee_photo_filename("Jorge Rangel Pulido"),
@@ -311,6 +355,10 @@ class AppFlowTests(unittest.TestCase):
         self.assertIn(b"data-home-browser", response.data)
         self.assertIn(b"data-home-preview", response.data)
         self.assertIn(b"Asistencia del equipo", response.data)
+        self.assertIn(b'data-supervisor-preview-filter', response.data)
+        self.assertIn(b'>Con incidencias</option>', response.data)
+        self.assertIn(b'>Todos del grupo</option>', response.data)
+        self.assertIn(b'data-preview-has-incidents="1"', response.data)
         self.assertNotIn(b"Checadas faltantes</span>", response.data)
         self.assertNotIn(b"Total trabajadores</span>", response.data)
         self.assertIn(b"Jorge Rangel Pulido", response.data)
