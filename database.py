@@ -54,6 +54,16 @@ CREATE TABLE IF NOT EXISTS vacations (
     CHECK (end_date >= start_date)
 );
 
+CREATE TABLE IF NOT EXISTS attendance_permissions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    employee_name_key TEXT NOT NULL,
+    work_date TEXT NOT NULL,
+    granted_by INTEGER NOT NULL,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (granted_by) REFERENCES users(id),
+    UNIQUE(employee_name_key, work_date)
+);
+
 CREATE TABLE IF NOT EXISTS audit_log (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
@@ -79,6 +89,9 @@ ON vacations(start_date, end_date);
 
 CREATE INDEX IF NOT EXISTS idx_vacations_employee
 ON vacations(employee_name_key);
+
+CREATE INDEX IF NOT EXISTS idx_attendance_permissions_date
+ON attendance_permissions(work_date);
 """
 
 

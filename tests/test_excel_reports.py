@@ -63,7 +63,7 @@ class ExcelReportTests(unittest.TestCase):
         )
         self.assertEqual(
             attendance_incidents(monday, time(8, 20), None),
-            "No checó salida · Llegada tarde",
+            "Llegada tarde · No checó salida",
         )
         self.assertEqual(
             attendance_incidents(saturday, time(8, 50), time(13, 0)),
@@ -71,7 +71,7 @@ class ExcelReportTests(unittest.TestCase):
         )
         self.assertEqual(
             attendance_incidents(monday, time(8, 19), time(17, 0)),
-            "",
+            "Llegada tarde",
         )
         self.assertEqual(
             attendance_incidents(
@@ -81,6 +81,14 @@ class ExcelReportTests(unittest.TestCase):
                 day_complete=False,
             ),
             "Llegada tarde",
+        )
+        self.assertEqual(
+            attendance_incidents(monday, time(8, 10), time(17, 0)),
+            "",
+        )
+        self.assertEqual(
+            attendance_incidents(monday, time(8, 0), time(16, 59)),
+            "Salida temprana",
         )
 
     def test_vacations_replace_incidents_and_accountant_codes(self):
@@ -115,6 +123,35 @@ class ExcelReportTests(unittest.TestCase):
         self.assertEqual(contador[0]["day_codes"][:4], [
             "VACACIONES", "VACACIONES", "VACACIONES", ""
         ])
+
+    def test_incident_permission_clears_expediente_notes(self):
+        employee = {
+            "employee_code": "063",
+            "employee_name": "Jorge Rangel Pulido",
+            "employee_name_key": "jorge rangel pulido",
+            "area": "TecnoAll - Ingenieria",
+        }
+        work_date = date(2026, 8, 17)
+        rows = [{
+            "employee_name_key": "jorge rangel pulido",
+            "work_date": work_date,
+            "clock_in": time(8, 11),
+            "clock_out": None,
+        }]
+        permissions = [{
+            "employee_name_key": "jorge rangel pulido",
+            "work_date": work_date.isoformat(),
+        }]
+        expediente = build_expediente_rows(
+            rows,
+            [employee],
+            date(2026, 8, 13),
+            date(2026, 8, 18),
+            "TecnoAll - Ingenieria",
+            permission_rows=permissions,
+        )
+        monday = next(row for row in expediente if row["work_date"] == work_date)
+        self.assertEqual(monday["notes"], "")
 
 
 if __name__ == "__main__":

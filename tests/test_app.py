@@ -7,6 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from app import (
+    attendance_incident_labels,
     create_app,
     employee_photo_filename,
     known_employee_code,
@@ -170,6 +171,69 @@ class AppFlowTests(unittest.TestCase):
         current_cell = workers[0]["cells"][5]
         self.assertTrue(current_cell["is_today"])
         self.assertTrue(current_cell["is_incomplete"])
+
+    def test_attendance_incidents_include_late_and_early_punches(self):
+        monday = date(2026, 8, 17)
+
+        self.assertEqual(
+            attendance_incident_labels(
+                monday,
+                {"clock_in": time(8, 10), "clock_out": time(17, 0)},
+            ),
+            [],
+        )
+        self.assertEqual(
+            attendance_incident_labels(
+                monday,
+                {"clock_in": time(8, 11), "clock_out": None},
+            ),
+            ["Llegada tarde", "No checó salida"],
+        )
+        self.assertEqual(
+            attendance_incident_labels(
+                monday,
+                {"clock_in": time(8, 0), "clock_out": time(16, 59)},
+            ),
+            ["Salida temprana"],
+        )
+
+    def test_incident_permission_suppresses_attendance_but_not_overtime(self):
+        monday = date(2026, 8, 17)
+        rows = [{
+            "employee_name": "Jorge Rangel Pulido",
+            "employee_name_key": "jorge rangel pulido",
+            "work_date": monday,
+            "clock_in": time(8, 11),
+            "clock_out": None,
+            "authorized_minutes": 60,
+            "approved_minutes": 60,
+        }]
+        permissions = [{
+            "employee_name_key": "jorge rangel pulido",
+            "work_date": monday.isoformat(),
+        }]
+
+        with self.app.app_context(), patch(
+            "app.local_today", return_value=date(2026, 8, 18)
+        ):
+            workers, _ = weekly_report_calendar(
+                rows,
+                date(2026, 8, 13),
+                permission_rows=permissions,
+            )
+
+        worker = next(
+            item for item in workers
+            if item["employee_name_key"] == "jorge rangel pulido"
+        )
+        cell = worker["cells"][4]
+        self.assertTrue(cell["has_incident_permission"])
+        self.assertEqual(cell["incident_labels"], [])
+        self.assertFalse(cell["has_attendance_incident"])
+        self.assertEqual(
+            cell["report"]["rounded_counted_overtime_minutes"], 60
+        )
+        self.assertTrue(worker["has_preview_incidents"])
 
     def test_preview_incident_flag_ignores_normal_days(self):
         work_days = [
@@ -371,7 +435,8 @@ class AppFlowTests(unittest.TestCase):
             b"Sin incidencias",
             response.data[previous_cell:overtime_cell],
         )
-        self.assertIn(b"Sin checadas", response.data)
+        self.assertIn("No checó entrada".encode(), response.data)
+        self.assertIn("No checó salida".encode(), response.data)
         self.assertIn(b"Sin incidencias", response.data)
         self.assertNotIn(b"sin autorizar", response.data)
         self.assertIn(b"Informaci\xc3\xb3n del trabajador", response.data)
@@ -794,6 +859,58 @@ class AppFlowTests(unittest.TestCase):
         self.assertIn(b".is-filtered-out", stylesheet.data)
         stylesheet.close()
 
+    def test_incident_permission_checkbox_is_persisted(self):
+        self.initialize_admin()
+        self.login()
+        with self.app.app_context():
+            save_employees([{
+                "employee_name": "Jorge Rangel Pulido",
+                "employee_name_key": "jorge rangel pulido",
+                "group_name": "TecnoAll - Ingenieria",
+            }])
+
+        response = self.client.post(
+            "/permisos-incidencia",
+            data={
+                "csrf_token": self.csrf_token(),
+                "employee_name_key": "jorge rangel pulido",
+                "work_date": "2026-08-17",
+                "has_permission": "1",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        with self.app.app_context():
+            permission = get_db().execute(
+                "SELECT * FROM attendance_permissions"
+            ).fetchone()
+            self.assertEqual(permission["work_date"], "2026-08-17")
+
+        with (
+            patch("app.report_for_week", return_value=([], "", set())),
+            patch("app.local_today", return_value=date(2026, 8, 18)),
+        ):
+            home = self.client.get(
+                "/?semana=2026-08-13&trabajador=jorge%20rangel%20pulido"
+            )
+        self.assertIn(b'data-work-date="2026-08-17"', home.data)
+        self.assertIn(b"Permiso aplicado", home.data)
+        self.assertIn(b"checked", home.data)
+
+        response = self.client.post(
+            "/permisos-incidencia",
+            data={
+                "csrf_token": self.csrf_token(),
+                "employee_name_key": "jorge rangel pulido",
+                "work_date": "2026-08-17",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        with self.app.app_context():
+            remaining = get_db().execute(
+                "SELECT COUNT(*) AS total FROM attendance_permissions"
+            ).fetchone()["total"]
+        self.assertEqual(remaining, 0)
+
     def test_excel_records_are_filtered_by_group_with_incidents(self):
         self.initialize_admin()
         self.login()
@@ -854,7 +971,7 @@ class AppFlowTests(unittest.TestCase):
         self.assertIn("Jorge Rangel Pulido", strings)
         self.assertNotIn("Ana López", strings)
         self.assertNotIn("Persona Inactiva", strings)
-        self.assertIn("No checó salida · Llegada tarde", strings)
+        self.assertIn("Llegada tarde · No checó salida", strings)
         self.assertIn("Ausencia a laborar", strings)
         self.assertIn("FFC62828", styles)
 

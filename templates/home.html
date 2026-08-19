@@ -178,14 +178,10 @@
                         <div class="supervisor-day-statuses">
                           {% if cell.is_vacation %}
                             <span class="supervisor-status vacation">☀ Vacaciones</span>
-                          {% elif cell.is_incomplete and not cell.is_today %}
-                            {% if (not report or not report.clock_in) and (not report or not report.clock_out) %}
-                              <span class="supervisor-status danger">Sin checadas</span>
-                            {% elif not report or not report.clock_in %}
-                              <span class="supervisor-status danger">Sin entrada</span>
-                            {% else %}
-                              <span class="supervisor-status danger">Sin salida</span>
-                            {% endif %}
+                          {% elif cell.incident_labels %}
+                            {% for incident in cell.incident_labels %}
+                              <span class="supervisor-status danger">{{ incident }}</span>
+                            {% endfor %}
                           {% elif cell.is_future %}
                             <span class="supervisor-status pending">Pendiente</span>
                           {% elif cell.is_non_working %}
@@ -195,6 +191,8 @@
                             <span class="supervisor-status overtime">
                               + {{ used_hours }} h extra{{ 's' if used_hours != 1 else '' }} utilizada{{ 's' if used_hours != 1 else '' }}
                             </span>
+                          {% elif cell.has_incident_permission %}
+                            <span class="supervisor-status permission">✓ Permiso aplicado</span>
                           {% elif report and report.clock_in and report.clock_out %}
                             <span class="supervisor-status clear">✓ Sin incidencias</span>
                           {% elif cell.is_today %}
@@ -257,18 +255,35 @@
             <div class="home-week-cards">
               {% for cell in worker.cells %}
                 {% set report = cell.report %}
-                <article class="home-day-card {{ 'vacation' if cell.is_vacation else ('today' if cell.is_today else ('incomplete' if cell.is_incomplete else '')) }}">
-                  {% if not cell.is_vacation %}
-                    <button type="button" class="enable-overtime-button"
-                          data-enable-overtime
-                          data-employee="{{ worker.employee_name }}"
-                          data-employee-key="{{ worker.employee_name_key }}"
-                          data-show-established-schedule="{{ '0' if worker.area.startswith('Abquim') else '1' }}"
-                          data-work-date="{{ cell.work_date }}"
-                          data-date-label="{{ cell.work_date|date_es }}">
-                      Habilitar tiempo extra
-                    </button>
-                  {% endif %}
+                <article class="home-day-card {{ 'vacation' if cell.is_vacation else ('today' if cell.is_today else ('incident' if cell.has_attendance_incident else '')) }}">
+                  <div class="home-day-actions">
+                    {% if not cell.is_vacation %}
+                      <button type="button" class="enable-overtime-button"
+                            data-enable-overtime
+                            data-employee="{{ worker.employee_name }}"
+                            data-employee-key="{{ worker.employee_name_key }}"
+                            data-show-established-schedule="{{ '0' if worker.area.startswith('Abquim') else '1' }}"
+                            data-work-date="{{ cell.work_date }}"
+                            data-date-label="{{ cell.work_date|date_es }}">
+                        Habilitar tiempo extra
+                      </button>
+                    {% else %}
+                      <span class="home-day-actions-spacer"></span>
+                    {% endif %}
+                    <form method="post" action="{{ url_for('toggle_attendance_permission') }}"
+                          class="day-permission-form">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                      <input type="hidden" name="employee_name_key" value="{{ worker.employee_name_key }}">
+                      <input type="hidden" name="work_date" value="{{ cell.work_date }}">
+                      <label class="day-permission-toggle"
+                             title="Permiso para omitir las incidencias de asistencia de este día">
+                        <input type="checkbox" name="has_permission" value="1"
+                               aria-label="Permiso de incidencia para {{ worker.employee_name }} el {{ cell.work_date|date_es }}"
+                               {% if cell.has_incident_permission %}checked{% endif %}
+                               onchange="this.form.submit()">
+                      </label>
+                    </form>
+                  </div>
                   <header>
                     <span>{{ cell.work_date|weekday_short }}</span>
                     <strong>{{ cell.work_date.day }}/{{ cell.work_date.month }}</strong>
@@ -283,10 +298,17 @@
                   <div class="home-day-statuses">
                     {% if cell.is_vacation %}
                       <span class="home-vacation">☀ Vacaciones autorizadas</span>
-                    {% elif cell.is_today %}
-                      <span class="home-today">Hoy · día en curso</span>
-                    {% elif cell.is_incomplete %}
-                      <span class="home-incomplete">Checada incompleta</span>
+                    {% else %}
+                      {% if cell.is_today %}
+                        <span class="home-today">Hoy · día en curso</span>
+                      {% endif %}
+                      {% if cell.has_incident_permission %}
+                        <span class="home-permission">✓ Permiso aplicado</span>
+                      {% else %}
+                        {% for incident in cell.incident_labels %}
+                          <span class="home-incomplete">{{ incident }}</span>
+                        {% endfor %}
+                      {% endif %}
                     {% endif %}
                     {% if report and report.allowed_range != 'Sin autorización' %}
                       <button type="button" class="home-authorization"

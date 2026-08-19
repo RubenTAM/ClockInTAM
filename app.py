@@ -6,7 +6,7 @@ import json
 import os
 import secrets
 import sqlite3
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from decimal import Decimal, InvalidOperation
 from functools import wraps
 from pathlib import Path
@@ -477,6 +477,45 @@ def rounded_overtime_minutes(minutes: int) -> int:
     return round_overtime_code_hours(minutes) * 60
 
 
+def attendance_incident_labels(
+    work_date: date,
+    report: dict | None,
+    *,
+    day_complete: bool = True,
+) -> list[str]:
+    """Return every attendance incident for a scheduled workday."""
+    if work_date.weekday() == 6:
+        return []
+
+    clock_in = (report or {}).get("clock_in")
+    clock_out = (report or {}).get("clock_out")
+    if not day_complete and clock_in is None and clock_out is None:
+        return []
+
+    incidents = []
+    if clock_in is None:
+        incidents.append("No checó entrada")
+    else:
+        late = (
+            clock_in > time(8, 10)
+            if work_date.weekday() < 5
+            else clock_in >= time(8, 50)
+        )
+        if late:
+            incidents.append("Llegada tarde")
+
+    if clock_out is None:
+        if day_complete:
+            incidents.append("No checó salida")
+    else:
+        scheduled_end = (
+            time(17, 0) if work_date.weekday() < 5 else time(13, 0)
+        )
+        if clock_out < scheduled_end:
+            incidents.append("Salida temprana")
+    return incidents
+
+
 def authorizations_for_week(week_start: date) -> list[dict]:
     week_end = week_start + timedelta(days=6)
     rows = get_db().execute(
@@ -510,6 +549,19 @@ def vacations_for_range(start_date: date, end_date: date) -> list[dict]:
 
 def vacations_for_week(week_start: date) -> list[dict]:
     return vacations_for_range(week_start, week_start + timedelta(days=6))
+
+
+def attendance_permissions_for_week(week_start: date) -> list[dict]:
+    week_end = week_start + timedelta(days=6)
+    rows = get_db().execute(
+        """
+        SELECT employee_name_key, work_date
+        FROM attendance_permissions
+        WHERE work_date BETWEEN ? AND ?
+        """,
+        (week_start.isoformat(), week_end.isoformat()),
+    ).fetchall()
+    return [dict(row) for row in rows]
 
 
 def authorization_calendar_for_week(
@@ -580,6 +632,7 @@ def weekly_report_calendar(
     report_rows: list[dict],
     week_start: date,
     vacation_rows: list[dict] | None = None,
+    permission_rows: list[dict] | None = None,
 ) -> tuple[list[dict], list[date]]:
     week_days = [
         week_start + timedelta(days=offset) for offset in range(7)
@@ -612,6 +665,15 @@ def weekly_report_calendar(
                 vacation_map[(vacation["employee_name_key"], vacation_date)] = (
                     vacation
                 )
+    permission_dates = {
+        (
+            row["employee_name_key"],
+            date.fromisoformat(row["work_date"])
+            if isinstance(row["work_date"], str)
+            else row["work_date"],
+        )
+        for row in permission_rows or []
+    }
 
     calendar_rows = []
     for name_key, employee_name in sorted(people.items()):
@@ -654,6 +716,7 @@ def weekly_report_calendar(
             today = local_today()
             is_today = work_date == today
             is_future = work_date > today
+            has_incident_permission = (name_key, work_date) in permission_dates
             is_non_working = (
                 work_date.weekday() == 6
                 and report is None
@@ -663,12 +726,25 @@ def weekly_report_calendar(
                 not is_future
                 and not is_non_working
                 and vacation is None
+                and not has_incident_permission
                 and (
                     report is None
                     or not report.get("clock_in")
                     or not report.get("clock_out")
                 )
             )
+            incident_labels = []
+            if (
+                not is_future
+                and not is_non_working
+                and vacation is None
+                and not has_incident_permission
+            ):
+                incident_labels = attendance_incident_labels(
+                    work_date,
+                    report,
+                    day_complete=not is_today,
+                )
             cells.append(
                 {
                     "work_date": work_date,
@@ -677,6 +753,9 @@ def weekly_report_calendar(
                     "is_future": is_future,
                     "is_non_working": is_non_working,
                     "is_incomplete": is_incomplete,
+                    "incident_labels": incident_labels,
+                    "has_attendance_incident": bool(incident_labels),
+                    "has_incident_permission": has_incident_permission,
                     "is_vacation": vacation is not None,
                     "vacation": vacation,
                 }
@@ -689,8 +768,8 @@ def weekly_report_calendar(
                 "photo_filename": employee_photo_filename(employee_name),
                 "cells": cells,
                 "has_preview_incidents": any(
-                    cell["is_vacation"]
-                    or (cell["is_incomplete"] and not cell["is_today"])
+                    (cell["is_vacation"] and not cell["has_incident_permission"])
+                    or cell["has_attendance_incident"]
                     or int((cell["report"] or {}).get(
                         "rounded_counted_overtime_minutes", 0
                     )) > 0
@@ -832,6 +911,7 @@ def register_routes(app: Flask) -> None:
         week_end = week_start + timedelta(days=6)
         calendar_rows = []
         week_days = [week_start + timedelta(days=offset) for offset in range(7)]
+        permission_rows = attendance_permissions_for_week(week_start)
         loaded_at = None
         error = None
         try:
@@ -843,11 +923,12 @@ def register_routes(app: Flask) -> None:
                 report_rows,
                 week_start,
                 vacations_for_week(week_start),
+                permission_rows,
             )
         except HikConnectError as exc:
             error = str(exc)
             calendar_rows, week_days = weekly_report_calendar(
-                [], week_start, vacations_for_week(week_start)
+                [], week_start, vacations_for_week(week_start), permission_rows
             )
         directory = {
             row["employee_name_key"]: row
@@ -886,6 +967,80 @@ def register_routes(app: Flask) -> None:
             ],
             selected_worker=request.args.get("trabajador", ""),
             supervisor_area=supervisor_area,
+        )
+
+    @app.post("/permisos-incidencia")
+    @login_required
+    def toggle_attendance_permission():
+        validate_csrf()
+        employee_key = request.form.get("employee_name_key", "").strip()
+        try:
+            work_date = parse_iso_date(
+                request.form.get("work_date", ""), "fecha"
+            )
+        except ValueError as exc:
+            flash(str(exc), "error")
+            return redirect(url_for("home"))
+
+        connection = get_db()
+        employee = connection.execute(
+            """
+            SELECT employee_name, employee_name_key, area
+            FROM employees WHERE employee_name_key = ?
+            """,
+            (employee_key,),
+        ).fetchone()
+        if employee is None or is_inactive_group(employee["area"]):
+            abort(400, "El trabajador seleccionado no es válido.")
+        supervised_area = str(g.user["supervised_area"] or "").strip()
+        if supervised_area and not same_group(employee["area"], supervised_area):
+            abort(403)
+
+        has_permission = request.form.get("has_permission") == "1"
+        if has_permission:
+            connection.execute(
+                """
+                INSERT INTO attendance_permissions (
+                    employee_name_key, work_date, granted_by, created_at
+                ) VALUES (?, ?, ?, ?)
+                ON CONFLICT(employee_name_key, work_date) DO UPDATE SET
+                    granted_by = excluded.granted_by,
+                    created_at = excluded.created_at
+                """,
+                (
+                    employee_key,
+                    work_date.isoformat(),
+                    g.user["id"],
+                    utc_now(),
+                ),
+            )
+        else:
+            connection.execute(
+                """
+                DELETE FROM attendance_permissions
+                WHERE employee_name_key = ? AND work_date = ?
+                """,
+                (employee_key, work_date.isoformat()),
+            )
+        log_action(
+            g.user["id"],
+            "grant" if has_permission else "revoke",
+            "attendance_permission",
+            details=json.dumps(
+                {
+                    "employee": employee["employee_name"],
+                    "work_date": work_date.isoformat(),
+                },
+                ensure_ascii=False,
+            ),
+        )
+        connection.commit()
+        return redirect(
+            url_for(
+                "home",
+                semana=week_start_for(work_date),
+                trabajador=employee_key,
+            )
         )
 
     @app.post("/autorizaciones/desde-inicio")
@@ -1639,6 +1794,7 @@ def register_routes(app: Flask) -> None:
             rows,
             week_start,
             vacations_for_week(week_start),
+            attendance_permissions_for_week(week_start),
         )
         return render_template(
             "report.html",
@@ -1786,6 +1942,7 @@ def register_routes(app: Flask) -> None:
             local_today(),
             group_name,
             vacations_for_week(week_start),
+            attendance_permissions_for_week(week_start),
         )
         workbook = create_expedientes_workbook(
             rows,

@@ -16,19 +16,29 @@ def attendance_incidents(
     clock_out: time | None,
     day_complete: bool = True,
 ) -> str:
+    if work_date.weekday() == 6:
+        return ""
     incidents = []
     if clock_in is None and clock_out is None:
         return "Ausencia a laborar" if day_complete else ""
     if clock_in is None:
         incidents.append("No checó entrada")
-    if clock_out is None and day_complete:
-        incidents.append("No checó salida")
-
-    late_threshold = (
-        time(8, 50) if work_date.weekday() == 5 else time(8, 20)
+    late = (
+        clock_in > time(8, 10)
+        if clock_in is not None and work_date.weekday() < 5
+        else clock_in is not None and clock_in >= time(8, 50)
     )
-    if clock_in is not None and clock_in >= late_threshold:
+    if late:
         incidents.append("Llegada tarde")
+    if clock_out is None:
+        if day_complete:
+            incidents.append("No checó salida")
+    else:
+        scheduled_end = (
+            time(17, 0) if work_date.weekday() < 5 else time(13, 0)
+        )
+        if clock_out < scheduled_end:
+            incidents.append("Salida temprana")
     return " · ".join(incidents)
 
 
@@ -39,12 +49,22 @@ def build_expediente_rows(
     today: date,
     group_name: str = "",
     vacation_rows: list[dict] | None = None,
+    permission_rows: list[dict] | None = None,
 ) -> list[dict]:
     report_map = {
         (row["employee_name_key"], row["work_date"]): row
         for row in report_rows
     }
     vacation_dates = _vacation_dates(vacation_rows or [], week_start)
+    permission_dates = {
+        (
+            row["employee_name_key"],
+            date.fromisoformat(row["work_date"])
+            if isinstance(row["work_date"], str)
+            else row["work_date"],
+        )
+        for row in permission_rows or []
+    }
     work_days = [
         week_start + timedelta(days=offset)
         for offset in range(7)
@@ -87,14 +107,19 @@ def build_expediente_rows(
                         report.get("authorized_minutes", 0)
                     ),
                     "notes": (
-                        "Vacaciones"
+                        ""
                         if (employee["employee_name_key"], work_date)
-                        in vacation_dates
-                        else attendance_incidents(
-                            work_date,
-                            clock_in,
-                            clock_out,
-                            day_complete=work_date < today,
+                        in permission_dates
+                        else (
+                            "Vacaciones"
+                            if (employee["employee_name_key"], work_date)
+                            in vacation_dates
+                            else attendance_incidents(
+                                work_date,
+                                clock_in,
+                                clock_out,
+                                day_complete=work_date < today,
+                            )
                         )
                     ),
                 }

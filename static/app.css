@@ -172,6 +172,7 @@ p { color: var(--muted); line-height: 1.55; }
   line-height: 1.25; text-wrap: balance; white-space: normal;
 }
 .supervisor-status.pending { color: #667987; background: #f4f6f7; }
+.supervisor-status.permission { color: #185a8d; background: #e7f2fb; }
 .supervisor-day-time { display: block; margin-top: 6px; color: #455f75; font-size: .65rem; font-weight: 750; white-space: nowrap; }
 .supervisor-preview-empty td { height: 110px; color: var(--muted); text-align: center; }
 .user-area-form select { width: 230px; padding: 8px 10px; font-size: .76rem; }
@@ -268,13 +269,25 @@ p { color: var(--muted); line-height: 1.55; }
   border-radius: 12px; background: white;
 }
 .enable-overtime-button {
-  width: 100%; margin-bottom: 12px; padding: 8px 9px;
+  width: 100%; margin: 0; padding: 8px 9px;
   border: 1px solid #9bcfe2; border-radius: 8px;
   color: var(--green-dark); background: var(--green-pale);
   cursor: pointer; font-size: .58rem; font-weight: 850;
   letter-spacing: .035em; text-transform: uppercase;
 }
 .enable-overtime-button:hover { border-color: var(--green); background: #d9edf5; }
+.home-day-actions {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 12px;
+}
+.home-day-actions .enable-overtime-button { min-width: 0; flex: 1 1 auto; }
+.home-day-actions-spacer { min-width: 0; flex: 1 1 auto; }
+.day-permission-form { flex: 0 0 auto; line-height: 0; }
+.day-permission-toggle { display: block; cursor: pointer; }
+.day-permission-toggle input {
+  width: 28px; height: 28px; margin: 0; padding: 0;
+  border: 1px solid #79a8c7; border-radius: 6px;
+  accent-color: #2674c8; box-shadow: none; cursor: pointer;
+}
 .field-help { display: block; margin-top: 8px; color: var(--muted); line-height: 1.45; }
 .established-schedule-value {
   display: flex; align-items: center; justify-content: space-between; gap: 16px;
@@ -283,7 +296,7 @@ p { color: var(--muted); line-height: 1.55; }
 }
 .established-schedule-value span { color: var(--muted); font-weight: 750; }
 .established-schedule-value strong { color: var(--green-dark); font-size: 1rem; }
-.home-day-card.incomplete { border-color: #dc4c47; background: #fffafa; }
+.home-day-card.incomplete, .home-day-card.incident { border-color: #dc4c47; background: #fffafa; }
 .home-day-card.today { border-color: #7c6fd1; background: #f7f5ff; }
 .home-day-card.vacation { border-color: #d59a18; background: #fff9e7; }
 .home-vacation { display: block; padding: 7px; border-radius: 8px; color: #765000; background: #ffe9a0; font-size: .68rem; font-weight: 850; text-align: center; }
@@ -296,7 +309,7 @@ p { color: var(--muted); line-height: 1.55; }
 .home-day-card dd { margin: 2px 0 0; font-size: .82rem; font-weight: 850; }
 .home-day-card .double-hours dd { color: #1a547a; }
 .home-day-card .triple-hours dd { color: #006892; }
-.home-authorization, .home-incomplete, .home-today {
+.home-authorization, .home-incomplete, .home-today, .home-permission {
   display: block; margin: 0; padding: 7px 6px; border-radius: 8px;
   font-size: .65rem; font-weight: 800; text-align: center;
 }
@@ -309,6 +322,7 @@ p { color: var(--muted); line-height: 1.55; }
 .home-authorization:hover { background: #d4efdf; }
 .home-incomplete { color: var(--red); background: var(--red-pale); }
 .home-today { color: #51469b; background: #e9e5ff; }
+.home-permission { color: #185a8d; background: #e7f2fb; }
 .home-day-statuses {
   display: grid; gap: 7px; margin-top: auto; padding-top: 10px;
 }
