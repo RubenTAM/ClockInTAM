@@ -286,7 +286,19 @@ class AppFlowTests(unittest.TestCase):
                 "approved_minutes": 120,
                 "unauthorized_minutes": 45,
                 "unused_minutes": 0,
-            }
+            },
+            {
+                "employee_name": "Jorge Rangel Pulido",
+                "employee_name_key": "jorge rangel pulido",
+                "work_date": date(2026, 7, 24),
+                "clock_in": time(8, 0),
+                "clock_out": time(17, 0),
+                "overtime_minutes": 0,
+                "authorized_minutes": 0,
+                "approved_minutes": 0,
+                "unauthorized_minutes": 0,
+                "unused_minutes": 0,
+            },
         ]
         with patch(
             "app.report_for_week",
@@ -303,8 +315,14 @@ class AppFlowTests(unittest.TestCase):
         self.assertNotIn(b"Total trabajadores</span>", response.data)
         self.assertIn(b"Jorge Rangel Pulido", response.data)
         self.assertNotIn("Ana López".encode(), response.data)
-        self.assertIn(b"1 h 00 min extra utilizada", response.data)
-        self.assertNotIn(b"2 h 00 min extra utilizada", response.data)
+        self.assertIn(b"+ 1 h extra utilizada", response.data)
+        self.assertNotIn(b"+ 2 h extras utilizadas", response.data)
+        overtime_cell = response.data.index(b"+ 1 h extra utilizada")
+        previous_cell = response.data.rfind(b'<td class="supervisor-day-cell">', 0, overtime_cell)
+        self.assertNotIn(
+            b"Sin incidencias",
+            response.data[previous_cell:overtime_cell],
+        )
         self.assertIn(b"Sin checadas", response.data)
         self.assertIn(b"Sin incidencias", response.data)
         self.assertNotIn(b"sin autorizar", response.data)

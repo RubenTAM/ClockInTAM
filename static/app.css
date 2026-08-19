@@ -165,7 +165,10 @@ p { color: var(--muted); line-height: 1.55; }
 .supervisor-status.clear { color: #526675; background: #eef2f4; }
 .supervisor-status.danger { color: var(--red); background: var(--red-pale); }
 .supervisor-status.vacation { color: #875d00; background: #fff0b8; }
-.supervisor-status.overtime { color: #12664e; background: #e7f6ef; }
+.supervisor-status.overtime {
+  max-width: calc(100% - 4px); color: #12664e; background: #e7f6ef;
+  line-height: 1.25; text-wrap: balance; white-space: normal;
+}
 .supervisor-status.pending { color: #667987; background: #f4f6f7; }
 .supervisor-day-time { display: block; margin-top: 6px; color: #455f75; font-size: .65rem; font-weight: 750; white-space: nowrap; }
 .user-area-form select { width: 230px; padding: 8px 10px; font-size: .76rem; }

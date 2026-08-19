@@ -181,15 +181,17 @@
                             <span class="supervisor-status pending">Pendiente</span>
                           {% elif cell.is_non_working %}
                             <span class="supervisor-status pending">No laborable</span>
+                          {% elif used_overtime %}
+                            {% set used_hours = used_overtime // 60 %}
+                            <span class="supervisor-status overtime">
+                              + {{ used_hours }} h extra{{ 's' if used_hours != 1 else '' }} utilizada{{ 's' if used_hours != 1 else '' }}
+                            </span>
                           {% elif report and report.clock_in and report.clock_out %}
                             <span class="supervisor-status clear">✓ Sin incidencias</span>
                           {% elif cell.is_today %}
                             <span class="supervisor-status pending">Día en curso</span>
                           {% else %}
                             <span class="supervisor-status clear">✓ Sin incidencias</span>
-                          {% endif %}
-                          {% if used_overtime %}
-                            <span class="supervisor-status overtime">+ {{ used_overtime|minutes }} extra utilizada</span>
                           {% endif %}
                         </div>
                         <span class="supervisor-day-time">
