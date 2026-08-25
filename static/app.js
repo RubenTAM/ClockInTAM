@@ -164,16 +164,25 @@
   const historySearch = page.querySelector("[data-vacation-history-search]");
   const historyRows = [...page.querySelectorAll("[data-vacation-history-row]")];
   const historyEmpty = page.querySelector("[data-vacation-history-empty]");
+  const historyPrompt = page.querySelector("[data-vacation-history-prompt]");
   if (historySearch) {
     historySearch.addEventListener("input", () => {
-      const query = historySearch.value.trim().toLocaleLowerCase("es");
+      const normalizeName = (value) => value
+        .trim()
+        .toLocaleLowerCase("es")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "");
+      const query = normalizeName(historySearch.value);
+      const hasQuery = query.length > 0;
       let visible = 0;
       historyRows.forEach((row) => {
-        const matches = row.dataset.historySearch.includes(query);
+        const matches = hasQuery
+          && normalizeName(row.dataset.historyName).includes(query);
         row.hidden = !matches;
         if (matches) visible += 1;
       });
-      if (historyEmpty) historyEmpty.hidden = visible !== 0;
+      if (historyPrompt) historyPrompt.hidden = hasQuery;
+      if (historyEmpty) historyEmpty.hidden = !hasQuery || visible !== 0;
     });
   }
 

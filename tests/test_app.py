@@ -903,6 +903,10 @@ class AppFlowTests(unittest.TestCase):
         self.assertIn(b"Periodo Pasado", history_section)
         self.assertNotIn(b"Periodo Vigente", history_section)
         self.assertIn(b"data-vacation-history-search", history_section)
+        self.assertIn(b'data-vacation-history-row', history_section)
+        self.assertIn(b'<article class="vacation-record" hidden', history_section)
+        self.assertIn(b'data-history-name="Periodo Pasado"', history_section)
+        self.assertNotIn(b"data-history-search", history_section)
 
     def test_incident_permission_checkbox_is_persisted(self):
         self.initialize_admin()

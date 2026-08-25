@@ -92,16 +92,16 @@
       </summary>
       <div class="vacation-history-search">
         <label>
-          Buscar en el historial
-          <input type="search" placeholder="Trabajador o fecha…"
+          Buscar por nombre del trabajador
+          <input type="search" placeholder="Escribe un nombre…"
                  autocomplete="off" data-vacation-history-search>
         </label>
       </div>
       <div class="vacation-records vacation-history-records">
         {% for vacation in vacation_history_rows %}
-          <article class="vacation-record"
+          <article class="vacation-record" hidden
                    data-vacation-history-row
-                   data-history-search="{{ vacation.employee_name|lower }} {{ vacation.start_date }} {{ vacation.end_date }}">
+                   data-history-name="{{ vacation.employee_name }}">
             <div>
               <strong>{{ vacation.employee_name }}</strong>
               <span>{{ vacation.start_date|date_es }} — {{ vacation.end_date|date_es }}</span>
@@ -114,6 +114,11 @@
             <p>Aún no hay periodos anteriores almacenados.</p>
           </div>
         {% endfor %}
+        {% if vacation_history_rows %}
+          <p class="vacation-history-prompt" data-vacation-history-prompt>
+            Escribe el nombre de un trabajador para consultar sus periodos anteriores.
+          </p>
+        {% endif %}
         <p class="home-search-empty" data-vacation-history-empty hidden>No hay coincidencias en el historial.</p>
       </div>
     </details>
