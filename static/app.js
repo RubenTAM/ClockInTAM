@@ -161,6 +161,22 @@
     empty.hidden = visible !== 0;
   });
 
+  const historySearch = page.querySelector("[data-vacation-history-search]");
+  const historyRows = [...page.querySelectorAll("[data-vacation-history-row]")];
+  const historyEmpty = page.querySelector("[data-vacation-history-empty]");
+  if (historySearch) {
+    historySearch.addEventListener("input", () => {
+      const query = historySearch.value.trim().toLocaleLowerCase("es");
+      let visible = 0;
+      historyRows.forEach((row) => {
+        const matches = row.dataset.historySearch.includes(query);
+        row.hidden = !matches;
+        if (matches) visible += 1;
+      });
+      if (historyEmpty) historyEmpty.hidden = visible !== 0;
+    });
+  }
+
   workers.forEach((worker) => {
     worker.addEventListener("click", () => {
       employeeKey.value = worker.dataset.employeeKey;

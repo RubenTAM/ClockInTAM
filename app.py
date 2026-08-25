@@ -1289,7 +1289,9 @@ def register_routes(app: Flask) -> None:
             worker["photo_filename"] = employee_photo_filename(
                 worker["employee_name"]
             )
-        vacation_rows = get_db().execute(
+        connection = get_db()
+        today_iso = local_today().isoformat()
+        vacation_rows = connection.execute(
             """
             SELECT v.*, e.area, u.display_name AS created_by_name
             FROM vacations v
@@ -1297,9 +1299,23 @@ def register_routes(app: Flask) -> None:
               ON e.employee_name_key = v.employee_name_key
             JOIN users u ON u.id = v.created_by
             WHERE (? = '' OR e.area = ? COLLATE NOCASE)
-            ORDER BY v.start_date DESC, v.employee_name_key
+              AND v.end_date >= ?
+            ORDER BY v.start_date, v.employee_name_key
             """,
-            (selected_group, selected_group),
+            (selected_group, selected_group, today_iso),
+        ).fetchall()
+        vacation_history_rows = connection.execute(
+            """
+            SELECT v.*, e.area, u.display_name AS created_by_name
+            FROM vacations v
+            LEFT JOIN employees e
+              ON e.employee_name_key = v.employee_name_key
+            JOIN users u ON u.id = v.created_by
+            WHERE (? = '' OR e.area = ? COLLATE NOCASE)
+              AND v.end_date < ?
+            ORDER BY v.end_date DESC, v.employee_name_key
+            """,
+            (selected_group, selected_group, today_iso),
         ).fetchall()
         return render_template(
             "vacations.html",
@@ -1307,6 +1323,7 @@ def register_routes(app: Flask) -> None:
             employee_areas=available_groups,
             selected_group=selected_group,
             vacation_rows=vacation_rows,
+            vacation_history_rows=vacation_history_rows,
         )
 
     @app.post("/vacaciones/nueva")

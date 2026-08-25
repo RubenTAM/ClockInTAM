@@ -58,7 +58,7 @@
   <aside class="panel vacations-records-panel">
     <div class="panel-header">
       <div>
-        <h2>Periodos registrados</h2>
+        <h2>Periodos vacacionales activos</h2>
         <p>{{ selected_group or 'Selecciona un grupo' }}</p>
       </div>
     </div>
@@ -80,10 +80,43 @@
       {% else %}
         <div class="empty-state compact">
           <span class="empty-icon">☀</span>
-          <p>No hay vacaciones registradas para este grupo.</p>
+          <p>No hay periodos vacacionales activos para este grupo.</p>
         </div>
       {% endfor %}
     </div>
+
+    <details class="vacation-history" data-vacation-history>
+      <summary>
+        <span>Consultar periodos anteriores</span>
+        <small>{{ vacation_history_rows|length }} periodo{{ '' if vacation_history_rows|length == 1 else 's' }} aprobado{{ '' if vacation_history_rows|length == 1 else 's' }}</small>
+      </summary>
+      <div class="vacation-history-search">
+        <label>
+          Buscar en el historial
+          <input type="search" placeholder="Trabajador o fecha…"
+                 autocomplete="off" data-vacation-history-search>
+        </label>
+      </div>
+      <div class="vacation-records vacation-history-records">
+        {% for vacation in vacation_history_rows %}
+          <article class="vacation-record"
+                   data-vacation-history-row
+                   data-history-search="{{ vacation.employee_name|lower }} {{ vacation.start_date }} {{ vacation.end_date }}">
+            <div>
+              <strong>{{ vacation.employee_name }}</strong>
+              <span>{{ vacation.start_date|date_es }} — {{ vacation.end_date|date_es }}</span>
+              <small>Aprobado por {{ vacation.created_by_name }}</small>
+            </div>
+          </article>
+        {% else %}
+          <div class="empty-state compact" data-vacation-history-none>
+            <span class="empty-icon">⌕</span>
+            <p>Aún no hay periodos anteriores almacenados.</p>
+          </div>
+        {% endfor %}
+        <p class="home-search-empty" data-vacation-history-empty hidden>No hay coincidencias en el historial.</p>
+      </div>
+    </details>
   </aside>
 </section>
 

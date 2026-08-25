@@ -469,6 +469,13 @@ td.muted { max-width: 230px; overflow: hidden; text-overflow: ellipsis; }
 .vacation-record strong { font-size: .8rem; }
 .vacation-record span { margin-top: 4px; color: #765000; font-size: .73rem; font-weight: 800; }
 .vacation-record small { margin-top: 3px; color: var(--muted); font-size: .65rem; }
+.vacation-history { border-top: 1px solid var(--line); }
+.vacation-history summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 20px; color: var(--ink); cursor: pointer; font-size: .78rem; font-weight: 850; }
+.vacation-history summary small { color: var(--muted); font-size: .65rem; font-weight: 700; }
+.vacation-history-search { padding: 0 18px 14px; }
+.vacation-history-search label { display: grid; gap: 6px; color: var(--muted); font-size: .7rem; font-weight: 800; }
+.vacation-history-records { max-height: 340px; border-top: 1px solid var(--line); background: #fafafa; }
+.vacation-history-records .vacation-record:last-of-type { border-bottom: 0; }
 .vacation-date-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin-top: 22px; }
 .vacation-date-grid label { display: grid; gap: 7px; color: var(--muted); font-size: .75rem; font-weight: 800; }
 .vacation-help { margin: 15px 0 0; padding: 12px; border-radius: 9px; color: #765000; background: #fff5d3; font-size: .75rem; }

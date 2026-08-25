@@ -859,6 +859,51 @@ class AppFlowTests(unittest.TestCase):
         self.assertIn(b".is-filtered-out", stylesheet.data)
         stylesheet.close()
 
+    def test_vacations_page_separates_active_periods_from_history(self):
+        self.initialize_admin()
+        self.login()
+        with self.app.app_context():
+            save_employees([{
+                "employee_name": "Jorge Rangel Pulido",
+                "employee_name_key": "jorge rangel pulido",
+                "group_name": "TecnoAll - Ingenieria",
+            }])
+            connection = get_db()
+            user_id = connection.execute(
+                "SELECT id FROM users LIMIT 1"
+            ).fetchone()["id"]
+            connection.executemany(
+                """
+                INSERT INTO vacations (
+                    employee_name, employee_name_key, start_date, end_date,
+                    created_by, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                [
+                    ("Periodo Pasado", "jorge rangel pulido", "2026-08-01", "2026-08-05", user_id, "2026-07-01"),
+                    ("Periodo Vigente", "jorge rangel pulido", "2026-08-20", "2026-08-27", user_id, "2026-07-02"),
+                    ("Periodo Futuro", "jorge rangel pulido", "2026-09-01", "2026-09-05", user_id, "2026-07-03"),
+                ],
+            )
+            connection.commit()
+
+        with patch("app.local_today", return_value=date(2026, 8, 25)):
+            response = self.client.get(
+                "/vacaciones?grupo=TecnoAll%20-%20Ingenieria"
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"Periodos vacacionales activos", response.data)
+        active_section, history_section = response.data.split(
+            b'<details class="vacation-history"', 1
+        )
+        self.assertNotIn(b"Periodo Pasado", active_section)
+        self.assertIn(b"Periodo Vigente", active_section)
+        self.assertIn(b"Periodo Futuro", active_section)
+        self.assertIn(b"Periodo Pasado", history_section)
+        self.assertNotIn(b"Periodo Vigente", history_section)
+        self.assertIn(b"data-vacation-history-search", history_section)
+
     def test_incident_permission_checkbox_is_persisted(self):
         self.initialize_admin()
         self.login()
