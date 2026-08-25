@@ -22,6 +22,45 @@ caché temporal en memoria de cinco minutos.
 - Exportación del reporte a CSV compatible con Excel.
 - Historial interno de creación, modificación y eliminación.
 - Interfaz adaptable a computadora, tableta y teléfono.
+- Visualización del último saldo de vacaciones sincronizado desde CONTPAQi.
+
+## Saldos de vacaciones desde CONTPAQi
+
+La aplicación recibe los saldos mediante un sincronizador ejecutado dentro de
+la red de TecnoAll. SQL Server no debe publicarse en Internet. El sincronizador
+consulta únicamente `NOM10001`, `NOM10014` y `NOM10051`, calcula el saldo a la
+fecha de corte y envía a Tiempo el código de empleado, los días disponibles y
+la fecha de actualización.
+
+El código se mantiene separado por dominio: `checador/` contiene Hikvision,
+asistencia y reportes operativos; `nomina/` contiene únicamente la lectura y
+sincronización con CONTPAQi. Ambos módulos alimentan el mismo dashboard.
+
+Usa un inicio de sesión SQL exclusivo con permisos de solo lectura sobre la
+empresa de Nóminas. Nunca configures la cuenta `sa` en el sincronizador.
+
+Variables requeridas en el equipo local:
+
+```dotenv
+CONTPAQ_SQL_SERVER=servidor-o-ip
+CONTPAQ_SQL_PORT=1433
+CONTPAQ_SQL_DATABASE=nombre-exacto-de-la-base
+CONTPAQ_SQL_USER=tiempo_lectura
+CONTPAQ_SQL_PASSWORD=clave-del-usuario-de-lectura
+TIEMPO_BASE_URL=https://tiempo.ejemplo.com
+TIEMPO_SYNC_TOKEN=token-largo-compartido
+```
+
+El servidor web de Tiempo solo necesita `CONTPAQ_SYNC_TOKEN`, con el mismo
+valor que `TIEMPO_SYNC_TOKEN`. Para validar la consulta sin enviar datos:
+
+```bash
+python -m nomina.sync_contpaqi_vacations --dry-run --as-of 2026-08-25
+```
+
+Antes de programar la sincronización automática, compara los resultados con el
+reporte **Vacaciones pendientes por empleado** de CONTPAQi, usando la misma
+fecha de corte y la opción sin proporción del año en curso.
 
 ## Funcionamiento del cálculo
 

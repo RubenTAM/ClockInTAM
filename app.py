@@ -3,6 +3,7 @@ from __future__ import annotations
 import csv
 import io
 import json
+import math
 import os
 import secrets
 import sqlite3
@@ -34,15 +35,15 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 
 import database
 from database import get_db, log_action, utc_now
-from excel_reports import (
+from checador.excel_reports import (
     build_accountant_rows,
     build_expediente_rows,
     create_accountant_workbook,
     create_expedientes_workbook,
     round_overtime_code_hours,
 )
-from hikconnect import HikConnectClient, HikConnectError
-from reporting import (
+from checador.hikconnect import HikConnectClient, HikConnectError
+from checador.reporting import (
     build_daily_attendance,
     build_weekly_report,
     format_minutes,
@@ -201,6 +202,7 @@ def create_app(test_config: dict | None = None) -> Flask:
             "https://ius.hikcentralconnect.com",
         ),
         APP_TIMEZONE=os.getenv("APP_TIMEZONE", "America/Tijuana"),
+        CONTPAQ_SYNC_TOKEN=os.getenv("CONTPAQ_SYNC_TOKEN", ""),
         SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SAMESITE="Lax",
         SESSION_COOKIE_SECURE=os.getenv(
@@ -283,6 +285,12 @@ def register_filters(app: Flask) -> None:
         if isinstance(value, str):
             value = date.fromisoformat(value)
         return DAY_NAMES[value.weekday()][:3]
+
+    @app.template_filter("vacation_days")
+    def vacation_days_filter(value) -> str:
+        if value is None:
+            return "—"
+        return f"{float(value):.2f}".rstrip("0").rstrip(".")
 
 
 def register_context(app: Flask) -> None:
@@ -436,7 +444,9 @@ def save_employees(rows: list[dict]) -> None:
 def employee_directory() -> list[dict]:
     rows = get_db().execute(
         """
-        SELECT employee_name, employee_name_key, employee_code, area
+        SELECT employee_name, employee_name_key, employee_code, area,
+               vacation_days_available, vacation_balance_as_of,
+               vacation_synced_at, vacation_source
         FROM employees
         ORDER BY employee_name_key
         """
@@ -938,6 +948,18 @@ def register_routes(app: Flask) -> None:
             employee = directory.get(worker["employee_name_key"], {})
             worker["area"] = employee.get("area", "")
             worker["employee_code"] = employee.get("employee_code", "")
+            worker["vacation_days_available"] = employee.get(
+                "vacation_days_available"
+            )
+            worker["vacation_balance_as_of"] = employee.get(
+                "vacation_balance_as_of"
+            )
+            worker["vacation_synced_at"] = employee.get(
+                "vacation_synced_at"
+            )
+            worker["vacation_source"] = employee.get(
+                "vacation_source", ""
+            )
         calendar_rows = [
             worker
             for worker in calendar_rows
@@ -1780,6 +1802,193 @@ def register_routes(app: Flask) -> None:
             )
         except (ValueError, HikConnectError) as exc:
             return jsonify({"error": str(exc)}), 502
+
+    @app.post("/api/integraciones/contpaqi/vacaciones")
+    def receive_contpaqi_vacation_balances():
+        configured_token = str(
+            current_app.config.get("CONTPAQ_SYNC_TOKEN") or ""
+        )
+        authorization = request.headers.get("Authorization", "")
+        provided_token = (
+            authorization[7:].strip()
+            if authorization.startswith("Bearer ")
+            else ""
+        )
+        if not configured_token:
+            return jsonify({"error": "La integración no está configurada."}), 503
+        if not provided_token or not secrets.compare_digest(
+            provided_token, configured_token
+        ):
+            return jsonify({"error": "Credenciales de integración inválidas."}), 401
+
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict):
+            return jsonify({"error": "El cuerpo JSON no es válido."}), 400
+        balances = payload.get("balances")
+        if not isinstance(balances, list) or len(balances) > 2000:
+            return jsonify({"error": "La lista de saldos no es válida."}), 400
+        try:
+            balance_as_of = date.fromisoformat(str(payload.get("asOf", "")))
+        except ValueError:
+            return jsonify({"error": "La fecha de corte no es válida."}), 400
+        source = str(payload.get("source") or "CONTPAQi Nóminas").strip()[:80]
+
+        connection = get_db()
+        employee_rows = connection.execute(
+            """
+            SELECT employee_name_key, employee_name, employee_code
+            FROM employees
+            """
+        ).fetchall()
+
+        def code_key(value: str) -> str:
+            normalized = str(value or "").strip()
+            return (
+                str(int(normalized))
+                if normalized.isdigit()
+                else normalized.casefold()
+            )
+
+        employees_by_code: dict[str, list[str]] = {}
+        employees_by_name: dict[tuple[str, ...], list[str]] = {}
+        employee_details = {}
+        for employee in employee_rows:
+            employee_key = employee["employee_name_key"]
+            employee_details[employee_key] = dict(employee)
+            if str(employee["employee_code"] or "").strip():
+                employees_by_code.setdefault(
+                    code_key(employee["employee_code"]), []
+                ).append(employee_key)
+            employees_by_name.setdefault(
+                employee_identity_key(employee["employee_name"]), []
+            ).append(employee_key)
+
+        validated = []
+        invalid = []
+        unmatched = []
+        matched_by_name = []
+        name_mismatches = []
+        for index, item in enumerate(balances):
+            if not isinstance(item, dict):
+                invalid.append(index)
+                continue
+            employee_code = str(item.get("employeeCode") or "").strip()
+            employee_name = str(item.get("employeeName") or "").strip()
+            try:
+                available_days = float(item.get("availableDays"))
+                contpaqi_employee_id = int(item.get("employeeId"))
+            except (TypeError, ValueError):
+                invalid.append(index)
+                continue
+            if (
+                not employee_code
+                or not math.isfinite(available_days)
+                or available_days < -365
+                or available_days > 3650
+            ):
+                invalid.append(index)
+                continue
+            matches = employees_by_code.get(code_key(employee_code), [])
+            matched_using_name = False
+            if not matches and employee_name:
+                name_matches = employees_by_name.get(
+                    employee_identity_key(employee_name), []
+                )
+                name_matches = [
+                    key
+                    for key in name_matches
+                    if not str(
+                        employee_details[key]["employee_code"] or ""
+                    ).strip()
+                ]
+                if len(name_matches) == 1:
+                    matches = name_matches
+                    matched_using_name = True
+            if len(matches) != 1:
+                unmatched.append(employee_code)
+                continue
+            employee_key = matches[0]
+            if matched_using_name:
+                matched_by_name.append(employee_code)
+            elif (
+                employee_name
+                and employee_identity_key(employee_name)
+                != employee_identity_key(
+                    employee_details[employee_key]["employee_name"]
+                )
+            ):
+                name_mismatches.append(employee_code)
+            validated.append(
+                (
+                    employee_key,
+                    employee_code,
+                    employee_name,
+                    str(item.get("employeeStatus") or "").strip()[:8],
+                    contpaqi_employee_id,
+                    available_days,
+                )
+            )
+        if invalid:
+            return jsonify(
+                {
+                    "error": "Hay saldos con formato inválido.",
+                    "invalidRows": invalid,
+                }
+            ), 400
+
+        synced_at = utc_now()
+        connection.executemany(
+            """
+            UPDATE employees
+            SET employee_code = CASE
+                    WHEN TRIM(employee_code) = '' THEN ?
+                    ELSE employee_code
+                END,
+                contpaqi_employee_name = ?,
+                contpaqi_employee_status = ?,
+                contpaqi_employee_id = ?,
+                vacation_days_available = ?,
+                vacation_balance_as_of = ?,
+                vacation_synced_at = ?,
+                vacation_source = ?,
+                updated_at = ?
+            WHERE employee_name_key = ?
+            """,
+            [
+                (
+                    employee_code,
+                    employee_name,
+                    employee_status,
+                    contpaqi_employee_id,
+                    available_days,
+                    balance_as_of.isoformat(),
+                    synced_at,
+                    source,
+                    synced_at,
+                    employee_name_key,
+                )
+                for (
+                    employee_name_key,
+                    employee_code,
+                    employee_name,
+                    employee_status,
+                    contpaqi_employee_id,
+                    available_days,
+                ) in validated
+            ],
+        )
+        connection.commit()
+        return jsonify(
+            {
+                "updated": len(validated),
+                "unmatched": len(unmatched),
+                "unmatchedEmployeeCodes": unmatched,
+                "matchedByName": len(matched_by_name),
+                "nameMismatches": name_mismatches,
+                "asOf": balance_as_of.isoformat(),
+                "syncedAt": synced_at,
+            }
+        )
 
     @app.get("/reporte")
     @login_required

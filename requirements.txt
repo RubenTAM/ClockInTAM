@@ -4,3 +4,4 @@ python-dotenv==1.1.1
 requests==2.32.4
 urllib3==1.26.20
 XlsxWriter==3.2.5
+pymssql==2.3.13

@@ -26,6 +26,7 @@ class AppFlowTests(unittest.TestCase):
             {
                 "TESTING": True,
                 "SECRET_KEY": "test-secret",
+                "CONTPAQ_SYNC_TOKEN": "sync-test-token",
                 "DATABASE_PATH": str(
                     Path(self.tempdir.name) / "test.sqlite3"
                 ),
@@ -332,7 +333,11 @@ class AppFlowTests(unittest.TestCase):
         self.assertIn(b'id="home-established-schedule"', response.data)
         self.assertIn(b"Informaci\xc3\xb3n adicional del trabajador", response.data)
         self.assertIn(b"data-additional-info", response.data)
-        self.assertIn(b"<dt>Correo</dt><dd>Sin informaci", response.data)
+        self.assertIn(
+            "Días de vacaciones disponibles".encode(), response.data
+        )
+        self.assertIn(b"Pendiente de sincronizar", response.data)
+        self.assertNotIn(b"<dt>Correo</dt>", response.data)
         self.assertNotIn("Teléfono".encode(), response.data)
         self.assertIn(b"06:58", response.data)
         self.assertIn(b"17:02", response.data)
@@ -344,6 +349,115 @@ class AppFlowTests(unittest.TestCase):
         self.assertIn(b"063%20RANGEL%20PULIDO%20JORGE.jpg", response.data)
         self.assertIn(b"home-worker-photo", response.data)
         self.assertNotIn(b"Espacios reservados", response.data)
+
+    def test_contpaqi_vacation_sync_updates_worker_profile(self):
+        self.initialize_admin()
+        self.login()
+        with self.app.app_context():
+            save_employees(
+                [
+                    {
+                        "employee_name": "Jorge Rangel Pulido",
+                        "employee_name_key": "jorge rangel pulido",
+                        "group_name": "TecnoAll - Ingeniería",
+                    }
+                ]
+            )
+
+        response = self.client.post(
+            "/api/integraciones/contpaqi/vacaciones",
+            headers={"Authorization": "Bearer sync-test-token"},
+            json={
+                "source": "CONTPAQi Nóminas",
+                "asOf": "2026-08-25",
+                "balances": [
+                    {
+                        "employeeId": 63,
+                        "employeeCode": "63",
+                        "employeeName": "RANGEL PULIDO JORGE",
+                        "employeeStatus": "A",
+                        "availableDays": 8.5,
+                    }
+                ],
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()["updated"], 1)
+
+        with patch("app.cached_attendance", return_value=[]):
+            home = self.client.get("/?semana=2026-08-20")
+        self.assertEqual(home.status_code, 200)
+        self.assertIn("8.5 días".encode(), home.data)
+
+        with self.app.app_context():
+            employee = get_db().execute(
+                """
+                SELECT vacation_days_available, vacation_balance_as_of,
+                       vacation_source, contpaqi_employee_id,
+                       contpaqi_employee_name
+                FROM employees WHERE employee_code = '063'
+                """
+            ).fetchone()
+        self.assertEqual(employee["vacation_days_available"], 8.5)
+        self.assertEqual(employee["vacation_balance_as_of"], "2026-08-25")
+        self.assertEqual(employee["vacation_source"], "CONTPAQi Nóminas")
+        self.assertEqual(employee["contpaqi_employee_id"], 63)
+        self.assertEqual(
+            employee["contpaqi_employee_name"], "RANGEL PULIDO JORGE"
+        )
+
+    def test_contpaqi_vacation_sync_requires_token(self):
+        response = self.client.post(
+            "/api/integraciones/contpaqi/vacaciones",
+            json={"asOf": "2026-08-25", "balances": []},
+        )
+        self.assertEqual(response.status_code, 401)
+
+    def test_contpaqi_sync_can_tag_unique_worker_by_name(self):
+        self.initialize_admin()
+        with self.app.app_context():
+            save_employees(
+                [
+                    {
+                        "employee_name": "Trabajadora Ejemplo Única",
+                        "employee_name_key": "trabajadora ejemplo unica",
+                        "group_name": "TecnoAll - Pruebas",
+                    }
+                ]
+            )
+
+        response = self.client.post(
+            "/api/integraciones/contpaqi/vacaciones",
+            headers={"Authorization": "Bearer sync-test-token"},
+            json={
+                "source": "CONTPAQi Nóminas",
+                "asOf": "2026-08-25",
+                "balances": [
+                    {
+                        "employeeId": 901,
+                        "employeeCode": "0901",
+                        "employeeName": "EJEMPLO UNICA TRABAJADORA",
+                        "employeeStatus": "A",
+                        "availableDays": 12,
+                    }
+                ],
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()["matchedByName"], 1)
+        with self.app.app_context():
+            employee = get_db().execute(
+                """
+                SELECT employee_code, contpaqi_employee_id,
+                       vacation_days_available
+                FROM employees
+                WHERE employee_name_key = 'trabajadora ejemplo unica'
+                """
+            ).fetchone()
+        self.assertEqual(employee["employee_code"], "0901")
+        self.assertEqual(employee["contpaqi_employee_id"], 901)
+        self.assertEqual(employee["vacation_days_available"], 12)
 
     def test_engineering_supervisor_sees_team_incident_summary(self):
         self.client.get("/setup")

@@ -1,7 +1,7 @@
 import unittest
 from datetime import date, time
 
-from excel_reports import (
+from checador.excel_reports import (
     attendance_incidents,
     build_accountant_rows,
     build_expediente_rows,

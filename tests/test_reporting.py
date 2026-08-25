@@ -1,7 +1,7 @@
 from datetime import date, time
 import unittest
 
-from reporting import (
+from checador.reporting import (
     build_daily_attendance,
     build_weekly_report,
     compare_overtime,

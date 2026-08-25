@@ -37,6 +37,13 @@ CREATE TABLE IF NOT EXISTS employees (
     employee_name TEXT NOT NULL,
     employee_code TEXT NOT NULL DEFAULT '',
     area TEXT NOT NULL DEFAULT '',
+    vacation_days_available REAL,
+    vacation_balance_as_of TEXT,
+    vacation_synced_at TEXT,
+    vacation_source TEXT NOT NULL DEFAULT '',
+    contpaqi_employee_id INTEGER,
+    contpaqi_employee_name TEXT NOT NULL DEFAULT '',
+    contpaqi_employee_status TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     last_seen_at TEXT NOT NULL
@@ -124,6 +131,7 @@ def init_db() -> None:
     migrate_multiple_authorizations(connection)
     migrate_approved_minutes(connection)
     migrate_employee_code(connection)
+    migrate_employee_vacation_balance(connection)
     connection.commit()
 
 
@@ -173,6 +181,31 @@ def migrate_employee_code(connection: sqlite3.Connection) -> None:
             ADD COLUMN employee_code TEXT NOT NULL DEFAULT ''
             """
         )
+
+
+def migrate_employee_vacation_balance(
+    connection: sqlite3.Connection,
+) -> None:
+    columns = {
+        row["name"]
+        for row in connection.execute(
+            "PRAGMA table_info('employees')"
+        ).fetchall()
+    }
+    additions = {
+        "vacation_days_available": "REAL",
+        "vacation_balance_as_of": "TEXT",
+        "vacation_synced_at": "TEXT",
+        "vacation_source": "TEXT NOT NULL DEFAULT ''",
+        "contpaqi_employee_id": "INTEGER",
+        "contpaqi_employee_name": "TEXT NOT NULL DEFAULT ''",
+        "contpaqi_employee_status": "TEXT NOT NULL DEFAULT ''",
+    }
+    for name, definition in additions.items():
+        if name not in columns:
+            connection.execute(
+                f"ALTER TABLE employees ADD COLUMN {name} {definition}"
+            )
 
 
 def migrate_approved_minutes(connection: sqlite3.Connection) -> None:

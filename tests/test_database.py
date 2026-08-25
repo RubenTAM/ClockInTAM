@@ -119,6 +119,11 @@ class DatabaseMigrationTests(unittest.TestCase):
             self.assertEqual(total, 2)
             self.assertIn("approved_minutes", columns)
             self.assertIn("employee_code", employee_columns)
+            self.assertIn("vacation_days_available", employee_columns)
+            self.assertIn("vacation_balance_as_of", employee_columns)
+            self.assertIn("vacation_synced_at", employee_columns)
+            self.assertIn("contpaqi_employee_id", employee_columns)
+            self.assertIn("contpaqi_employee_name", employee_columns)
             self.assertEqual(supervisor_areas["admin"], "")
             self.assertEqual(
                 supervisor_areas["ruben"], "TecnoAll - Ingenieria"
