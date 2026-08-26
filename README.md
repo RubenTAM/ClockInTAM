@@ -23,6 +23,7 @@ caché temporal en memoria de cinco minutos.
 - Historial interno de creación, modificación y eliminación.
 - Interfaz adaptable a computadora, tableta y teléfono.
 - Visualización del último saldo de vacaciones sincronizado desde CONTPAQi.
+- Consulta privada de recibos de nómina timbrados por trabajador.
 
 ## Saldos de vacaciones desde CONTPAQi
 
@@ -84,6 +85,35 @@ python -m nomina.apply_vacation_requests --watch --interval 30
 
 Si la comunicación con Tiempo falla después de insertar, el siguiente intento
 reconoce el mismo empleado y periodo, reutiliza el folio y evita duplicarlo.
+
+## Recibos de nómina desde CONTPAQi
+
+El módulo `nomina/` también puede leer de `NOM10043`, `NOM10002`, `NOM10023`,
+`NOM10007` y `NOM10004` los periodos timbrados, UUID, conceptos e importes de
+un trabajador. Tiempo relaciona cada recibo por número de empleado y solamente
+lo muestra al usuario de trabajador vinculado. Los PDF se guardan fuera de la
+carpeta pública y su descarga vuelve a validar la sesión y la propiedad del
+recibo.
+
+La primera prueba está bloqueada a `ctTecno_DEV` y exige indicar explícitamente
+el trabajador. Para consultar sin enviar datos:
+
+```bash
+python -m nomina.sync_contpaqi_payroll \
+  --employee-code 017 --limit 10 --dry-run
+```
+
+Si ya se exportó el PDF oficial, se puede adjuntar al UUID correspondiente:
+
+```bash
+python -m nomina.sync_contpaqi_payroll \
+  --employee-code 017 \
+  --uuid CE4CF157-BA09-41A2-B65A-2C75D0D84D9B \
+  --pdf /ruta/segura/recibo.pdf
+```
+
+El directorio privado se deriva de `DATABASE_PATH`; en producción puede
+definirse explícitamente con `PAYROLL_RECEIPT_DIRECTORY`.
 
 En el servidor Windows, abre PowerShell como administrador desde la carpeta
 del proyecto y ejecuta el instalador. Solicita las dos claves sin mostrarlas,

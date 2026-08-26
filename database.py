@@ -121,6 +121,43 @@ CREATE TABLE IF NOT EXISTS employee_vacation_movements (
     FOREIGN KEY (employee_name_key) REFERENCES employees(employee_name_key)
 );
 
+CREATE TABLE IF NOT EXISTS payroll_receipts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    source_document_id INTEGER NOT NULL,
+    employee_name_key TEXT NOT NULL,
+    employee_code TEXT NOT NULL,
+    uuid TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    period_id INTEGER NOT NULL,
+    period_type TEXT NOT NULL DEFAULT '',
+    period_number INTEGER,
+    period_start TEXT NOT NULL,
+    period_end TEXT NOT NULL,
+    payment_date TEXT NOT NULL,
+    issued_at TEXT,
+    paid_days REAL NOT NULL DEFAULT 0,
+    gross_pay REAL NOT NULL DEFAULT 0,
+    deductions REAL NOT NULL DEFAULT 0,
+    withholdings REAL NOT NULL DEFAULT 0,
+    net_pay REAL NOT NULL DEFAULT 0,
+    pdf_filename TEXT NOT NULL DEFAULT '',
+    source TEXT NOT NULL DEFAULT '',
+    synced_at TEXT NOT NULL,
+    FOREIGN KEY (employee_name_key) REFERENCES employees(employee_name_key)
+);
+
+CREATE TABLE IF NOT EXISTS payroll_receipt_items (
+    receipt_id INTEGER NOT NULL,
+    line_number INTEGER NOT NULL,
+    category TEXT NOT NULL,
+    sat_code TEXT NOT NULL DEFAULT '',
+    concept_number INTEGER NOT NULL,
+    concept_name TEXT NOT NULL,
+    amount REAL NOT NULL,
+    PRIMARY KEY (receipt_id, line_number),
+    FOREIGN KEY (receipt_id) REFERENCES payroll_receipts(id)
+        ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS attendance_permissions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     employee_name_key TEXT NOT NULL,
@@ -168,6 +205,9 @@ ON vacation_request_recipients(supervisor_id, request_id);
 
 CREATE INDEX IF NOT EXISTS idx_employee_vacation_movements_employee
 ON employee_vacation_movements(employee_name_key, registered_date);
+
+CREATE INDEX IF NOT EXISTS idx_payroll_receipts_employee
+ON payroll_receipts(employee_name_key, payment_date DESC);
 
 CREATE INDEX IF NOT EXISTS idx_attendance_permissions_date
 ON attendance_permissions(work_date);

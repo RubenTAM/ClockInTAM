@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block title %}Recibos de nómina · Tiempo{% endblock %}
+{% block content %}
+<header class="page-header payroll-header">
+  <div>
+    <span class="eyebrow">Mi información</span>
+    <h1>Recibos de nómina</h1>
+    <p>Consulta tus periodos timbrados y abre el comprobante fiscal correspondiente.</p>
+  </div>
+  {% if receipts %}
+    <div class="payroll-count">
+      <strong>{{ receipts|length }}</strong>
+      <span>{{ 'recibo disponible' if receipts|length == 1 else 'recibos disponibles' }}</span>
+    </div>
+  {% endif %}
+</header>
+
+{% if receipts %}
+  <section class="payroll-list" aria-label="Recibos de nómina disponibles">
+    {% for receipt in receipts %}
+      <details class="panel payroll-receipt" {% if loop.first %}open{% endif %}>
+        <summary>
+          <span class="payroll-date-tile">
+            <small>{{ receipt.payment_date[5:7] }}</small>
+            <strong>{{ receipt.payment_date[8:10] }}</strong>
+            <span>{{ receipt.payment_date[:4] }}</span>
+          </span>
+          <span class="payroll-summary-main">
+            <small>Periodo {{ receipt.period_number or receipt.period_id }}{% if receipt.period_type %} · {{ receipt.period_type }}{% endif %}</small>
+            <strong>{{ receipt.period_start|date_short }} — {{ receipt.period_end|date_short }}</strong>
+            <span>Pago {{ receipt.payment_date|date_short }} · {{ receipt.paid_days|vacation_days }} días pagados</span>
+          </span>
+          <span class="payroll-net">
+            <small>Neto del recibo</small>
+            <strong>{{ receipt.net_pay|money }}</strong>
+          </span>
+          <span class="payroll-chevron" aria-hidden="true">⌄</span>
+        </summary>
+
+        <div class="payroll-detail">
+          <div class="payroll-metrics">
+            <article>
+              <span>Percepciones y otros pagos</span>
+              <strong>{{ receipt.gross_pay|money }}</strong>
+            </article>
+            <article>
+              <span>Descuentos</span>
+              <strong>{{ receipt.deductions|money }}</strong>
+            </article>
+            <article>
+              <span>Retenciones</span>
+              <strong>{{ receipt.withholdings|money }}</strong>
+            </article>
+            <article class="payroll-net-card">
+              <span>Neto</span>
+              <strong>{{ receipt.net_pay|money }}</strong>
+            </article>
+          </div>
+
+          <div class="payroll-concepts-grid">
+            <section>
+              <h2>Percepciones</h2>
+              <div class="payroll-concept-list">
+                {% for item in receipt['items'] if item.category in ('perception', 'other_payment') %}
+                  <div>
+                    <span>
+                      <small>{{ item.sat_code or '—' }} · {{ '%03d'|format(item.concept_number) }}</small>
+                      <strong>{{ item.concept_name }}</strong>
+                    </span>
+                    <b>{{ item.amount|money }}</b>
+                  </div>
+                {% else %}
+                  <p>Sin conceptos registrados.</p>
+                {% endfor %}
+              </div>
+            </section>
+            <section>
+              <h2>Deducciones</h2>
+              <div class="payroll-concept-list">
+                {% for item in receipt['items'] if item.category in ('deduction', 'withholding') %}
+                  <div>
+                    <span>
+                      <small>{{ item.sat_code or '—' }} · {{ '%03d'|format(item.concept_number) }}</small>
+                      <strong>{{ item.concept_name }}</strong>
+                    </span>
+                    <b>{{ item.amount|money }}</b>
+                  </div>
+                {% else %}
+                  <p>Sin conceptos registrados.</p>
+                {% endfor %}
+              </div>
+            </section>
+          </div>
+
+          <footer class="payroll-footer">
+            <span>
+              <small>Folio fiscal</small>
+              <strong>{{ receipt.uuid }}</strong>
+            </span>
+            {% if receipt.pdf_filename %}
+              <a class="button primary"
+                 href="{{ url_for('download_payroll_receipt', receipt_id=receipt.id) }}"
+                 target="_blank" rel="noopener">
+                Ver recibo PDF ↗
+              </a>
+            {% else %}
+              <span class="status-pill normal">PDF pendiente de sincronizar</span>
+            {% endif %}
+          </footer>
+        </div>
+      </details>
+    {% endfor %}
+  </section>
+{% else %}
+  <section class="panel empty-state payroll-empty">
+    <div class="empty-icon">▤</div>
+    <h2>Todavía no hay recibos sincronizados</h2>
+    <p>Cuando CONTPAQi envíe un comprobante timbrado aparecerá aquí y solamente tú podrás consultarlo.</p>
+  </section>
+{% endif %}
+{% endblock %}

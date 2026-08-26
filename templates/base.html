@@ -28,6 +28,10 @@
            class="{{ 'active' if request.endpoint == 'request_vacation' else '' }}">
           <span class="nav-icon">☀</span> Solicitar vacaciones
         </a>
+        <a href="{{ url_for('payroll_receipts') }}"
+           class="{{ 'active' if request.endpoint in ('payroll_receipts', 'download_payroll_receipt') else '' }}">
+          <span class="nav-icon">▤</span> Recibos de nómina
+        </a>
         {% else %}
         <a href="{{ url_for('employees') }}"
            class="{{ 'active' if request.endpoint == 'employees' else '' }}">

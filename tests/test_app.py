@@ -1,5 +1,6 @@
 import tempfile
 import unittest
+import base64
 import io
 import zipfile
 from datetime import date, time
@@ -820,6 +821,113 @@ class AppFlowTests(unittest.TestCase):
             ).fetchone()
             self.assertEqual(worker["username"], "ruben.trabajador@tecnoall.com")
             self.assertEqual(worker["must_change_password"], 0)
+
+    def test_worker_can_view_only_their_synced_payroll_receipt(self):
+        self.initialize_admin()
+        payload = {
+            "source": "CONTPAQi Nóminas · ctTecno_DEV",
+            "receipts": [
+                {
+                    "sourceDocumentId": 13165,
+                    "employeeCode": "017",
+                    "uuid": "CE4CF157-BA09-41A2-B65A-2C75D0D84D9B",
+                    "periodId": 5931,
+                    "periodType": "Semanal",
+                    "periodNumber": 32,
+                    "periodStart": "2026-08-06",
+                    "periodEnd": "2026-08-12",
+                    "paymentDate": "2026-08-12",
+                    "issuedAt": "2026-08-17T11:23:03",
+                    "paidDays": 7,
+                    "grossPay": 5675.93,
+                    "deductions": 1142.19,
+                    "withholdings": 777.54,
+                    "netPay": 3756.20,
+                    "pdfBase64": base64.b64encode(
+                        b"%PDF-1.4\n%%EOF\n"
+                    ).decode("ascii"),
+                    "items": [
+                        {
+                            "category": "perception",
+                            "satCode": "001",
+                            "conceptNumber": 1,
+                            "conceptName": "Sueldo",
+                            "amount": 4395.36,
+                        },
+                        {
+                            "category": "withholding",
+                            "satCode": "002",
+                            "conceptNumber": 45,
+                            "conceptName": "I.S.R. mes",
+                            "amount": 777.54,
+                        },
+                    ],
+                }
+            ],
+        }
+        denied_sync = self.client.post(
+            "/api/integraciones/contpaqi/recibos-nomina", json=payload
+        )
+        self.assertEqual(denied_sync.status_code, 401)
+        synced = self.client.post(
+            "/api/integraciones/contpaqi/recibos-nomina",
+            json=payload,
+            headers={"Authorization": "Bearer sync-test-token"},
+        )
+        self.assertEqual(synced.status_code, 200)
+        self.assertEqual(synced.get_json()["updated"], 1)
+
+        with self.app.app_context():
+            connection = get_db()
+            connection.execute(
+                """
+                INSERT INTO users (
+                    username, display_name, password_hash, access_role,
+                    employee_name_key, must_change_password, active,
+                    created_at, supervised_area
+                ) VALUES (?, ?, ?, 'worker', ?, 0, 1, ?, '')
+                """,
+                (
+                    "ruben.worker@example.com",
+                    "Ruben Humberto Lizarraga Reyes",
+                    generate_password_hash(
+                        "UnaClaveTrabajador123", method="pbkdf2:sha256"
+                    ),
+                    "ruben humberto lizarraga reyes",
+                    "2026-08-26T20:00:00Z",
+                ),
+            )
+            receipt_id = connection.execute(
+                "SELECT id FROM payroll_receipts"
+            ).fetchone()["id"]
+            connection.commit()
+
+        self.client.get("/login")
+        self.client.post(
+            "/login",
+            data={
+                "csrf_token": self.csrf_token(),
+                "username": "ruben.worker@example.com",
+                "password": "UnaClaveTrabajador123",
+            },
+        )
+        page = self.client.get("/recibos-nomina")
+        self.assertEqual(page.status_code, 200)
+        self.assertIn(b"Recibos de n\xc3\xb3mina", page.data)
+        self.assertIn(b"$3,756.20", page.data)
+        self.assertIn(b"CE4CF157-BA09-41A2-B65A-2C75D0D84D9B", page.data)
+        self.assertIn(b"Sueldo", page.data)
+        pdf = self.client.get(f"/recibos-nomina/{receipt_id}/pdf")
+        self.assertEqual(pdf.status_code, 200)
+        self.assertEqual(pdf.mimetype, "application/pdf")
+        self.assertTrue(pdf.data.startswith(b"%PDF-"))
+        pdf.close()
+
+        self.client.post(
+            "/logout", data={"csrf_token": self.csrf_token()}
+        )
+        self.login()
+        self.assertEqual(self.client.get("/recibos-nomina").status_code, 403)
 
     def test_worker_vacation_request_supervisor_decision_and_mailbox_badges(self):
         self.initialize_admin()

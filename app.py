@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import csv
+import base64
+import binascii
 import io
 import json
 import math
@@ -227,6 +229,9 @@ def create_app(test_config: dict | None = None) -> Flask:
         ),
         APP_TIMEZONE=os.getenv("APP_TIMEZONE", "America/Tijuana"),
         CONTPAQ_SYNC_TOKEN=os.getenv("CONTPAQ_SYNC_TOKEN", ""),
+        PAYROLL_RECEIPT_DIRECTORY=os.getenv(
+            "PAYROLL_RECEIPT_DIRECTORY", ""
+        ),
         SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SAMESITE="Lax",
         SESSION_COOKIE_SECURE=os.getenv(
@@ -237,6 +242,12 @@ def create_app(test_config: dict | None = None) -> Flask:
     )
     if test_config:
         app.config.update(test_config)
+
+    if not app.config["PAYROLL_RECEIPT_DIRECTORY"]:
+        app.config["PAYROLL_RECEIPT_DIRECTORY"] = str(
+            Path(app.config["DATABASE_PATH"]).resolve().parent
+            / "payroll_receipts"
+        )
 
     static_directory = Path(app.static_folder)
     app.config["STATIC_VERSION"] = str(
@@ -324,6 +335,10 @@ def register_filters(app: Flask) -> None:
             return "—"
         return f"{float(value):.2f}".rstrip("0").rstrip(".")
 
+    @app.template_filter("money")
+    def money_filter(value) -> str:
+        return f"${float(value or 0):,.2f}"
+
     @app.template_filter("datetime_es")
     def datetime_es_filter(value: str | None) -> str:
         if not value:
@@ -357,6 +372,8 @@ def register_context(app: Flask) -> None:
                     "employee_photo",
                     "request_vacation",
                     "mailbox",
+                    "payroll_receipts",
+                    "download_payroll_receipt",
                     "delete_vacation_request",
                     "clear_mailbox",
                     "static",
@@ -1154,6 +1171,63 @@ def register_routes(app: Flask) -> None:
             ),
             supervisor_area=supervisor_area,
             worker_mode=worker_mode,
+        )
+
+    @app.get("/recibos-nomina")
+    @login_required
+    def payroll_receipts():
+        if g.user["access_role"] != "worker":
+            abort(403)
+        employee_key = str(g.user["employee_name_key"] or "").strip()
+        rows = get_db().execute(
+            """
+            SELECT * FROM payroll_receipts
+            WHERE employee_name_key = ?
+            ORDER BY payment_date DESC, id DESC
+            """,
+            (employee_key,),
+        ).fetchall()
+        receipts = []
+        for row in rows:
+            receipt = dict(row)
+            items = get_db().execute(
+                """
+                SELECT * FROM payroll_receipt_items
+                WHERE receipt_id = ?
+                ORDER BY line_number
+                """,
+                (row["id"],),
+            ).fetchall()
+            receipt["items"] = [dict(item) for item in items]
+            receipts.append(receipt)
+        return render_template("payroll_receipts.html", receipts=receipts)
+
+    @app.get("/recibos-nomina/<int:receipt_id>/pdf")
+    @login_required
+    def download_payroll_receipt(receipt_id: int):
+        if g.user["access_role"] != "worker":
+            abort(403)
+        receipt = get_db().execute(
+            """
+            SELECT id, employee_name_key, uuid, pdf_filename
+            FROM payroll_receipts WHERE id = ?
+            """,
+            (receipt_id,),
+        ).fetchone()
+        if receipt is None:
+            abort(404)
+        if receipt["employee_name_key"] != g.user["employee_name_key"]:
+            abort(403)
+        filename = str(receipt["pdf_filename"] or "")
+        if not filename:
+            abort(404)
+        return send_from_directory(
+            current_app.config["PAYROLL_RECEIPT_DIRECTORY"],
+            filename,
+            mimetype="application/pdf",
+            as_attachment=False,
+            download_name=f"recibo-{receipt['uuid']}.pdf",
+            conditional=True,
         )
 
     @app.post("/permisos-incidencia")
@@ -2385,6 +2459,226 @@ def register_routes(app: Flask) -> None:
             )
         except (ValueError, HikConnectError) as exc:
             return jsonify({"error": str(exc)}), 502
+
+    @app.post("/api/integraciones/contpaqi/recibos-nomina")
+    def receive_contpaqi_payroll_receipts():
+        if not current_app.config.get("CONTPAQ_SYNC_TOKEN"):
+            return jsonify({"error": "La integración no está configurada."}), 503
+        if not integration_authenticated():
+            return jsonify({"error": "Credenciales de integración inválidas."}), 401
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict):
+            return jsonify({"error": "El cuerpo JSON no es válido."}), 400
+        raw_receipts = payload.get("receipts")
+        if not isinstance(raw_receipts, list) or len(raw_receipts) > 250:
+            return jsonify({"error": "La lista de recibos no es válida."}), 400
+        source = str(payload.get("source") or "CONTPAQi Nóminas").strip()[:80]
+        connection = get_db()
+        employee_rows = connection.execute(
+            """
+            SELECT employee_name_key, employee_code
+            FROM employees WHERE TRIM(employee_code) <> ''
+            """
+        ).fetchall()
+
+        def employee_code_key(value) -> str:
+            normalized = str(value or "").strip()
+            return str(int(normalized)) if normalized.isdigit() else normalized.casefold()
+
+        employees_by_code = {}
+        for employee in employee_rows:
+            employees_by_code.setdefault(
+                employee_code_key(employee["employee_code"]), []
+            ).append(employee["employee_name_key"])
+
+        validated = []
+        for index, item in enumerate(raw_receipts):
+            if not isinstance(item, dict):
+                return jsonify({"error": f"Recibo {index + 1} no válido."}), 400
+            employee_code = str(item.get("employeeCode") or "").strip()
+            matches = employees_by_code.get(employee_code_key(employee_code), [])
+            if len(matches) != 1:
+                return jsonify({
+                    "error": f"El empleado {employee_code or '?'} no tiene una coincidencia única."
+                }), 400
+            uuid = str(item.get("uuid") or "").strip().upper()
+            if not re.fullmatch(
+                r"[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}",
+                uuid,
+            ):
+                return jsonify({"error": f"UUID inválido en el recibo {index + 1}."}), 400
+            try:
+                source_document_id = int(item.get("sourceDocumentId"))
+                period_id = int(item.get("periodId"))
+                period_number = item.get("periodNumber")
+                period_number = int(period_number) if period_number is not None else None
+                period_start = date.fromisoformat(str(item.get("periodStart")))
+                period_end = date.fromisoformat(str(item.get("periodEnd")))
+                payment_date = date.fromisoformat(str(item.get("paymentDate")))
+                paid_days = float(item.get("paidDays") or 0)
+                gross_pay = float(item.get("grossPay") or 0)
+                deductions = float(item.get("deductions") or 0)
+                withholdings = float(item.get("withholdings") or 0)
+                net_pay = float(item.get("netPay") or 0)
+            except (TypeError, ValueError):
+                return jsonify({"error": f"Datos inválidos en el recibo {index + 1}."}), 400
+            amounts = (paid_days, gross_pay, deductions, withholdings, net_pay)
+            if (
+                period_end < period_start
+                or not all(math.isfinite(value) for value in amounts)
+                or paid_days < 0
+                or paid_days > 366
+                or any(abs(value) > 100_000_000 for value in amounts[1:])
+            ):
+                return jsonify({"error": f"Importes inválidos en el recibo {index + 1}."}), 400
+            raw_items = item.get("items") or []
+            if not isinstance(raw_items, list) or len(raw_items) > 200:
+                return jsonify({"error": f"Conceptos inválidos en el recibo {index + 1}."}), 400
+            receipt_items = []
+            for line_number, raw_item in enumerate(raw_items, start=1):
+                if not isinstance(raw_item, dict):
+                    return jsonify({"error": "Un concepto del recibo no es válido."}), 400
+                category = str(raw_item.get("category") or "").strip()
+                if category not in {
+                    "perception", "deduction", "withholding", "other_payment"
+                }:
+                    return jsonify({"error": "La categoría del concepto no es válida."}), 400
+                try:
+                    concept_number = int(raw_item.get("conceptNumber"))
+                    amount = float(raw_item.get("amount"))
+                except (TypeError, ValueError):
+                    return jsonify({"error": "El importe del concepto no es válido."}), 400
+                concept_name = str(raw_item.get("conceptName") or "").strip()[:120]
+                if not concept_name or not math.isfinite(amount) or amount < 0:
+                    return jsonify({"error": "El concepto del recibo está incompleto."}), 400
+                receipt_items.append({
+                    "line_number": line_number,
+                    "category": category,
+                    "sat_code": str(raw_item.get("satCode") or "").strip()[:10],
+                    "concept_number": concept_number,
+                    "concept_name": concept_name,
+                    "amount": amount,
+                })
+            pdf_bytes = None
+            pdf_base64 = item.get("pdfBase64")
+            if pdf_base64:
+                try:
+                    pdf_bytes = base64.b64decode(str(pdf_base64), validate=True)
+                except (binascii.Error, ValueError):
+                    return jsonify({"error": "El PDF del recibo no es válido."}), 400
+                if (
+                    len(pdf_bytes) > 8 * 1024 * 1024
+                    or not pdf_bytes.startswith(b"%PDF-")
+                ):
+                    return jsonify({"error": "El archivo adjunto no es un PDF válido."}), 400
+            issued_at = str(item.get("issuedAt") or "").strip()[:35] or None
+            validated.append({
+                "source_document_id": source_document_id,
+                "employee_name_key": matches[0],
+                "employee_code": employee_code,
+                "uuid": uuid,
+                "period_id": period_id,
+                "period_type": str(item.get("periodType") or "").strip()[:40],
+                "period_number": period_number,
+                "period_start": period_start.isoformat(),
+                "period_end": period_end.isoformat(),
+                "payment_date": payment_date.isoformat(),
+                "issued_at": issued_at,
+                "paid_days": paid_days,
+                "gross_pay": gross_pay,
+                "deductions": deductions,
+                "withholdings": withholdings,
+                "net_pay": net_pay,
+                "items": receipt_items,
+                "pdf_bytes": pdf_bytes,
+            })
+
+        receipt_directory = Path(
+            current_app.config["PAYROLL_RECEIPT_DIRECTORY"]
+        )
+        receipt_directory.mkdir(parents=True, exist_ok=True)
+        synced_at = utc_now()
+        updated = 0
+        for item in validated:
+            existing = connection.execute(
+                "SELECT id, employee_name_key, pdf_filename FROM payroll_receipts WHERE uuid = ?",
+                (item["uuid"],),
+            ).fetchone()
+            if existing is not None and existing["employee_name_key"] != item["employee_name_key"]:
+                connection.rollback()
+                return jsonify({"error": "El UUID ya pertenece a otro trabajador."}), 409
+            pdf_filename = str(existing["pdf_filename"] or "") if existing else ""
+            if item["pdf_bytes"] is not None:
+                pdf_filename = f"{item['uuid'].lower()}.pdf"
+                temporary = receipt_directory / f".{pdf_filename}.tmp"
+                temporary.write_bytes(item["pdf_bytes"])
+                temporary.replace(receipt_directory / pdf_filename)
+            connection.execute(
+                """
+                INSERT INTO payroll_receipts (
+                    source_document_id, employee_name_key, employee_code,
+                    uuid, period_id, period_type, period_number,
+                    period_start, period_end, payment_date, issued_at,
+                    paid_days, gross_pay, deductions, withholdings, net_pay,
+                    pdf_filename, source, synced_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(uuid) DO UPDATE SET
+                    source_document_id = excluded.source_document_id,
+                    employee_name_key = excluded.employee_name_key,
+                    employee_code = excluded.employee_code,
+                    period_id = excluded.period_id,
+                    period_type = excluded.period_type,
+                    period_number = excluded.period_number,
+                    period_start = excluded.period_start,
+                    period_end = excluded.period_end,
+                    payment_date = excluded.payment_date,
+                    issued_at = excluded.issued_at,
+                    paid_days = excluded.paid_days,
+                    gross_pay = excluded.gross_pay,
+                    deductions = excluded.deductions,
+                    withholdings = excluded.withholdings,
+                    net_pay = excluded.net_pay,
+                    pdf_filename = excluded.pdf_filename,
+                    source = excluded.source,
+                    synced_at = excluded.synced_at
+                """,
+                (
+                    item["source_document_id"], item["employee_name_key"],
+                    item["employee_code"], item["uuid"], item["period_id"],
+                    item["period_type"], item["period_number"],
+                    item["period_start"], item["period_end"],
+                    item["payment_date"], item["issued_at"], item["paid_days"],
+                    item["gross_pay"], item["deductions"],
+                    item["withholdings"], item["net_pay"], pdf_filename,
+                    source, synced_at,
+                ),
+            )
+            receipt_id = connection.execute(
+                "SELECT id FROM payroll_receipts WHERE uuid = ?", (item["uuid"],)
+            ).fetchone()["id"]
+            connection.execute(
+                "DELETE FROM payroll_receipt_items WHERE receipt_id = ?",
+                (receipt_id,),
+            )
+            connection.executemany(
+                """
+                INSERT INTO payroll_receipt_items (
+                    receipt_id, line_number, category, sat_code,
+                    concept_number, concept_name, amount
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                [
+                    (
+                        receipt_id, concept["line_number"], concept["category"],
+                        concept["sat_code"], concept["concept_number"],
+                        concept["concept_name"], concept["amount"],
+                    )
+                    for concept in item["items"]
+                ],
+            )
+            updated += 1
+        connection.commit()
+        return jsonify({"updated": updated})
 
     @app.post("/api/integraciones/contpaqi/vacaciones")
     def receive_contpaqi_vacation_balances():
