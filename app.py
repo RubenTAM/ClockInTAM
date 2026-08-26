@@ -324,6 +324,8 @@ def register_context(app: Flask) -> None:
                     "employee_photo",
                     "request_vacation",
                     "mailbox",
+                    "delete_vacation_request",
+                    "clear_mailbox",
                     "static",
                 }
                 if request.endpoint not in allowed_endpoints:
@@ -515,8 +517,8 @@ def requested_vacation_days(start_date: date, end_date: date) -> int:
     )
 
 
-def supervisor_for_employee(area: str):
-    supervisors = get_db().execute(
+def available_supervisors() -> list:
+    return get_db().execute(
         """
         SELECT id, display_name, supervised_area
         FROM users
@@ -524,6 +526,10 @@ def supervisor_for_employee(area: str):
         ORDER BY id
         """
     ).fetchall()
+
+
+def supervisor_for_employee(area: str):
+    supervisors = available_supervisors()
     scoped = [
         supervisor
         for supervisor in supervisors
@@ -553,6 +559,7 @@ def mailbox_badge_count() -> int:
             WHERE employee_name_key = ?
               AND status IN ('approved', 'rejected')
               AND worker_read_at IS NULL
+              AND worker_deleted_at IS NULL
             """,
             (g.user["employee_name_key"],),
         ).fetchone()
@@ -560,8 +567,12 @@ def mailbox_badge_count() -> int:
         row = get_db().execute(
             """
             SELECT COUNT(*) AS total
-            FROM vacation_requests
-            WHERE supervisor_id = ? AND status = 'pending'
+            FROM vacation_requests vr
+            JOIN vacation_request_recipients recipient
+              ON recipient.request_id = vr.id
+            WHERE recipient.supervisor_id = ?
+              AND recipient.deleted_at IS NULL
+              AND vr.status = 'pending'
             """,
             (g.user["id"],),
         ).fetchone()
@@ -1415,10 +1426,31 @@ def register_routes(app: Flask) -> None:
         ).fetchone()
         if employee is None:
             abort(400, "La cuenta no tiene un trabajador vinculado.")
-        supervisor = supervisor_for_employee(employee["area"])
+        supervisors = available_supervisors()
+        default_supervisor = supervisor_for_employee(employee["area"])
 
         if request.method == "POST":
             validate_csrf()
+            selected_supervisor = request.form.get(
+                "supervisor_id", ""
+            ).strip()
+            supervisors_by_id = {
+                str(supervisor["id"]): supervisor
+                for supervisor in supervisors
+            }
+            if selected_supervisor == "all":
+                recipients = supervisors
+                sent_to_all = 1
+            else:
+                selected = supervisors_by_id.get(selected_supervisor)
+                recipients = [selected] if selected is not None else []
+                sent_to_all = 0
+            if not recipients:
+                flash(
+                    "Selecciona al menos un supervisor disponible.",
+                    "error",
+                )
+                return redirect(url_for("request_vacation"))
             try:
                 start_date = parse_iso_date(
                     request.form.get("start_date", ""), "fecha inicial"
@@ -1441,12 +1473,6 @@ def register_routes(app: Flask) -> None:
             requested_days = requested_vacation_days(start_date, end_date)
             if requested_days < 1:
                 flash("El periodo debe incluir al menos un día laborable.", "error")
-                return redirect(url_for("request_vacation"))
-            if supervisor is None:
-                flash(
-                    "Aún no hay un supervisor disponible para recibir la solicitud.",
-                    "error",
-                )
                 return redirect(url_for("request_vacation"))
             overlapping = connection.execute(
                 """
@@ -1474,18 +1500,30 @@ def register_routes(app: Flask) -> None:
                 INSERT INTO vacation_requests (
                     employee_name, employee_name_key, supervisor_id,
                     start_date, end_date, requested_days, status,
-                    requested_at
-                ) VALUES (?, ?, ?, ?, ?, ?, 'pending', ?)
+                    requested_at, sent_to_all
+                ) VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?)
                 """,
                 (
                     employee["employee_name"],
                     employee["employee_name_key"],
-                    supervisor["id"],
+                    recipients[0]["id"],
                     start_date.isoformat(),
                     end_date.isoformat(),
                     requested_days,
                     utc_now(),
+                    sent_to_all,
                 ),
+            )
+            connection.executemany(
+                """
+                INSERT INTO vacation_request_recipients (
+                    request_id, supervisor_id
+                ) VALUES (?, ?)
+                """,
+                [
+                    (cursor.lastrowid, recipient["id"])
+                    for recipient in recipients
+                ],
             )
             log_action(
                 g.user["id"],
@@ -1497,7 +1535,9 @@ def register_routes(app: Flask) -> None:
                         "start": start_date.isoformat(),
                         "end": end_date.isoformat(),
                         "days": requested_days,
-                        "supervisor_id": supervisor["id"],
+                        "supervisor_ids": [
+                            recipient["id"] for recipient in recipients
+                        ],
                     },
                     ensure_ascii=False,
                 ),
@@ -1509,7 +1549,8 @@ def register_routes(app: Flask) -> None:
         return render_template(
             "vacation_request.html",
             employee=employee,
-            supervisor=supervisor,
+            supervisors=supervisors,
+            default_supervisor=default_supervisor,
         )
 
     @app.get("/buzon")
@@ -1525,18 +1566,28 @@ def register_routes(app: Flask) -> None:
                 WHERE employee_name_key = ?
                   AND status IN ('approved', 'rejected')
                   AND worker_read_at IS NULL
+                  AND worker_deleted_at IS NULL
                 """,
                 (utc_now(), g.user["employee_name_key"]),
             )
             connection.commit()
             rows = connection.execute(
                 """
-                SELECT vr.*, supervisor.display_name AS supervisor_name,
+                SELECT vr.*,
+                       CASE
+                         WHEN vr.sent_to_all = 1 THEN 'Todos los supervisores'
+                         ELSE (
+                           SELECT GROUP_CONCAT(u.display_name, ', ')
+                           FROM vacation_request_recipients recipient
+                           JOIN users u ON u.id = recipient.supervisor_id
+                           WHERE recipient.request_id = vr.id
+                         )
+                       END AS supervisor_name,
                        decision.display_name AS decided_by_name
                 FROM vacation_requests vr
-                JOIN users supervisor ON supervisor.id = vr.supervisor_id
                 LEFT JOIN users decision ON decision.id = vr.decided_by
                 WHERE vr.employee_name_key = ?
+                  AND vr.worker_deleted_at IS NULL
                 ORDER BY vr.requested_at DESC, vr.id DESC
                 """,
                 (g.user["employee_name_key"],),
@@ -1544,12 +1595,23 @@ def register_routes(app: Flask) -> None:
         else:
             rows = connection.execute(
                 """
-                SELECT vr.*, supervisor.display_name AS supervisor_name,
+                SELECT vr.*,
+                       CASE
+                         WHEN vr.sent_to_all = 1 THEN 'Todos los supervisores'
+                         ELSE (
+                           SELECT GROUP_CONCAT(u.display_name, ', ')
+                           FROM vacation_request_recipients recipient_names
+                           JOIN users u ON u.id = recipient_names.supervisor_id
+                           WHERE recipient_names.request_id = vr.id
+                         )
+                       END AS supervisor_name,
                        decision.display_name AS decided_by_name
                 FROM vacation_requests vr
-                JOIN users supervisor ON supervisor.id = vr.supervisor_id
+                JOIN vacation_request_recipients recipient
+                  ON recipient.request_id = vr.id
                 LEFT JOIN users decision ON decision.id = vr.decided_by
-                WHERE vr.supervisor_id = ?
+                WHERE recipient.supervisor_id = ?
+                  AND recipient.deleted_at IS NULL
                 ORDER BY CASE vr.status WHEN 'pending' THEN 0 ELSE 1 END,
                          vr.requested_at DESC, vr.id DESC
                 """,
@@ -1560,6 +1622,7 @@ def register_routes(app: Flask) -> None:
             rows=rows,
             worker_mode=worker_mode,
             pending_count=sum(row["status"] == "pending" for row in rows),
+            resolved_count=sum(row["status"] != "pending" for row in rows),
         )
 
     @app.post("/buzon/solicitudes/<int:request_id>/decision")
@@ -1572,8 +1635,11 @@ def register_routes(app: Flask) -> None:
         connection = get_db()
         vacation_request = connection.execute(
             """
-            SELECT * FROM vacation_requests
-            WHERE id = ? AND supervisor_id = ?
+            SELECT vr.* FROM vacation_requests vr
+            JOIN vacation_request_recipients recipient
+              ON recipient.request_id = vr.id
+            WHERE vr.id = ? AND recipient.supervisor_id = ?
+              AND recipient.deleted_at IS NULL
             """,
             (request_id, g.user["id"]),
         ).fetchone()
@@ -1606,6 +1672,97 @@ def register_routes(app: Flask) -> None:
             else "La solicitud fue rechazada.",
             "success",
         )
+        return redirect(url_for("mailbox"))
+
+    @app.post("/buzon/solicitudes/<int:request_id>/eliminar")
+    @login_required
+    def delete_vacation_request(request_id: int):
+        validate_csrf()
+        connection = get_db()
+        if g.user["access_role"] == "worker":
+            vacation_request = connection.execute(
+                """
+                SELECT id, status FROM vacation_requests
+                WHERE id = ? AND employee_name_key = ?
+                  AND worker_deleted_at IS NULL
+                """,
+                (request_id, g.user["employee_name_key"]),
+            ).fetchone()
+            if vacation_request is None:
+                abort(404)
+            if vacation_request["status"] == "pending":
+                abort(400, "No puedes eliminar una solicitud pendiente.")
+            connection.execute(
+                """
+                UPDATE vacation_requests SET worker_deleted_at = ?
+                WHERE id = ?
+                """,
+                (utc_now(), request_id),
+            )
+        else:
+            vacation_request = connection.execute(
+                """
+                SELECT vr.status FROM vacation_requests vr
+                JOIN vacation_request_recipients recipient
+                  ON recipient.request_id = vr.id
+                WHERE vr.id = ? AND recipient.supervisor_id = ?
+                  AND recipient.deleted_at IS NULL
+                """,
+                (request_id, g.user["id"]),
+            ).fetchone()
+            if vacation_request is None:
+                abort(404)
+            if vacation_request["status"] == "pending":
+                abort(400, "No puedes eliminar una solicitud pendiente.")
+            connection.execute(
+                """
+                UPDATE vacation_request_recipients SET deleted_at = ?
+                WHERE request_id = ? AND supervisor_id = ?
+                """,
+                (utc_now(), request_id, g.user["id"]),
+            )
+        log_action(
+            g.user["id"],
+            "delete_from_mailbox",
+            "vacation_request",
+            request_id,
+        )
+        connection.commit()
+        flash("El mensaje fue eliminado de tu buzón.", "success")
+        return redirect(url_for("mailbox"))
+
+    @app.post("/buzon/limpiar")
+    @login_required
+    def clear_mailbox():
+        validate_csrf()
+        connection = get_db()
+        now = utc_now()
+        if g.user["access_role"] == "worker":
+            connection.execute(
+                """
+                UPDATE vacation_requests SET worker_deleted_at = ?
+                WHERE employee_name_key = ?
+                  AND status IN ('approved', 'rejected')
+                  AND worker_deleted_at IS NULL
+                """,
+                (now, g.user["employee_name_key"]),
+            )
+        else:
+            connection.execute(
+                """
+                UPDATE vacation_request_recipients
+                SET deleted_at = ?
+                WHERE supervisor_id = ? AND deleted_at IS NULL
+                  AND request_id IN (
+                    SELECT id FROM vacation_requests
+                    WHERE status IN ('approved', 'rejected')
+                  )
+                """,
+                (now, g.user["id"]),
+            )
+        log_action(g.user["id"], "clear", "vacation_request_mailbox")
+        connection.commit()
+        flash("Los mensajes resueltos fueron eliminados.", "success")
         return redirect(url_for("mailbox"))
 
     @app.get("/vacaciones")

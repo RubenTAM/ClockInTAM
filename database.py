@@ -76,11 +76,22 @@ CREATE TABLE IF NOT EXISTS vacation_requests (
     responded_at TEXT,
     decided_by INTEGER,
     worker_read_at TEXT,
+    worker_deleted_at TEXT,
+    sent_to_all INTEGER NOT NULL DEFAULT 0,
     FOREIGN KEY (supervisor_id) REFERENCES users(id),
     FOREIGN KEY (decided_by) REFERENCES users(id),
     CHECK (end_date >= start_date),
     CHECK (requested_days > 0),
     CHECK (status IN ('pending', 'approved', 'rejected'))
+);
+
+CREATE TABLE IF NOT EXISTS vacation_request_recipients (
+    request_id INTEGER NOT NULL,
+    supervisor_id INTEGER NOT NULL,
+    deleted_at TEXT,
+    PRIMARY KEY (request_id, supervisor_id),
+    FOREIGN KEY (request_id) REFERENCES vacation_requests(id),
+    FOREIGN KEY (supervisor_id) REFERENCES users(id)
 );
 
 CREATE TABLE IF NOT EXISTS attendance_permissions (
@@ -125,6 +136,9 @@ ON vacation_requests(supervisor_id, status);
 CREATE INDEX IF NOT EXISTS idx_vacation_requests_employee
 ON vacation_requests(employee_name_key, requested_at);
 
+CREATE INDEX IF NOT EXISTS idx_vacation_request_recipients_supervisor
+ON vacation_request_recipients(supervisor_id, request_id);
+
 CREATE INDEX IF NOT EXISTS idx_attendance_permissions_date
 ON attendance_permissions(work_date);
 """
@@ -161,6 +175,7 @@ def init_db() -> None:
     migrate_approved_minutes(connection)
     migrate_employee_code(connection)
     migrate_employee_vacation_balance(connection)
+    migrate_vacation_request_recipients(connection)
     connection.commit()
 
 
@@ -257,6 +272,34 @@ def migrate_employee_vacation_balance(
             connection.execute(
                 f"ALTER TABLE employees ADD COLUMN {name} {definition}"
             )
+
+
+def migrate_vacation_request_recipients(
+    connection: sqlite3.Connection,
+) -> None:
+    columns = {
+        row["name"]
+        for row in connection.execute(
+            "PRAGMA table_info('vacation_requests')"
+        ).fetchall()
+    }
+    additions = {
+        "worker_deleted_at": "TEXT",
+        "sent_to_all": "INTEGER NOT NULL DEFAULT 0",
+    }
+    for name, definition in additions.items():
+        if name not in columns:
+            connection.execute(
+                f"ALTER TABLE vacation_requests ADD COLUMN {name} {definition}"
+            )
+    connection.execute(
+        """
+        INSERT OR IGNORE INTO vacation_request_recipients (
+            request_id, supervisor_id
+        )
+        SELECT id, supervisor_id FROM vacation_requests
+        """
+    )
 
 
 def migrate_approved_minutes(connection: sqlite3.Connection) -> None:

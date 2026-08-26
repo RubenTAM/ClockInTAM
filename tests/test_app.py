@@ -743,6 +743,10 @@ class AppFlowTests(unittest.TestCase):
             follow_redirects=True,
         )
         self.assertIn(b"Usuario creado correctamente", create_worker.data)
+        with self.app.app_context():
+            admin_id = get_db().execute(
+                "SELECT id FROM users WHERE username = 'admin'"
+            ).fetchone()["id"]
 
         self.client.post(
             "/logout", data={"csrf_token": self.csrf_token()}
@@ -765,6 +769,7 @@ class AppFlowTests(unittest.TestCase):
             "/solicitar-vacaciones",
             data={
                 "csrf_token": self.csrf_token(),
+                "supervisor_id": str(admin_id),
                 "start_date": "2026-09-01",
                 "end_date": "2026-09-05",
             },
@@ -878,11 +883,80 @@ class AppFlowTests(unittest.TestCase):
         worker_mailbox = self.client.get("/buzon")
         self.assertIn(b"Aprobada", worker_mailbox.data)
         self.assertIn(b"Administrador General", worker_mailbox.data)
+        deleted = self.client.post(
+            f"/buzon/solicitudes/{request_id}/eliminar",
+            data={"csrf_token": self.csrf_token()},
+            follow_redirects=True,
+        )
+        self.assertIn(b"El mensaje fue eliminado de tu buz", deleted.data)
+        self.assertNotIn(b"Aprobada", deleted.data)
+        with self.app.app_context():
+            stored = get_db().execute(
+                """
+                SELECT status, worker_deleted_at FROM vacation_requests
+                WHERE id = ?
+                """,
+                (request_id,),
+            ).fetchone()
+            self.assertEqual(stored["status"], "approved")
+            self.assertIsNotNone(stored["worker_deleted_at"])
         with patch(
             "app.report_for_week", return_value=([], None, set())
         ):
             read_home = self.client.get("/")
         self.assertNotIn(b"nav-badge", read_home.data)
+
+        sent_to_all = self.client.post(
+            "/solicitar-vacaciones",
+            data={
+                "csrf_token": self.csrf_token(),
+                "supervisor_id": "all",
+                "start_date": "2026-09-08",
+                "end_date": "2026-09-10",
+            },
+        )
+        self.assertEqual(sent_to_all.status_code, 302)
+        with self.app.app_context():
+            connection = get_db()
+            all_request = connection.execute(
+                """
+                SELECT id, sent_to_all FROM vacation_requests
+                WHERE start_date = '2026-09-08'
+                """
+            ).fetchone()
+            recipient_count = connection.execute(
+                """
+                SELECT COUNT(*) AS total
+                FROM vacation_request_recipients WHERE request_id = ?
+                """,
+                (all_request["id"],),
+            ).fetchone()["total"]
+            self.assertEqual(all_request["sent_to_all"], 1)
+            self.assertEqual(recipient_count, 2)
+
+        self.client.post(
+            "/logout", data={"csrf_token": self.csrf_token()}
+        )
+        self.client.get("/login")
+        self.client.post(
+            "/login",
+            data={
+                "csrf_token": self.csrf_token(),
+                "username": "other-admin",
+                "password": "OtraClaveSegura123",
+            },
+        )
+        other_mailbox = self.client.get("/buzon")
+        self.assertIn(b"Todos los supervisores", other_mailbox.data)
+        rejected = self.client.post(
+            f"/buzon/solicitudes/{all_request['id']}/decision",
+            data={
+                "csrf_token": self.csrf_token(),
+                "decision": "rejected",
+            },
+            follow_redirects=True,
+        )
+        self.assertIn(b"La solicitud fue rechazada", rejected.data)
 
     def test_home_can_enable_overtime_with_an_approved_hours_limit(self):
         self.initialize_admin()

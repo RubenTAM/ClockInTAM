@@ -13,14 +13,25 @@
       {% endif %}
     </p>
   </div>
-  {% if worker_mode %}
-    <a class="button primary" href="{{ url_for('request_vacation') }}">＋ Nueva solicitud</a>
-  {% elif pending_count %}
-    <div class="mailbox-pending-summary">
-      <strong>{{ pending_count }}</strong>
-      <span>por responder</span>
-    </div>
-  {% endif %}
+  <div class="mailbox-header-actions">
+    {% if resolved_count %}
+      <form method="post" action="{{ url_for('clear_mailbox') }}"
+            data-confirm="¿Eliminar todos los mensajes resueltos de tu buzón?">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button class="mailbox-trash-button" type="submit">
+          <span aria-hidden="true">🗑</span> Limpiar resueltos
+        </button>
+      </form>
+    {% endif %}
+    {% if worker_mode %}
+      <a class="button primary" href="{{ url_for('request_vacation') }}">＋ Nueva solicitud</a>
+    {% elif pending_count %}
+      <div class="mailbox-pending-summary">
+        <strong>{{ pending_count }}</strong>
+        <span>por responder</span>
+      </div>
+    {% endif %}
+  </div>
 </header>
 
 {% if not rows %}
@@ -54,6 +65,15 @@
               {% elif row.status == 'approved' %}Aprobada
               {% else %}Rechazada{% endif %}
             </span>
+            {% if row.status != 'pending' %}
+              <form method="post"
+                    action="{{ url_for('delete_vacation_request', request_id=row.id) }}"
+                    data-confirm="¿Eliminar este mensaje de tu buzón?">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <button class="mailbox-card-trash" type="submit"
+                        aria-label="Eliminar mensaje" title="Eliminar mensaje">🗑</button>
+              </form>
+            {% endif %}
           </header>
 
           <div class="mailbox-request-details">
