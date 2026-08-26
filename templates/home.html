@@ -67,7 +67,8 @@
     <p>No se encontraron checadas ni autorizaciones en esta semana.</p>
   </section>
 {% else %}
-  <section class="home-browser" data-home-browser
+  <section class="home-browser{{ ' worker-home-browser' if worker_mode else '' }}"
+           data-home-browser
            data-selected-worker="{{ selected_worker }}">
     <aside class="panel home-worker-panel" {% if worker_mode %}hidden{% endif %}>
       <label for="home-worker-search">Buscar trabajador</label>

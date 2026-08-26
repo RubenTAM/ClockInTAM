@@ -691,6 +691,7 @@ class AppFlowTests(unittest.TestCase):
         self.assertIn(b"Ruben Humberto Lizarraga Reyes", home.data)
         self.assertNotIn(b"Jorge Rangel Pulido", home.data)
         self.assertIn(b"Trabajador", home.data)
+        self.assertIn(b"home-browser worker-home-browser", home.data)
         self.assertNotIn(b"Expediente Supervisor", home.data)
         self.assertNotIn(b"data-home-preview", home.data)
         self.assertNotIn(b"Habilitar tiempo extra", home.data)
