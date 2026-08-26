@@ -159,10 +159,64 @@
   const startInput = form.querySelector("[data-vacation-start]");
   const endInput = form.querySelector("[data-vacation-end]");
   const daysOutput = form.querySelector("[data-vacation-days]");
+  const ledger = document.querySelector("[data-vacation-ledger]");
+  const previewRow = ledger?.querySelector("[data-vacation-ledger-preview]");
+  const previewStart = ledger?.querySelector("[data-vacation-preview-start]");
+  const previewEnd = ledger?.querySelector("[data-vacation-preview-end]");
+  const previewTaken = ledger?.querySelector("[data-vacation-preview-taken]");
+  const previewBalance = ledger?.querySelector("[data-vacation-preview-balance]");
+  const projectedBalance = form.querySelector(
+    "[data-vacation-projected-balance]"
+  );
+  const projectedCopy = projectedBalance?.closest(".vacation-projected-copy");
+
+  const formatDate = (value) => {
+    const [year, month, day] = value.split("-");
+    return `${day}/${month}/${year}`;
+  };
+  const formatDays = (value) => new Intl.NumberFormat("es-MX", {
+    maximumFractionDigits: 2,
+  }).format(value);
+
+  const updateProjection = (days) => {
+    const datesAreValid = startInput.value && endInput.value
+      && endInput.value >= startInput.value && days > 0;
+    if (!datesAreValid) {
+      if (previewRow) previewRow.hidden = true;
+      if (projectedBalance) projectedBalance.textContent = "—";
+      projectedCopy?.classList.remove("projected-negative");
+      return;
+    }
+
+    const availableValue = ledger?.dataset.availableDays || "";
+    const hasAvailableBalance = availableValue !== "";
+    const balance = hasAvailableBalance
+      ? Number(availableValue) - days
+      : null;
+    if (previewStart) previewStart.textContent = formatDate(startInput.value);
+    if (previewEnd) previewEnd.textContent = formatDate(endInput.value);
+    if (previewTaken) previewTaken.textContent = formatDays(days);
+    if (previewBalance) {
+      previewBalance.textContent = balance === null ? "—" : formatDays(balance);
+    }
+    if (previewRow) {
+      previewRow.hidden = false;
+      previewRow.classList.toggle("projected-negative", balance !== null && balance < 0);
+    }
+    if (projectedBalance) {
+      projectedBalance.textContent = balance === null
+        ? "Pendiente de sincronizar"
+        : `${formatDays(balance)} días`;
+    }
+    projectedCopy?.classList.toggle(
+      "projected-negative", balance !== null && balance < 0
+    );
+  };
 
   const calculateDays = () => {
     if (!startInput.value || !endInput.value) {
       daysOutput.textContent = "—";
+      updateProjection(0);
       return;
     }
     endInput.min = startInput.value;
@@ -170,6 +224,7 @@
     const end = new Date(`${endInput.value}T12:00:00`);
     if (end < start) {
       daysOutput.textContent = "—";
+      updateProjection(0);
       return;
     }
     let days = 0;
@@ -179,6 +234,7 @@
       current.setDate(current.getDate() + 1);
     }
     daysOutput.textContent = String(days);
+    updateProjection(days);
   };
 
   startInput.addEventListener("change", () => {

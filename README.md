@@ -30,7 +30,10 @@ La aplicación recibe los saldos mediante un sincronizador ejecutado dentro de
 la red de TecnoAll. SQL Server no debe publicarse en Internet. El sincronizador
 consulta únicamente `NOM10001`, `NOM10014` y `NOM10051`, calcula el saldo a la
 fecha de corte y envía a Tiempo el código de empleado, los días disponibles y
-la fecha de actualización.
+la fecha de actualización. La misma sincronización reconstruye la tarjeta de
+vacaciones con aniversarios, periodos tomados y saldo progresivo para mostrarla
+al trabajador. Tiempo conserva una copia de solo lectura de esa tarjeta; las
+solicitudes en captura se muestran como proyección y no escriben en CONTPAQi.
 
 El código se mantiene separado por dominio: `checador/` contiene Hikvision,
 asistencia y reportes operativos; `nomina/` contiene únicamente la lectura y

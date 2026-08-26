@@ -47,6 +47,36 @@ def seniority_date(employee: dict) -> date:
     return hired_at
 
 
+def _completed_years(started_at: date, as_of: date) -> int:
+    years = as_of.year - started_at.year
+    if _anniversary(started_at, years) > as_of:
+        years -= 1
+    return max(0, years)
+
+
+def _benefit_for_anniversary(
+    benefit_rows: Iterable[BenefitRow],
+    table_id: int,
+    year_number: int,
+    anniversary: date,
+) -> BenefitRow:
+    candidates = [
+        row
+        for row in benefit_rows
+        if row.table_id == table_id
+        and row.seniority <= year_number
+        and row.effective_from <= anniversary
+    ]
+    if not candidates:
+        raise ContpaqiVacationError(
+            f"No hay prestación vigente para la antigüedad {year_number}."
+        )
+    return max(
+        candidates,
+        key=lambda row: (row.seniority, row.effective_from),
+    )
+
+
 def calculate_available_days(
     employee: dict,
     benefit_rows: Iterable[BenefitRow],
@@ -59,10 +89,7 @@ def calculate_available_days(
     proportional portion of the anniversary currently in progress.
     """
     started_at = seniority_date(employee)
-    completed_years = as_of.year - started_at.year
-    if _anniversary(started_at, completed_years) > as_of:
-        completed_years -= 1
-    completed_years = max(0, completed_years)
+    completed_years = _completed_years(started_at, as_of)
 
     table_id = int(employee.get("TipoPrestacion") or 0)
     applicable_rows = [
@@ -76,19 +103,11 @@ def calculate_available_days(
     earned = Decimal("0")
     for year_number in range(1, completed_years + 1):
         anniversary = _anniversary(started_at, year_number)
-        candidates = [
-            row
-            for row in applicable_rows
-            if row.seniority <= year_number
-            and row.effective_from <= anniversary
-        ]
-        if not candidates:
-            raise ContpaqiVacationError(
-                f"No hay prestación vigente para la antigüedad {year_number}."
-            )
-        selected = max(
-            candidates,
-            key=lambda row: (row.seniority, row.effective_from),
+        selected = _benefit_for_anniversary(
+            applicable_rows,
+            table_id,
+            year_number,
+            anniversary,
         )
         earned += selected.vacation_days
 
@@ -101,6 +120,123 @@ def calculate_available_days(
         - Decimal(str(vacation_days_taken or 0))
     )
     return available.quantize(Decimal("0.01"))
+
+
+def build_vacation_ledger(
+    employee: dict,
+    benefit_rows: Iterable[BenefitRow],
+    vacation_rows: Iterable[dict],
+    as_of: date,
+) -> list[dict]:
+    """Build the CONTPAQi-style vacation statement for one employee."""
+    benefit_rows = list(benefit_rows)
+    started_at = seniority_date(employee)
+    completed_years = _completed_years(started_at, as_of)
+    table_id = int(employee.get("TipoPrestacion") or 0)
+    if completed_years and not any(
+        row.table_id == table_id for row in benefit_rows
+    ):
+        raise ContpaqiVacationError(
+            "No se encontró la tabla de prestaciones del empleado."
+        )
+
+    events = []
+    taken_before = Decimal(
+        str(employee.get("DiasVacTomadasAntesdeAlta") or 0)
+    )
+    events.append(
+        {
+            "sourceMovementKey": "before-registration",
+            "concept": "Vac. tomadas antes del registro",
+            "sortDate": date.min,
+            "sortOrder": 0,
+            "registeredDate": None,
+            "startDate": None,
+            "endDate": None,
+            "daysTaken": taken_before,
+            "daysEntitled": Decimal("0"),
+        }
+    )
+
+    for year_number in range(1, completed_years + 1):
+        anniversary = _anniversary(started_at, year_number)
+        benefit = _benefit_for_anniversary(
+            benefit_rows,
+            table_id,
+            year_number,
+            anniversary,
+        )
+        events.append(
+            {
+                "sourceMovementKey": (
+                    f"anniversary:{year_number}:{anniversary.isoformat()}"
+                ),
+                "concept": "Aniversario laboral",
+                "sortDate": anniversary,
+                "sortOrder": 1,
+                "registeredDate": anniversary,
+                "startDate": None,
+                "endDate": None,
+                "daysTaken": Decimal("0"),
+                "daysEntitled": benefit.vacation_days,
+            }
+        )
+
+    for index, row in enumerate(vacation_rows):
+        start_date = _as_date(row.get("FechaInicio"))
+        end_date = _as_date(row.get("FechaFin"))
+        registered_date = _as_date(row.get("TimeStamp")) or start_date
+        movement_id = row.get("IdTControlVacaciones")
+        events.append(
+            {
+                "sourceMovementKey": (
+                    f"vacation:{movement_id}"
+                    if movement_id is not None
+                    else f"vacation-row:{index}"
+                ),
+                "concept": "Vacaciones tomadas",
+                "sortDate": start_date or registered_date or date.max,
+                "sortOrder": 2,
+                "registeredDate": registered_date,
+                "startDate": start_date,
+                "endDate": end_date,
+                "daysTaken": Decimal(str(row.get("DiasVacaciones") or 0)),
+                "daysEntitled": Decimal("0"),
+            }
+        )
+
+    balance = Decimal("0")
+    ledger = []
+    for event in sorted(
+        events,
+        key=lambda item: (item["sortDate"], item["sortOrder"]),
+    ):
+        balance += event["daysEntitled"] - event["daysTaken"]
+        ledger.append(
+            {
+                "sourceMovementKey": event["sourceMovementKey"],
+                "concept": event["concept"],
+                "registeredDate": (
+                    event["registeredDate"].isoformat()
+                    if event["registeredDate"]
+                    else None
+                ),
+                "startDate": (
+                    event["startDate"].isoformat()
+                    if event["startDate"]
+                    else None
+                ),
+                "endDate": (
+                    event["endDate"].isoformat()
+                    if event["endDate"]
+                    else None
+                ),
+                "daysTaken": float(event["daysTaken"]),
+                "daysEntitled": float(event["daysEntitled"]),
+                "balance": float(balance.quantize(Decimal("0.01"))),
+            }
+        )
+    return ledger
 
 
 def read_vacation_balances(
@@ -163,15 +299,18 @@ def read_vacation_balances(
         ]
         cursor.execute(
             """
-            SELECT IdEmpleado, SUM(CONVERT(float, DiasVacaciones)) AS DiasTomados
+            SELECT
+                IdTControlVacaciones, IdEmpleado, DiasVacaciones,
+                FechaInicio, FechaFin, [TimeStamp]
             FROM NOM10014
-            GROUP BY IdEmpleado
+            ORDER BY IdEmpleado, FechaInicio, IdTControlVacaciones
             """
         )
-        taken_by_employee = {
-            int(row["IdEmpleado"]): Decimal(str(row["DiasTomados"] or 0))
-            for row in cursor.fetchall()
-        }
+        vacations_by_employee: dict[int, list[dict]] = {}
+        for row in cursor.fetchall():
+            vacations_by_employee.setdefault(
+                int(row["IdEmpleado"]), []
+            ).append(row)
         connection.rollback()
     except Exception as exc:
         connection.rollback()
@@ -185,11 +324,27 @@ def read_vacation_balances(
     errors = []
     for employee in employees:
         code = str(employee["CodigoEmpleado"] or "").strip()
+        vacation_rows = vacations_by_employee.get(
+            int(employee["IdEmpleado"]), []
+        )
+        vacation_days_taken = sum(
+            (
+                Decimal(str(row["DiasVacaciones"] or 0))
+                for row in vacation_rows
+            ),
+            Decimal("0"),
+        )
         try:
             available = calculate_available_days(
                 employee,
                 benefit_rows,
-                taken_by_employee.get(int(employee["IdEmpleado"]), 0),
+                vacation_days_taken,
+                as_of,
+            )
+            movements = build_vacation_ledger(
+                employee,
+                benefit_rows,
+                vacation_rows,
                 as_of,
             )
         except (ContpaqiVacationError, TypeError, ValueError) as exc:
@@ -205,6 +360,7 @@ def read_vacation_balances(
                 ).strip(),
                 "availableDays": float(available),
                 "asOf": as_of.isoformat(),
+                "movements": movements,
             }
         )
     return balances, errors

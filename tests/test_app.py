@@ -384,12 +384,25 @@ class AppFlowTests(unittest.TestCase):
                         "employeeName": "RANGEL PULIDO JORGE",
                         "employeeStatus": "A",
                         "availableDays": 8.5,
+                        "movements": [
+                            {
+                                "sourceMovementKey": "vacation:77",
+                                "concept": "Vacaciones tomadas",
+                                "registeredDate": "2026-08-10",
+                                "startDate": "2026-08-10",
+                                "endDate": "2026-08-10",
+                                "daysTaken": 1,
+                                "daysEntitled": 0,
+                                "balance": 8.5,
+                            }
+                        ],
                     }
                 ],
             },
         )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.get_json()["updated"], 1)
+        self.assertEqual(response.get_json()["movementsUpdated"], 1)
 
         with patch("app.cached_attendance", return_value=[]):
             home = self.client.get("/?semana=2026-08-20")
@@ -405,6 +418,13 @@ class AppFlowTests(unittest.TestCase):
                 FROM employees WHERE employee_code = '063'
                 """
             ).fetchone()
+            movement = get_db().execute(
+                """
+                SELECT concept, start_date, days_taken, balance
+                FROM employee_vacation_movements
+                WHERE employee_name_key = 'jorge rangel pulido'
+                """
+            ).fetchone()
         self.assertEqual(employee["vacation_days_available"], 8.5)
         self.assertEqual(employee["vacation_balance_as_of"], "2026-08-25")
         self.assertEqual(employee["vacation_source"], "CONTPAQi Nóminas")
@@ -412,6 +432,10 @@ class AppFlowTests(unittest.TestCase):
         self.assertEqual(
             employee["contpaqi_employee_name"], "RANGEL PULIDO JORGE"
         )
+        self.assertEqual(movement["concept"], "Vacaciones tomadas")
+        self.assertEqual(movement["start_date"], "2026-08-10")
+        self.assertEqual(movement["days_taken"], 1)
+        self.assertEqual(movement["balance"], 8.5)
 
     def test_contpaqi_vacation_sync_requires_token(self):
         response = self.client.post(
@@ -750,9 +774,44 @@ class AppFlowTests(unittest.TestCase):
         )
         self.assertIn(b"Usuario creado correctamente", create_worker.data)
         with self.app.app_context():
-            admin_id = get_db().execute(
+            connection = get_db()
+            admin_id = connection.execute(
                 "SELECT id FROM users WHERE username = 'admin'"
             ).fetchone()["id"]
+            connection.execute(
+                """
+                UPDATE employees
+                SET vacation_days_available = 9,
+                    vacation_balance_as_of = '2026-08-25'
+                WHERE employee_name_key = 'ruben humberto lizarraga reyes'
+                """
+            )
+            connection.executemany(
+                """
+                INSERT INTO employee_vacation_movements (
+                    employee_name_key, source_movement_key, concept,
+                    registered_date, start_date, end_date, days_taken,
+                    days_entitled, balance, balance_as_of, synced_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                [
+                    (
+                        "ruben humberto lizarraga reyes",
+                        "anniversary:1:2026-05-26",
+                        "Aniversario laboral",
+                        "2026-05-26", None, None, 0, 12, 12,
+                        "2026-08-25", "2026-08-25T18:00:00Z",
+                    ),
+                    (
+                        "ruben humberto lizarraga reyes",
+                        "vacation:10",
+                        "Vacaciones tomadas",
+                        "2026-06-19", "2026-06-19", "2026-06-21",
+                        3, 0, 9, "2026-08-25", "2026-08-25T18:00:00Z",
+                    ),
+                ],
+            )
+            connection.commit()
 
         self.client.post(
             "/logout", data={"csrf_token": self.csrf_token()}
@@ -771,6 +830,13 @@ class AppFlowTests(unittest.TestCase):
         self.assertEqual(request_page.status_code, 200)
         self.assertIn(b"Solicitar vacaciones", request_page.data)
         self.assertIn(b"Saldo disponible", request_page.data)
+        self.assertIn(b"Estado de vacaciones", request_page.data)
+        self.assertIn(b"Aniversario laboral", request_page.data)
+        self.assertIn(b"Vacaciones tomadas", request_page.data)
+        self.assertIn(b"19/06/2026", request_page.data)
+        self.assertIn(b'data-available-days="9.0"', request_page.data)
+        self.assertIn(b"Solicitud en captura", request_page.data)
+        self.assertNotIn(b"vacation-balance-icon", request_page.data)
         sent = self.client.post(
             "/solicitar-vacaciones",
             data={

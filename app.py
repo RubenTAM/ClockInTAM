@@ -286,6 +286,14 @@ def register_filters(app: Flask) -> None:
             value = date.fromisoformat(value)
         return DAY_NAMES[value.weekday()][:3]
 
+    @app.template_filter("date_short")
+    def date_short_filter(value) -> str:
+        if not value:
+            return "—"
+        if isinstance(value, str):
+            value = date.fromisoformat(value)
+        return value.strftime("%d/%m/%Y")
+
     @app.template_filter("vacation_days")
     def vacation_days_filter(value) -> str:
         if value is None:
@@ -1426,6 +1434,21 @@ def register_routes(app: Flask) -> None:
         ).fetchone()
         if employee is None:
             abort(400, "La cuenta no tiene un trabajador vinculado.")
+        vacation_movements = connection.execute(
+            """
+            SELECT source_movement_key, concept, registered_date,
+                   start_date, end_date, days_taken, days_entitled,
+                   balance
+            FROM employee_vacation_movements
+            WHERE employee_name_key = ?
+            ORDER BY
+                CASE WHEN registered_date IS NULL AND start_date IS NULL
+                     THEN 0 ELSE 1 END,
+                COALESCE(start_date, registered_date, ''),
+                source_movement_key
+            """,
+            (employee["employee_name_key"],),
+        ).fetchall()
         supervisors = available_supervisors()
         default_supervisor = supervisor_for_employee(employee["area"])
 
@@ -1549,6 +1572,7 @@ def register_routes(app: Flask) -> None:
         return render_template(
             "vacation_request.html",
             employee=employee,
+            vacation_movements=vacation_movements,
             supervisors=supervisors,
             default_supervisor=default_supervisor,
         )
@@ -2369,6 +2393,76 @@ def register_routes(app: Flask) -> None:
             ):
                 invalid.append(index)
                 continue
+            raw_movements = item.get("movements")
+            movements = None
+            if raw_movements is not None:
+                if not isinstance(raw_movements, list) or len(raw_movements) > 500:
+                    invalid.append(index)
+                    continue
+                movements = []
+                movement_keys = set()
+                movement_is_invalid = False
+                for movement in raw_movements:
+                    if not isinstance(movement, dict):
+                        movement_is_invalid = True
+                        break
+                    movement_key = str(
+                        movement.get("sourceMovementKey") or ""
+                    ).strip()[:100]
+                    concept = str(
+                        movement.get("concept") or ""
+                    ).strip()[:80]
+                    try:
+                        days_taken = float(movement.get("daysTaken") or 0)
+                        days_entitled = float(
+                            movement.get("daysEntitled") or 0
+                        )
+                        movement_balance = float(movement.get("balance"))
+                        movement_dates = {}
+                        for field in (
+                            "registeredDate", "startDate", "endDate"
+                        ):
+                            raw_date = movement.get(field)
+                            movement_dates[field] = (
+                                date.fromisoformat(str(raw_date)).isoformat()
+                                if raw_date
+                                else None
+                            )
+                    except (TypeError, ValueError):
+                        movement_is_invalid = True
+                        break
+                    if (
+                        not movement_key
+                        or not concept
+                        or movement_key in movement_keys
+                        or not all(
+                            math.isfinite(value)
+                            and -3650 <= value <= 3650
+                            for value in (
+                                days_taken,
+                                days_entitled,
+                                movement_balance,
+                            )
+                        )
+                    ):
+                        movement_is_invalid = True
+                        break
+                    movement_keys.add(movement_key)
+                    movements.append(
+                        {
+                            "source_movement_key": movement_key,
+                            "concept": concept,
+                            "registered_date": movement_dates["registeredDate"],
+                            "start_date": movement_dates["startDate"],
+                            "end_date": movement_dates["endDate"],
+                            "days_taken": days_taken,
+                            "days_entitled": days_entitled,
+                            "balance": movement_balance,
+                        }
+                    )
+                if movement_is_invalid:
+                    invalid.append(index)
+                    continue
             matches = employees_by_code.get(code_key(employee_code), [])
             matched_using_name = False
             if not matches and employee_name:
@@ -2407,6 +2501,7 @@ def register_routes(app: Flask) -> None:
                     str(item.get("employeeStatus") or "").strip()[:8],
                     contpaqi_employee_id,
                     available_days,
+                    movements,
                 )
             )
         if invalid:
@@ -2455,13 +2550,60 @@ def register_routes(app: Flask) -> None:
                     employee_status,
                     contpaqi_employee_id,
                     available_days,
+                    _movements,
                 ) in validated
             ],
         )
+        movement_updates = 0
+        for (
+            employee_name_key,
+            _employee_code,
+            _employee_name,
+            _employee_status,
+            _contpaqi_employee_id,
+            _available_days,
+            movements,
+        ) in validated:
+            if movements is None:
+                continue
+            connection.execute(
+                """
+                DELETE FROM employee_vacation_movements
+                WHERE employee_name_key = ?
+                """,
+                (employee_name_key,),
+            )
+            connection.executemany(
+                """
+                INSERT INTO employee_vacation_movements (
+                    employee_name_key, source_movement_key, concept,
+                    registered_date, start_date, end_date, days_taken,
+                    days_entitled, balance, balance_as_of, synced_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                [
+                    (
+                        employee_name_key,
+                        movement["source_movement_key"],
+                        movement["concept"],
+                        movement["registered_date"],
+                        movement["start_date"],
+                        movement["end_date"],
+                        movement["days_taken"],
+                        movement["days_entitled"],
+                        movement["balance"],
+                        balance_as_of.isoformat(),
+                        synced_at,
+                    )
+                    for movement in movements
+                ],
+            )
+            movement_updates += len(movements)
         connection.commit()
         return jsonify(
             {
                 "updated": len(validated),
+                "movementsUpdated": movement_updates,
                 "unmatched": len(unmatched),
                 "unmatchedEmployeeCodes": unmatched,
                 "matchedByName": len(matched_by_name),

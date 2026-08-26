@@ -44,6 +44,10 @@ def main() -> None:
         as_of=args.as_of,
     )
     print(f"Saldos calculados: {len(balances)}")
+    print(
+        "Movimientos leídos: "
+        f"{sum(len(row.get('movements', [])) for row in balances)}"
+    )
     print(f"Empleados con error: {len(errors)}")
     if args.dry_run:
         for row in balances:
@@ -65,6 +69,10 @@ def main() -> None:
     response.raise_for_status()
     result = response.json()
     print(f"Actualizados en Tiempo: {result['updated']}")
+    print(
+        "Movimientos guardados en Tiempo: "
+        f"{result.get('movementsUpdated', 0)}"
+    )
     print(f"Sin correspondencia: {result['unmatched']}")
 
 

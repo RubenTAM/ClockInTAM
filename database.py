@@ -94,6 +94,22 @@ CREATE TABLE IF NOT EXISTS vacation_request_recipients (
     FOREIGN KEY (supervisor_id) REFERENCES users(id)
 );
 
+CREATE TABLE IF NOT EXISTS employee_vacation_movements (
+    employee_name_key TEXT NOT NULL,
+    source_movement_key TEXT NOT NULL,
+    concept TEXT NOT NULL,
+    registered_date TEXT,
+    start_date TEXT,
+    end_date TEXT,
+    days_taken REAL NOT NULL DEFAULT 0,
+    days_entitled REAL NOT NULL DEFAULT 0,
+    balance REAL NOT NULL,
+    balance_as_of TEXT NOT NULL,
+    synced_at TEXT NOT NULL,
+    PRIMARY KEY (employee_name_key, source_movement_key),
+    FOREIGN KEY (employee_name_key) REFERENCES employees(employee_name_key)
+);
+
 CREATE TABLE IF NOT EXISTS attendance_permissions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     employee_name_key TEXT NOT NULL,
@@ -138,6 +154,9 @@ ON vacation_requests(employee_name_key, requested_at);
 
 CREATE INDEX IF NOT EXISTS idx_vacation_request_recipients_supervisor
 ON vacation_request_recipients(supervisor_id, request_id);
+
+CREATE INDEX IF NOT EXISTS idx_employee_vacation_movements_employee
+ON employee_vacation_movements(employee_name_key, registered_date);
 
 CREATE INDEX IF NOT EXISTS idx_attendance_permissions_date
 ON attendance_permissions(work_date);

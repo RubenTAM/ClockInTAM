@@ -10,22 +10,73 @@
 </header>
 
 <section class="vacation-request-layout">
-  <article class="vacation-request-card">
-    <div class="vacation-balance-icon" aria-hidden="true">☀</div>
-    <span>Saldo disponible</span>
-    <strong>
-      {% if employee.vacation_days_available is not none %}
-        {{ employee.vacation_days_available|vacation_days }}
-      {% else %}
-        —
-      {% endif %}
-    </strong>
-    <small>días registrados</small>
-    {% if employee.vacation_balance_as_of %}
-      <p>Actualizado al {{ employee.vacation_balance_as_of|date_es }}</p>
-    {% else %}
-      <p>Pendiente de sincronización</p>
-    {% endif %}
+  <article class="vacation-request-card"
+           data-vacation-ledger
+           data-available-days="{{ employee.vacation_days_available if employee.vacation_days_available is not none else '' }}">
+    <header class="vacation-ledger-header">
+      <span>Estado de vacaciones</span>
+      <strong>
+        {% if employee.vacation_balance_as_of %}
+          Actualizado al {{ employee.vacation_balance_as_of|date_es }}
+        {% else %}
+          Pendiente de sincronización
+        {% endif %}
+      </strong>
+    </header>
+
+    <div class="vacation-ledger-scroll">
+      <table class="vacation-ledger-table">
+        <thead>
+          <tr>
+            <th>Concepto</th>
+            <th>Registro</th>
+            <th>Inicial</th>
+            <th>Final</th>
+            <th>Tomados</th>
+            <th>Derecho</th>
+            <th>Saldo</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for movement in vacation_movements %}
+            <tr>
+              <td>{{ movement.concept }}</td>
+              <td>{{ movement.registered_date|date_short }}</td>
+              <td>{{ movement.start_date|date_short }}</td>
+              <td>{{ movement.end_date|date_short }}</td>
+              <td>{{ movement.days_taken|vacation_days if movement.days_taken else '—' }}</td>
+              <td>{{ movement.days_entitled|vacation_days if movement.days_entitled else '—' }}</td>
+              <td>{{ movement.balance|vacation_days }}</td>
+            </tr>
+          {% else %}
+            <tr class="vacation-ledger-empty" data-vacation-ledger-empty>
+              <td colspan="7">El detalle se cargará en la próxima sincronización con CONTPAQi.</td>
+            </tr>
+          {% endfor %}
+          <tr class="vacation-ledger-preview" data-vacation-ledger-preview hidden>
+            <td>Solicitud en captura</td>
+            <td>—</td>
+            <td data-vacation-preview-start>—</td>
+            <td data-vacation-preview-end>—</td>
+            <td data-vacation-preview-taken>—</td>
+            <td>—</td>
+            <td data-vacation-preview-balance>—</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <footer class="vacation-ledger-balance">
+      <span>Saldo disponible</span>
+      <strong data-vacation-current-balance>
+        {% if employee.vacation_days_available is not none %}
+          {{ employee.vacation_days_available|vacation_days }}
+        {% else %}
+          —
+        {% endif %}
+      </strong>
+      <small>días registrados</small>
+    </footer>
   </article>
 
   <article class="panel vacation-request-form-panel">
@@ -75,6 +126,9 @@
         <span>Días solicitados</span>
         <strong data-vacation-days>1</strong>
         <small>Los domingos no consumen días.</small>
+        <small class="vacation-projected-copy">
+          Saldo si se aprueba: <b data-vacation-projected-balance>—</b>
+        </small>
       </div>
 
       <button class="button primary vacation-send-button" type="submit"
