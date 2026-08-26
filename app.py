@@ -5,6 +5,7 @@ import io
 import json
 import math
 import os
+import re
 import secrets
 import sqlite3
 from datetime import date, datetime, time, timedelta
@@ -151,12 +152,18 @@ EMPLOYEE_CODES_BY_NAME = {
     for code, name in KNOWN_EMPLOYEE_CODES
 }
 
+EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
 
 def known_employee_code(employee_name: str) -> str:
     return EMPLOYEE_CODES_BY_NAME.get(
         employee_identity_key(employee_name),
         "",
     )
+
+
+def valid_email(value: str) -> bool:
+    return len(value) <= 254 and EMAIL_PATTERN.fullmatch(value) is not None
 
 
 def integration_authenticated() -> bool:
@@ -3244,6 +3251,9 @@ def register_routes(app: Flask) -> None:
     def account():
         if request.method == "POST":
             validate_csrf()
+            username = request.form.get("username", "").strip()
+            if g.user["access_role"] == "worker":
+                username = username.casefold()
             current_password = request.form.get("current_password", "")
             new_password = request.form.get("new_password", "")
             confirmation = request.form.get("password_confirmation", "")
@@ -3251,6 +3261,13 @@ def register_routes(app: Flask) -> None:
                 g.user["password_hash"], current_password
             ):
                 flash("La contraseña actual no es correcta.", "error")
+            elif (
+                g.user["access_role"] == "worker"
+                and not valid_email(username)
+            ):
+                flash("Escribe un correo electrónico válido.", "error")
+            elif g.user["access_role"] != "worker" and len(username) < 3:
+                flash("El usuario debe tener al menos 3 caracteres.", "error")
             elif len(new_password) < 10:
                 flash(
                     "La nueva contraseña debe tener al menos 10 caracteres.",
@@ -3260,13 +3277,25 @@ def register_routes(app: Flask) -> None:
                 flash("Las contraseñas nuevas no coinciden.", "error")
             else:
                 connection = get_db()
+                duplicate = connection.execute(
+                    """
+                    SELECT id FROM users
+                    WHERE username = ? COLLATE NOCASE AND id <> ?
+                    """,
+                    (username, g.user["id"]),
+                ).fetchone()
+                if duplicate is not None:
+                    flash("Ese correo o usuario ya pertenece a otra cuenta.", "error")
+                    return render_template("account.html")
                 connection.execute(
                     """
                     UPDATE users
-                    SET password_hash = ?, must_change_password = 0
+                    SET username = ?, password_hash = ?,
+                        must_change_password = 0
                     WHERE id = ?
                     """,
                     (
+                        username,
                         generate_password_hash(
                             new_password, method="pbkdf2:sha256"
                         ),
@@ -3280,7 +3309,12 @@ def register_routes(app: Flask) -> None:
                     g.user["id"],
                 )
                 connection.commit()
-                flash("Contraseña actualizada.", "success")
+                flash(
+                    "Correo y contraseña actualizados."
+                    if g.user["access_role"] == "worker"
+                    else "Usuario y contraseña actualizados.",
+                    "success",
+                )
                 return redirect(
                     url_for("home")
                     if g.user["must_change_password"]

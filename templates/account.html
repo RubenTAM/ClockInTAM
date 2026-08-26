@@ -5,26 +5,33 @@
   <div>
     <span class="eyebrow">Seguridad</span>
     <h1>Mi cuenta</h1>
-    <p>{{ g.user['display_name'] }} · @{{ g.user['username'] }}</p>
+    <p>{{ g.user['display_name'] }} · Usuario: {{ g.user['username'] }}</p>
   </div>
 </header>
 
 <section class="panel form-panel account-panel">
   {% if g.user['must_change_password'] %}
     <div class="account-password-required" role="alert">
-      <strong>Crea tu contraseña personal para continuar</strong>
-      <p>La contraseña que recibiste es temporal. Después del cambio entrarás normalmente a tu inicio.</p>
+      <strong>Registra tu correo y crea tu contraseña personal</strong>
+      <p>El número de empleado y la contraseña que recibiste son temporales. Después entrarás con tu correo.</p>
     </div>
   {% endif %}
   <div class="section-heading">
     <span class="step-number">●</span>
     <div>
-      <h2>Cambiar contraseña</h2>
-      <p>Utiliza por lo menos 10 caracteres y evita reutilizar otras contraseñas.</p>
+      <h2>Actualizar acceso</h2>
+      <p>Registra tu correo y utiliza una contraseña de por lo menos 10 caracteres.</p>
     </div>
   </div>
   <form method="post" class="stack-form">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label>
+      {{ 'Correo de acceso' if g.user['access_role'] == 'worker' else 'Usuario de acceso' }}
+      <input type="{{ 'email' if g.user['access_role'] == 'worker' else 'text' }}"
+             name="username" value="{{ g.user['username'] }}"
+             autocomplete="{{ 'email' if g.user['access_role'] == 'worker' else 'username' }}"
+             required>
+    </label>
     <label>
       Contraseña actual
       <input type="password" name="current_password"
@@ -40,7 +47,7 @@
       <input type="password" name="password_confirmation"
              autocomplete="new-password" minlength="10" required>
     </label>
-    <button class="button primary" type="submit">Actualizar contraseña</button>
+    <button class="button primary" type="submit">Guardar cambios</button>
   </form>
 </section>
 {% endblock %}

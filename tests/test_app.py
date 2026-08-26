@@ -750,7 +750,7 @@ class AppFlowTests(unittest.TestCase):
         self.assertNotIn(b'href="/vacaciones"', home.data)
         account_page = self.client.get("/cuenta")
         self.assertEqual(account_page.status_code, 200)
-        self.assertIn(b"Cambiar contrase", account_page.data)
+        self.assertIn(b"Actualizar acceso", account_page.data)
 
         for path in (
             "/trabajadores",
@@ -800,11 +800,12 @@ class AppFlowTests(unittest.TestCase):
         forced_home = self.client.get("/")
         self.assertEqual(forced_home.headers["Location"], "/cuenta")
         account = self.client.get("/cuenta")
-        self.assertIn(b"contrase\xc3\xb1a personal para continuar", account.data)
+        self.assertIn(b"Registra tu correo y crea tu contrase\xc3\xb1a personal", account.data)
         changed = self.client.post(
             "/cuenta",
             data={
                 "csrf_token": self.csrf_token(),
+                "username": "ruben.trabajador@tecnoall.com",
                 "current_password": "123456789",
                 "new_password": "NuevaClavePersonal123",
                 "password_confirmation": "NuevaClavePersonal123",
@@ -812,6 +813,13 @@ class AppFlowTests(unittest.TestCase):
         )
         self.assertEqual(changed.headers["Location"], "/")
         self.assertEqual(self.client.get("/").status_code, 200)
+        with self.app.app_context():
+            worker = get_db().execute(
+                "SELECT username, must_change_password FROM users WHERE employee_name_key = ?",
+                ("ruben humberto lizarraga reyes",),
+            ).fetchone()
+            self.assertEqual(worker["username"], "ruben.trabajador@tecnoall.com")
+            self.assertEqual(worker["must_change_password"], 0)
 
     def test_worker_vacation_request_supervisor_decision_and_mailbox_badges(self):
         self.initialize_admin()
@@ -1240,7 +1248,7 @@ class AppFlowTests(unittest.TestCase):
         self.initialize_admin()
         response = self.client.get("/login")
         self.assertIn("¡Hola!".encode(), response.data)
-        self.assertIn(b"Usuario", response.data)
+        self.assertIn(b"Correo o usuario", response.data)
         self.assertIn("Contraseña".encode(), response.data)
         self.assertIn(b"Iniciar sesi", response.data)
         self.assertNotIn(b"Tiempo", response.data)
