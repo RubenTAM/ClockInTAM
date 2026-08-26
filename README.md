@@ -85,6 +85,16 @@ python -m nomina.apply_vacation_requests --watch --interval 30
 Si la comunicación con Tiempo falla después de insertar, el siguiente intento
 reconoce el mismo empleado y periodo, reutiliza el folio y evita duplicarlo.
 
+En el servidor Windows, abre PowerShell como administrador desde la carpeta
+del proyecto y ejecuta el instalador. Solicita las dos claves sin mostrarlas,
+protege el archivo local de configuración y registra una tarea cada minuto:
+
+```powershell
+.\deploy\install-contpaqi-connector.ps1 `
+  -SqlServer "SERVIDOR\COMPAC" `
+  -TiempoBaseUrl "https://tu-dominio-de-tiempo"
+```
+
 ## Funcionamiento del cálculo
 
 Hik-Connect entrega la entrada y la salida. Tiempo calcula las horas extra de

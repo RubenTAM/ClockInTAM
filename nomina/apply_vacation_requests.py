@@ -291,14 +291,20 @@ def main() -> None:
     )
     parser.add_argument("--watch", action="store_true")
     parser.add_argument("--interval", type=int, default=30)
+    parser.add_argument(
+        "--env-file",
+        default=".env",
+        help="Archivo privado con la configuración del conector.",
+    )
     args = parser.parse_args()
     if args.interval < 5:
         parser.error("El intervalo mínimo es de 5 segundos.")
-    load_dotenv()
+    load_dotenv(args.env_file)
     settings = Settings.from_environment()
     client = TiempoClient(settings.tiempo_base_url, settings.tiempo_token)
     while True:
-        process_one(settings, client)
+        while process_one(settings, client):
+            pass
         if not args.watch:
             break
         time.sleep(args.interval)

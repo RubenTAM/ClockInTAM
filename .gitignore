@@ -1,6 +1,8 @@
 .DS_Store
 .env
+.env.connector
 .venv/
+.venv-connector/
 __pycache__/
 *.py[cod]
 instance/
