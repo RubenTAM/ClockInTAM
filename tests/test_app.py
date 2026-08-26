@@ -6,6 +6,8 @@ from datetime import date, time
 from pathlib import Path
 from unittest.mock import patch
 
+from werkzeug.security import generate_password_hash
+
 from app import (
     attendance_incident_labels,
     create_app,
@@ -746,15 +748,70 @@ class AppFlowTests(unittest.TestCase):
         self.assertNotIn(b"Habilitar tiempo extra", home.data)
         self.assertNotIn(b'href="/usuarios"', home.data)
         self.assertNotIn(b'href="/vacaciones"', home.data)
+        account_page = self.client.get("/cuenta")
+        self.assertEqual(account_page.status_code, 200)
+        self.assertIn(b"Cambiar contrase", account_page.data)
 
         for path in (
             "/trabajadores",
             "/usuarios",
             "/vacaciones",
             "/reporte",
-            "/cuenta",
         ):
             self.assertEqual(self.client.get(path).status_code, 403, path)
+
+    def test_worker_must_change_temporary_password_before_home(self):
+        self.initialize_admin()
+        self.login()
+        with self.app.app_context():
+            connection = get_db()
+            connection.execute(
+                """
+                INSERT INTO users (
+                    username, display_name, password_hash, access_role,
+                    employee_name_key, must_change_password, created_at,
+                    supervised_area
+                ) VALUES (?, ?, ?, 'worker', ?, 1, ?, '')
+                """,
+                (
+                    "017",
+                    "Ruben Humberto Lizarraga Reyes",
+                    generate_password_hash(
+                        "123456789", method="pbkdf2:sha256"
+                    ),
+                    "ruben humberto lizarraga reyes",
+                    "2026-08-26T00:00:00Z",
+                ),
+            )
+            connection.commit()
+        self.client.post(
+            "/logout", data={"csrf_token": self.csrf_token()}
+        )
+        self.client.get("/login")
+        login = self.client.post(
+            "/login",
+            data={
+                "csrf_token": self.csrf_token(),
+                "username": "017",
+                "password": "123456789",
+            },
+        )
+        self.assertEqual(login.headers["Location"], "/cuenta")
+        forced_home = self.client.get("/")
+        self.assertEqual(forced_home.headers["Location"], "/cuenta")
+        account = self.client.get("/cuenta")
+        self.assertIn(b"contrase\xc3\xb1a personal para continuar", account.data)
+        changed = self.client.post(
+            "/cuenta",
+            data={
+                "csrf_token": self.csrf_token(),
+                "current_password": "123456789",
+                "new_password": "NuevaClavePersonal123",
+                "password_confirmation": "NuevaClavePersonal123",
+            },
+        )
+        self.assertEqual(changed.headers["Location"], "/")
+        self.assertEqual(self.client.get("/").status_code, 200)
 
     def test_worker_vacation_request_supervisor_decision_and_mailbox_badges(self):
         self.initialize_admin()

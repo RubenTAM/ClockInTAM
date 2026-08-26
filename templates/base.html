@@ -54,11 +54,7 @@
         </a>
       </nav>
       <div class="sidebar-footer">
-        {% if g.user['access_role'] == 'worker' %}
-        <div class="user-chip">
-        {% else %}
         <a class="user-chip" href="{{ url_for('account') }}">
-        {% endif %}
           <span class="avatar">{{ g.user['display_name'][0]|upper }}</span>
           <span>
             <strong>{{ g.user['display_name'] }}</strong>
@@ -70,11 +66,7 @@
               {% endif %}
             </small>
           </span>
-        {% if g.user['access_role'] == 'worker' %}
-        </div>
-        {% else %}
         </a>
-        {% endif %}
         <form method="post" action="{{ url_for('logout') }}">
           <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
           <button class="link-button" type="submit">Cerrar sesión</button>

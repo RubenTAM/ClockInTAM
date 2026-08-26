@@ -345,6 +345,7 @@ def register_context(app: Flask) -> None:
             elif g.user["access_role"] == "worker":
                 allowed_endpoints = {
                     "home",
+                    "account",
                     "logout",
                     "employee_photo",
                     "request_vacation",
@@ -355,6 +356,11 @@ def register_context(app: Flask) -> None:
                 }
                 if request.endpoint not in allowed_endpoints:
                     abort(403)
+                if (
+                    g.user["must_change_password"]
+                    and request.endpoint not in {"account", "logout", "static"}
+                ):
+                    return redirect(url_for("account"))
 
     @app.context_processor
     def shared_values() -> dict:
@@ -1012,6 +1018,8 @@ def register_routes(app: Flask) -> None:
                 session["user_id"] = user["id"]
                 session["csrf_token"] = secrets.token_urlsafe(32)
                 session.permanent = True
+                if user["must_change_password"]:
+                    return redirect(url_for("account"))
                 next_url = request.args.get("next", "")
                 if not next_url.startswith("/"):
                     next_url = url_for("home")
@@ -3045,6 +3053,7 @@ def register_routes(app: Flask) -> None:
         rows = get_db().execute(
             """
             SELECT id, username, display_name, active, supervised_area,
+                   must_change_password,
                    users.access_role, users.employee_name_key,
                    users.created_at, employees.area AS worker_area
             FROM users
@@ -3252,7 +3261,11 @@ def register_routes(app: Flask) -> None:
             else:
                 connection = get_db()
                 connection.execute(
-                    "UPDATE users SET password_hash = ? WHERE id = ?",
+                    """
+                    UPDATE users
+                    SET password_hash = ?, must_change_password = 0
+                    WHERE id = ?
+                    """,
                     (
                         generate_password_hash(
                             new_password, method="pbkdf2:sha256"
@@ -3268,7 +3281,11 @@ def register_routes(app: Flask) -> None:
                 )
                 connection.commit()
                 flash("Contraseña actualizada.", "success")
-                return redirect(url_for("account"))
+                return redirect(
+                    url_for("home")
+                    if g.user["must_change_password"]
+                    else url_for("account")
+                )
         return render_template("account.html")
 
 app = create_app()

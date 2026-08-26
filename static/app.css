@@ -163,6 +163,12 @@ p { color: var(--muted); line-height: 1.55; }
 .user-group[open] .user-group-arrow { transform: rotate(180deg); }
 .user-group-list { border-top: 1px solid var(--line); }
 .user-group-empty { padding: 25px 5px; color: var(--muted); text-align: center; }
+.account-password-required {
+  margin-bottom: 22px; padding: 16px 18px; border: 1px solid #b8d6e4;
+  border-radius: 12px; color: var(--green-dark); background: var(--green-pale);
+}
+.account-password-required strong { display: block; }
+.account-password-required p { margin: 5px 0 0; font-size: .82rem; }
 .date-tile { width: 48px; padding: 7px 3px; border-radius: 10px; color: var(--green-dark); background: var(--green-pale); text-align: center; }
 .date-tile strong, .date-tile small { display: block; }
 .date-tile small { margin-top: 2px; font-size: .63rem; }

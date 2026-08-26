@@ -17,6 +17,9 @@
     </span>
     {% if row['access_role'] == 'worker' %}
       <span class="status-pill normal">Perfil individual</span>
+      {% if row['must_change_password'] %}
+        <span class="status-pill unused">Cambio pendiente</span>
+      {% endif %}
     {% else %}
       <form method="post" class="user-area-form"
             action="{{ url_for('update_user_supervised_area', user_id=row['id']) }}">

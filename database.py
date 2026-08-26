@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash TEXT NOT NULL,
     access_role TEXT NOT NULL DEFAULT 'admin',
     employee_name_key TEXT NOT NULL DEFAULT '',
+    must_change_password INTEGER NOT NULL DEFAULT 0,
     active INTEGER NOT NULL DEFAULT 1,
     created_at TEXT NOT NULL
 );
@@ -200,6 +201,7 @@ def init_db() -> None:
     connection.executescript(SCHEMA)
     migrate_user_supervised_area(connection)
     migrate_user_worker_access(connection)
+    migrate_forced_password_change(connection)
     migrate_multiple_authorizations(connection)
     migrate_approved_minutes(connection)
     migrate_employee_code(connection)
@@ -259,6 +261,20 @@ def migrate_user_worker_access(connection: sqlite3.Connection) -> None:
             """
             ALTER TABLE users
             ADD COLUMN employee_name_key TEXT NOT NULL DEFAULT ''
+            """
+        )
+
+
+def migrate_forced_password_change(connection: sqlite3.Connection) -> None:
+    columns = {
+        row["name"]
+        for row in connection.execute("PRAGMA table_info('users')").fetchall()
+    }
+    if "must_change_password" not in columns:
+        connection.execute(
+            """
+            ALTER TABLE users
+            ADD COLUMN must_change_password INTEGER NOT NULL DEFAULT 0
             """
         )
 

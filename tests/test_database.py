@@ -146,6 +146,12 @@ class DatabaseMigrationTests(unittest.TestCase):
                         "PRAGMA table_info('vacation_requests')"
                     ).fetchall()
                 }
+                user_columns = {
+                    row["name"]
+                    for row in migrated.execute(
+                        "PRAGMA table_info('users')"
+                    ).fetchall()
+                }
                 supervisor_areas = {
                     row["username"]: row["supervised_area"]
                     for row in migrated.execute(
@@ -163,6 +169,7 @@ class DatabaseMigrationTests(unittest.TestCase):
             self.assertIn("contpaqi_employee_name", employee_columns)
             self.assertIn("contpaqi_status", request_columns)
             self.assertIn("contpaqi_record_id", request_columns)
+            self.assertIn("must_change_password", user_columns)
             self.assertEqual(supervisor_areas["admin"], "")
             self.assertEqual(
                 supervisor_areas["ruben"], "TecnoAll - Ingenieria"

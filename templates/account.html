@@ -10,6 +10,12 @@
 </header>
 
 <section class="panel form-panel account-panel">
+  {% if g.user['must_change_password'] %}
+    <div class="account-password-required" role="alert">
+      <strong>Crea tu contraseña personal para continuar</strong>
+      <p>La contraseña que recibiste es temporal. Después del cambio entrarás normalmente a tu inicio.</p>
+    </div>
+  {% endif %}
   <div class="section-heading">
     <span class="step-number">●</span>
     <div>
