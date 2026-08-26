@@ -24,7 +24,7 @@
           <span class="list-main">
             <strong>{{ row['display_name'] }}</strong>
             <small>
-              @{{ row['username'] }} ·
+              Usuario: {{ row['username'] }} ·
               {% if row['access_role'] == 'worker' %}
                 Trabajador
               {% else %}
@@ -110,7 +110,7 @@
           {% endfor %}
         </select>
       </label>
-      <label>
+      <label data-supervised-area-field>
         Grupo supervisado
         <select name="supervised_area">
           <option value="">Acceso total · Todos los grupos</option>

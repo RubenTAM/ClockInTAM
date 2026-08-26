@@ -13,6 +13,21 @@
     });
   });
 
+  const accessRole = document.querySelector("[data-user-access-role]");
+  const supervisedAreaField = document.querySelector(
+    "[data-supervised-area-field]"
+  );
+  if (accessRole && supervisedAreaField) {
+    const supervisedAreaSelect = supervisedAreaField.querySelector("select");
+    const updateSupervisedAreaVisibility = () => {
+      const workerSelected = accessRole.value === "worker";
+      supervisedAreaField.hidden = workerSelected;
+      if (supervisedAreaSelect) supervisedAreaSelect.disabled = workerSelected;
+    };
+    accessRole.addEventListener("change", updateSupervisedAreaVisibility);
+    updateSupervisedAreaVisibility();
+  }
+
   const workerList = document.querySelector("#worker-list");
   if (!workerList) return;
 

@@ -658,6 +658,12 @@ class AppFlowTests(unittest.TestCase):
         )
 
         self.assertIn(b"Usuario creado correctamente", response.data)
+        self.assertIn(b"Usuario: trabajador@example.com", response.data)
+        self.assertNotIn(b"@trabajador@example.com", response.data)
+        self.assertIn(b"data-supervised-area-field", response.data)
+        user_script = self.client.get("/static/app.js")
+        self.assertIn(b"updateSupervisedAreaVisibility", user_script.data)
+        user_script.close()
         with self.app.app_context():
             worker_user = get_db().execute(
                 """
@@ -890,6 +896,17 @@ class AppFlowTests(unittest.TestCase):
         )
         self.assertIn(b"El mensaje fue eliminado de tu buz", deleted.data)
         self.assertNotIn(b"Aprobada", deleted.data)
+        self.assertIn(b"mailbox-empty", deleted.data)
+        stylesheet = self.client.get("/static/app.css")
+        self.assertIn(
+            b".mailbox-empty { width: 100%; max-width: none;",
+            stylesheet.data,
+        )
+        self.assertIn(
+            b".reject-button { color: white;",
+            stylesheet.data,
+        )
+        stylesheet.close()
         with self.app.app_context():
             stored = get_db().execute(
                 """

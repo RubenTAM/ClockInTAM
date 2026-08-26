@@ -746,9 +746,9 @@ td.muted { max-width: 230px; overflow: hidden; text-overflow: ellipsis; }
 .mailbox-header { width: 100%; }
 .mailbox-header-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
 .mailbox-header-actions form { margin: 0; }
-.mailbox-trash-button { min-height: 44px; display: inline-flex; align-items: center; gap: 8px; padding: 9px 14px; border: 1px solid #efcaca; border-radius: 11px; color: #a62929; background: white; cursor: pointer; font-weight: 800; }
-.mailbox-trash-button:hover { background: #fdeaea; }
-.mailbox-pending-summary { display: flex; align-items: center; gap: 11px; padding: 11px 17px; border: 1px solid #f0c7c9; border-radius: 14px; color: #a31b24; background: #fff3f3; }
+.mailbox-trash-button { min-height: 44px; display: inline-flex; align-items: center; gap: 8px; padding: 9px 14px; border: 1px solid #d3dde3; border-radius: 11px; color: #667987; background: white; cursor: pointer; font-weight: 800; }
+.mailbox-trash-button:hover { color: #405766; background: #eef3f6; }
+.mailbox-pending-summary { display: flex; align-items: center; gap: 11px; padding: 11px 17px; border: 1px solid #b9d8e6; border-radius: 14px; color: var(--green-dark); background: #eef8fc; }
 .mailbox-pending-summary strong { font-size: 1.55rem; }
 .mailbox-pending-summary span { font-size: .78rem; font-weight: 800; }
 .mailbox-list { width: 100%; display: grid; gap: 15px; }
@@ -765,8 +765,8 @@ td.muted { max-width: 230px; overflow: hidden; text-overflow: ellipsis; }
 .request-status.pending { color: #8b5b0b; background: #fff2d9; }
 .request-status.approved { color: #126247; background: #e6f6ef; }
 .request-status.rejected { color: #a62929; background: #fdeaea; }
-.mailbox-card-trash { width: 36px; height: 36px; display: grid; place-items: center; border: 1px solid #efcaca; border-radius: 10px; color: #ae3030; background: white; cursor: pointer; font-size: 1.05rem; }
-.mailbox-card-trash:hover { background: #fdeaea; }
+.mailbox-card-trash { width: 36px; height: 36px; display: grid; place-items: center; border: 1px solid #d3dde3; border-radius: 10px; color: #667987; background: white; cursor: pointer; font-size: 1.05rem; }
+.mailbox-card-trash:hover { color: #405766; background: #eef3f6; }
 .mailbox-request-details { display: grid; grid-template-columns: 1.4fr .65fr 1fr; gap: 18px; margin-top: 20px; padding: 17px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
 .mailbox-request-details span { display: block; margin-bottom: 5px; color: var(--muted); font-size: .68rem; font-weight: 800; text-transform: uppercase; }
 .mailbox-request-details strong { font-size: .84rem; }
@@ -776,9 +776,9 @@ td.muted { max-width: 230px; overflow: hidden; text-overflow: ellipsis; }
 .mailbox-decision-panel .button { min-width: 146px; }
 .approve-button { color: white; background: #16825f; }
 .approve-button:hover { background: #106b4e; }
-.reject-button { color: #a62929; border-color: #efcaca; background: white; }
-.reject-button:hover { background: #fdeaea; }
-.mailbox-empty { max-width: 760px; padding: 70px 28px; text-align: center; }
+.reject-button { color: white; border-color: #c73737; background: #c73737; }
+.reject-button:hover { background: #a92e2e; }
+.mailbox-empty { width: 100%; max-width: none; padding: 70px 28px; text-align: center; }
 .mailbox-empty-icon { width: 68px; height: 68px; display: grid; place-items: center; margin: 0 auto 20px; border-radius: 22px; color: var(--green); background: var(--green-pale); font-size: 1.7rem; }
 .mailbox-empty p { max-width: 430px; margin: 8px auto 0; }
 
