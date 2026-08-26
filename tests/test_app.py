@@ -666,6 +666,15 @@ class AppFlowTests(unittest.TestCase):
     def test_worker_user_only_sees_linked_profile_and_home(self):
         self.initialize_admin()
         self.login()
+        with self.app.app_context():
+            connection = get_db()
+            connection.execute(
+                """
+                UPDATE employees SET area = 'TecnoAll - Ingenieria'
+                WHERE employee_name_key = 'ruben humberto lizarraga reyes'
+                """
+            )
+            connection.commit()
 
         response = self.client.post(
             "/usuarios/nuevo",
@@ -684,6 +693,9 @@ class AppFlowTests(unittest.TestCase):
         self.assertIn(b"Usuario creado correctamente", response.data)
         self.assertIn(b"Usuario: trabajador@example.com", response.data)
         self.assertNotIn(b"@trabajador@example.com", response.data)
+        self.assertIn(b"Usuarios administradores registrados", response.data)
+        self.assertIn(b"Usuarios TecnoAll - Ingenieria registrados", response.data)
+        self.assertEqual(response.data.count(b"data-user-group"), 2)
         self.assertIn(b"data-supervised-area-field", response.data)
         user_script = self.client.get("/static/app.js")
         self.assertIn(b"updateSupervisedAreaVisibility", user_script.data)

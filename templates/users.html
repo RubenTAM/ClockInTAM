@@ -1,6 +1,54 @@
 {% extends "base.html" %}
 {% block title %}Usuarios · Tiempo{% endblock %}
 {% block content %}
+{% macro render_user(row) %}
+  <div class="list-row">
+    <span class="avatar">{{ row['display_name'][0]|upper }}</span>
+    <span class="list-main">
+      <strong>{{ row['display_name'] }}</strong>
+      <small>
+        Usuario: {{ row['username'] }} ·
+        {% if row['access_role'] == 'worker' %}
+          Trabajador
+        {% else %}
+          {{ 'Supervisor de ' ~ row['supervised_area'] if row['supervised_area'] else 'Acceso total' }}
+        {% endif %}
+      </small>
+    </span>
+    {% if row['access_role'] == 'worker' %}
+      <span class="status-pill normal">Perfil individual</span>
+    {% else %}
+      <form method="post" class="user-area-form"
+            action="{{ url_for('update_user_supervised_area', user_id=row['id']) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <label class="sr-only" for="supervised-area-{{ row['id'] }}">
+          Grupo supervisado por {{ row['display_name'] }}
+        </label>
+        <select id="supervised-area-{{ row['id'] }}" name="supervised_area"
+                onchange="this.form.submit()">
+          <option value="">Acceso total · Todos los grupos</option>
+          {% for area in employee_areas %}
+            <option value="{{ area }}" {{ 'selected' if row['supervised_area'] == area else '' }}>
+              Supervisor · {{ area }}
+            </option>
+          {% endfor %}
+        </select>
+      </form>
+    {% endif %}
+    <span class="status-pill {{ 'authorized' if row['active'] else 'normal' }}">
+      {{ 'Activo' if row['active'] else 'Inactivo' }}
+    </span>
+    {% if row['id'] != g.user['id'] %}
+      <form method="post"
+            action="{{ url_for('toggle_user', user_id=row['id']) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button class="link-button" type="submit">
+          {{ 'Desactivar' if row['active'] else 'Activar' }}
+        </button>
+      </form>
+    {% endif %}
+  </div>
+{% endmacro %}
 <header class="page-header">
   <div>
     <span class="eyebrow">Administración</span>
@@ -10,63 +58,29 @@
 </header>
 
 <section class="content-grid users-grid">
-  <article class="panel">
-    <div class="panel-header">
-      <div>
-        <h2>Usuarios registrados</h2>
-        <p>{{ rows|length }} acceso{{ 's' if rows|length != 1 else '' }}</p>
-      </div>
-    </div>
-    <div class="list">
-      {% for row in rows %}
-        <div class="list-row">
-          <span class="avatar">{{ row['display_name'][0]|upper }}</span>
-          <span class="list-main">
-            <strong>{{ row['display_name'] }}</strong>
-            <small>
-              Usuario: {{ row['username'] }} ·
-              {% if row['access_role'] == 'worker' %}
-                Trabajador
-              {% else %}
-                {{ 'Supervisor de ' ~ row['supervised_area'] if row['supervised_area'] else 'Acceso total' }}
-              {% endif %}
-            </small>
+  <article class="panel users-directory-panel">
+    {% for group in user_groups %}
+      <details class="user-group" data-user-group>
+        <summary>
+          <span class="user-group-icon" aria-hidden="true">
+            {{ 'A' if group.key == 'administrators' else 'T' }}
           </span>
-          {% if row['access_role'] == 'worker' %}
-            <span class="status-pill normal">Perfil individual</span>
+          <span class="user-group-heading">
+            <strong>{{ group.title }}</strong>
+            <small>{{ group.rows|length }} usuario{{ 's' if group.rows|length != 1 else '' }}</small>
+          </span>
+          <span class="user-group-count">{{ group.rows|length }}</span>
+          <span class="user-group-arrow" aria-hidden="true">⌄</span>
+        </summary>
+        <div class="list user-group-list">
+          {% for row in group.rows %}
+            {{ render_user(row) }}
           {% else %}
-            <form method="post" class="user-area-form"
-                  action="{{ url_for('update_user_supervised_area', user_id=row['id']) }}">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-              <label class="sr-only" for="supervised-area-{{ row['id'] }}">
-                Grupo supervisado por {{ row['display_name'] }}
-              </label>
-              <select id="supervised-area-{{ row['id'] }}" name="supervised_area"
-                      onchange="this.form.submit()">
-                <option value="">Acceso total · Todos los grupos</option>
-                {% for area in employee_areas %}
-                  <option value="{{ area }}" {{ 'selected' if row['supervised_area'] == area else '' }}>
-                    Supervisor · {{ area }}
-                  </option>
-                {% endfor %}
-              </select>
-            </form>
-          {% endif %}
-          <span class="status-pill {{ 'authorized' if row['active'] else 'normal' }}">
-            {{ 'Activo' if row['active'] else 'Inactivo' }}
-          </span>
-          {% if row['id'] != g.user['id'] %}
-            <form method="post"
-                  action="{{ url_for('toggle_user', user_id=row['id']) }}">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-              <button class="link-button" type="submit">
-                {{ 'Desactivar' if row['active'] else 'Activar' }}
-              </button>
-            </form>
-          {% endif %}
+            <div class="user-group-empty">Todavía no hay usuarios en este grupo.</div>
+          {% endfor %}
         </div>
-      {% endfor %}
-    </div>
+      </details>
+    {% endfor %}
   </article>
 
   <aside class="panel form-panel">

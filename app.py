@@ -3045,13 +3045,44 @@ def register_routes(app: Flask) -> None:
         rows = get_db().execute(
             """
             SELECT id, username, display_name, active, supervised_area,
-                   access_role, employee_name_key, created_at
-            FROM users ORDER BY display_name
+                   users.access_role, users.employee_name_key,
+                   users.created_at, employees.area AS worker_area
+            FROM users
+            LEFT JOIN employees
+              ON employees.employee_name_key = users.employee_name_key
+            ORDER BY users.display_name
             """
         ).fetchall()
+        administrators = [
+            row for row in rows if row["access_role"] != "worker"
+        ]
+        workers_by_area: dict[str, list] = {}
+        for row in rows:
+            if row["access_role"] != "worker":
+                continue
+            area = str(row["worker_area"] or "").strip() or "Sin grupo"
+            workers_by_area.setdefault(area, []).append(row)
+        user_groups = [
+            {
+                "key": "administrators",
+                "title": "Usuarios administradores registrados",
+                "rows": administrators,
+            }
+        ]
+        user_groups.extend(
+            {
+                "key": f"workers-{index}",
+                "title": f"Usuarios {area} registrados",
+                "rows": workers_by_area[area],
+            }
+            for index, area in enumerate(
+                sorted(workers_by_area, key=str.casefold), start=1
+            )
+        )
         return render_template(
             "users.html",
             rows=rows,
+            user_groups=user_groups,
             employee_areas=[
                 group for group in employee_groups()
                 if not is_inactive_group(group)
