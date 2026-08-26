@@ -30,6 +30,7 @@ def main() -> None:
     )
     parser.add_argument("--employee-code", required=True)
     parser.add_argument("--uuid")
+    parser.add_argument("--year", type=int)
     parser.add_argument("--pdf", type=Path)
     parser.add_argument("--limit", type=int, default=60)
     parser.add_argument("--dry-run", action="store_true")
@@ -51,6 +52,7 @@ def main() -> None:
         password=required_environment("CONTPAQ_SQL_PASSWORD"),
         employee_code=args.employee_code,
         receipt_uuid=args.uuid,
+        year=args.year,
         limit=args.limit,
     )
     if args.pdf:

@@ -1187,20 +1187,10 @@ def register_routes(app: Flask) -> None:
             """,
             (employee_key,),
         ).fetchall()
-        receipts = []
-        for row in rows:
-            receipt = dict(row)
-            items = get_db().execute(
-                """
-                SELECT * FROM payroll_receipt_items
-                WHERE receipt_id = ?
-                ORDER BY line_number
-                """,
-                (row["id"],),
-            ).fetchall()
-            receipt["items"] = [dict(item) for item in items]
-            receipts.append(receipt)
-        return render_template("payroll_receipts.html", receipts=receipts)
+        return render_template(
+            "payroll_receipts.html",
+            receipts=[dict(row) for row in rows],
+        )
 
     @app.get("/recibos-nomina/<int:receipt_id>/pdf")
     @login_required
