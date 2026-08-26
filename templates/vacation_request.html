@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}Solicitar vacaciones · Tiempo{% endblock %}
+{% block content %}
+<header class="page-header vacation-request-header">
+  <div>
+    <span class="eyebrow">Mis vacaciones</span>
+    <h1>Solicitar vacaciones</h1>
+    <p>Elige tu periodo y envíalo directamente a tu supervisor.</p>
+  </div>
+</header>
+
+<section class="vacation-request-layout">
+  <article class="vacation-request-card">
+    <div class="vacation-request-card-glow"></div>
+    <div class="vacation-balance-icon" aria-hidden="true">☀</div>
+    <span>Saldo disponible</span>
+    <strong>
+      {% if employee.vacation_days_available is not none %}
+        {{ employee.vacation_days_available|vacation_days }}
+      {% else %}
+        —
+      {% endif %}
+    </strong>
+    <small>días registrados</small>
+    {% if employee.vacation_balance_as_of %}
+      <p>Actualizado al {{ employee.vacation_balance_as_of|date_es }}</p>
+    {% else %}
+      <p>Pendiente de sincronización</p>
+    {% endif %}
+  </article>
+
+  <article class="panel vacation-request-form-panel">
+    <div class="vacation-request-person">
+      <span class="avatar">{{ employee.employee_name[0]|upper }}</span>
+      <div>
+        <span>Solicitud de</span>
+        <strong>{{ employee.employee_name }}</strong>
+        <small>No. {{ employee.employee_code or 'pendiente' }}</small>
+      </div>
+      <div class="vacation-supervisor-chip">
+        <span>Se enviará a</span>
+        <strong>{{ supervisor.display_name if supervisor else 'Sin supervisor asignado' }}</strong>
+      </div>
+    </div>
+
+    <form method="post" class="vacation-request-form" data-vacation-request-form>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <div class="vacation-date-fields">
+        <label>
+          <span>Desde</span>
+          <input type="date" name="start_date" min="{{ today }}"
+                 value="{{ today }}" required data-vacation-start>
+        </label>
+        <span class="vacation-date-arrow" aria-hidden="true">→</span>
+        <label>
+          <span>Hasta</span>
+          <input type="date" name="end_date" min="{{ today }}"
+                 value="{{ today }}" required data-vacation-end>
+        </label>
+      </div>
+
+      <div class="vacation-days-preview" aria-live="polite">
+        <span>Días solicitados</span>
+        <strong data-vacation-days>1</strong>
+        <small>Los domingos no consumen días.</small>
+      </div>
+
+      <button class="button primary vacation-send-button" type="submit"
+              {% if not supervisor %}disabled{% endif %}>
+        <span>Enviar solicitud</span>
+        <span aria-hidden="true">➜</span>
+      </button>
+    </form>
+  </article>
+</section>
+
+<section class="vacation-request-footnote">
+  <span aria-hidden="true">i</span>
+  <p>Esta solicitud solo se procesa dentro del dashboard. Por ahora no realiza cambios en CONTPAQi.</p>
+</section>
+{% endblock %}

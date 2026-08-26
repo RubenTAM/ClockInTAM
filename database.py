@@ -63,6 +63,26 @@ CREATE TABLE IF NOT EXISTS vacations (
     CHECK (end_date >= start_date)
 );
 
+CREATE TABLE IF NOT EXISTS vacation_requests (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    employee_name TEXT NOT NULL,
+    employee_name_key TEXT NOT NULL,
+    supervisor_id INTEGER NOT NULL,
+    start_date TEXT NOT NULL,
+    end_date TEXT NOT NULL,
+    requested_days INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    requested_at TEXT NOT NULL,
+    responded_at TEXT,
+    decided_by INTEGER,
+    worker_read_at TEXT,
+    FOREIGN KEY (supervisor_id) REFERENCES users(id),
+    FOREIGN KEY (decided_by) REFERENCES users(id),
+    CHECK (end_date >= start_date),
+    CHECK (requested_days > 0),
+    CHECK (status IN ('pending', 'approved', 'rejected'))
+);
+
 CREATE TABLE IF NOT EXISTS attendance_permissions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     employee_name_key TEXT NOT NULL,
@@ -98,6 +118,12 @@ ON vacations(start_date, end_date);
 
 CREATE INDEX IF NOT EXISTS idx_vacations_employee
 ON vacations(employee_name_key);
+
+CREATE INDEX IF NOT EXISTS idx_vacation_requests_supervisor
+ON vacation_requests(supervisor_id, status);
+
+CREATE INDEX IF NOT EXISTS idx_vacation_requests_employee
+ON vacation_requests(employee_name_key, requested_at);
 
 CREATE INDEX IF NOT EXISTS idx_attendance_permissions_date
 ON attendance_permissions(work_date);

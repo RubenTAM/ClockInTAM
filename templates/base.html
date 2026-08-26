@@ -23,7 +23,12 @@
            class="{{ 'active' if request.endpoint == 'home' else '' }}">
           <span class="nav-icon">⌂</span> Inicio
         </a>
-        {% if g.user['access_role'] != 'worker' %}
+        {% if g.user['access_role'] == 'worker' %}
+        <a href="{{ url_for('request_vacation') }}"
+           class="{{ 'active' if request.endpoint == 'request_vacation' else '' }}">
+          <span class="nav-icon">☀</span> Solicitar vacaciones
+        </a>
+        {% else %}
         <a href="{{ url_for('employees') }}"
            class="{{ 'active' if request.endpoint == 'employees' else '' }}">
           <span class="nav-icon">♟</span> Trabajadores
@@ -37,6 +42,16 @@
           <span class="nav-icon">☀</span> Vacaciones
         </a>
         {% endif %}
+        <a href="{{ url_for('mailbox') }}"
+           class="{{ 'active' if request.endpoint in ('mailbox', 'decide_vacation_request') else '' }}">
+          <span class="nav-icon">✉</span>
+          <span class="nav-label">Buzón</span>
+          {% if mailbox_badge_count %}
+            <span class="nav-badge" aria-label="{{ mailbox_badge_count }} notificaciones pendientes">
+              {{ mailbox_badge_count if mailbox_badge_count < 100 else '99+' }}
+            </span>
+          {% endif %}
+        </a>
       </nav>
       <div class="sidebar-footer">
         {% if g.user['access_role'] == 'worker' %}

@@ -11,6 +11,7 @@ from app import (
     create_app,
     employee_photo_filename,
     known_employee_code,
+    requested_vacation_days,
     rounded_overtime_minutes,
     save_employees,
     week_start_for,
@@ -84,6 +85,12 @@ class AppFlowTests(unittest.TestCase):
         self.assertEqual(
             week_start_for(date(2026, 7, 30)),
             date(2026, 7, 30),
+        )
+
+    def test_requested_vacation_days_excludes_sundays(self):
+        self.assertEqual(
+            requested_vacation_days(date(2026, 9, 1), date(2026, 9, 7)),
+            6,
         )
 
     def test_weekly_overtime_is_split_into_double_and_triple_hours(self):
@@ -706,6 +713,176 @@ class AppFlowTests(unittest.TestCase):
             "/cuenta",
         ):
             self.assertEqual(self.client.get(path).status_code, 403, path)
+
+    def test_worker_vacation_request_supervisor_decision_and_mailbox_badges(self):
+        self.initialize_admin()
+        self.login()
+        self.client.post(
+            "/usuarios/nuevo",
+            data={
+                "csrf_token": self.csrf_token(),
+                "display_name": "Administrador Sin Asignación",
+                "username": "other-admin",
+                "password": "OtraClaveSegura123",
+                "access_role": "admin",
+                "employee_name_key": "",
+                "supervised_area": "",
+            },
+        )
+        create_worker = self.client.post(
+            "/usuarios/nuevo",
+            data={
+                "csrf_token": self.csrf_token(),
+                "display_name": "Ruben Humberto Lizarraga Reyes",
+                "username": "ruben.worker@example.com",
+                "password": "UnaClaveTrabajador123",
+                "access_role": "worker",
+                "employee_name_key": "ruben humberto lizarraga reyes",
+                "supervised_area": "",
+            },
+            follow_redirects=True,
+        )
+        self.assertIn(b"Usuario creado correctamente", create_worker.data)
+
+        self.client.post(
+            "/logout", data={"csrf_token": self.csrf_token()}
+        )
+        self.client.get("/login")
+        self.client.post(
+            "/login",
+            data={
+                "csrf_token": self.csrf_token(),
+                "username": "ruben.worker@example.com",
+                "password": "UnaClaveTrabajador123",
+            },
+        )
+
+        request_page = self.client.get("/solicitar-vacaciones")
+        self.assertEqual(request_page.status_code, 200)
+        self.assertIn(b"Solicitar vacaciones", request_page.data)
+        self.assertIn(b"Saldo disponible", request_page.data)
+        sent = self.client.post(
+            "/solicitar-vacaciones",
+            data={
+                "csrf_token": self.csrf_token(),
+                "start_date": "2026-09-01",
+                "end_date": "2026-09-05",
+            },
+            follow_redirects=True,
+        )
+        self.assertIn(b"Tu solicitud fue enviada al supervisor", sent.data)
+        self.assertIn(b"Pendiente", sent.data)
+
+        with self.app.app_context():
+            connection = get_db()
+            vacation_request = connection.execute(
+                "SELECT * FROM vacation_requests"
+            ).fetchone()
+            admin = connection.execute(
+                "SELECT id FROM users WHERE username = 'admin'"
+            ).fetchone()
+            self.assertEqual(vacation_request["requested_days"], 5)
+            self.assertEqual(vacation_request["status"], "pending")
+            self.assertEqual(vacation_request["supervisor_id"], admin["id"])
+            self.assertEqual(
+                connection.execute(
+                    "SELECT COUNT(*) AS total FROM vacations"
+                ).fetchone()["total"],
+                0,
+            )
+            request_id = vacation_request["id"]
+
+        self.client.post(
+            "/logout", data={"csrf_token": self.csrf_token()}
+        )
+        self.client.get("/login")
+        self.client.post(
+            "/login",
+            data={
+                "csrf_token": self.csrf_token(),
+                "username": "other-admin",
+                "password": "OtraClaveSegura123",
+            },
+        )
+        denied_decision = self.client.post(
+            f"/buzon/solicitudes/{request_id}/decision",
+            data={
+                "csrf_token": self.csrf_token(),
+                "decision": "approved",
+            },
+        )
+        self.assertEqual(denied_decision.status_code, 404)
+        self.client.post(
+            "/logout", data={"csrf_token": self.csrf_token()}
+        )
+        self.client.get("/login")
+        self.client.post(
+            "/login",
+            data={
+                "csrf_token": self.csrf_token(),
+                "username": "admin",
+                "password": "UnaClaveSegura123",
+            },
+        )
+        with patch(
+            "app.report_for_week", return_value=([], None, set())
+        ):
+            supervisor_home = self.client.get("/")
+        self.assertIn(b"nav-badge", supervisor_home.data)
+        supervisor_mailbox = self.client.get("/buzon")
+        self.assertIn(b"Aprobar", supervisor_mailbox.data)
+        self.assertIn(b"Rechazar", supervisor_mailbox.data)
+
+        decided = self.client.post(
+            f"/buzon/solicitudes/{request_id}/decision",
+            data={
+                "csrf_token": self.csrf_token(),
+                "decision": "approved",
+            },
+            follow_redirects=True,
+        )
+        self.assertIn(b"La solicitud fue aprobada", decided.data)
+        with self.app.app_context():
+            connection = get_db()
+            vacation_request = connection.execute(
+                "SELECT * FROM vacation_requests WHERE id = ?",
+                (request_id,),
+            ).fetchone()
+            self.assertEqual(vacation_request["status"], "approved")
+            self.assertIsNotNone(vacation_request["responded_at"])
+            self.assertEqual(vacation_request["decided_by"], admin["id"])
+            self.assertEqual(
+                connection.execute(
+                    "SELECT COUNT(*) AS total FROM vacations"
+                ).fetchone()["total"],
+                0,
+            )
+
+        self.client.post(
+            "/logout", data={"csrf_token": self.csrf_token()}
+        )
+        self.client.get("/login")
+        self.client.post(
+            "/login",
+            data={
+                "csrf_token": self.csrf_token(),
+                "username": "ruben.worker@example.com",
+                "password": "UnaClaveTrabajador123",
+            },
+        )
+        with patch(
+            "app.report_for_week", return_value=([], None, set())
+        ):
+            worker_home = self.client.get("/")
+        self.assertIn(b"nav-badge", worker_home.data)
+        worker_mailbox = self.client.get("/buzon")
+        self.assertIn(b"Aprobada", worker_mailbox.data)
+        self.assertIn(b"Administrador General", worker_mailbox.data)
+        with patch(
+            "app.report_for_week", return_value=([], None, set())
+        ):
+            read_home = self.client.get("/")
+        self.assertNotIn(b"nav-badge", read_home.data)
 
     def test_home_can_enable_overtime_with_an_approved_hours_limit(self):
         self.initialize_admin()

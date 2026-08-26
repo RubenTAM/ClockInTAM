@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}Buzón · Tiempo{% endblock %}
+{% block content %}
+<header class="page-header mailbox-header">
+  <div>
+    <span class="eyebrow">Centro de solicitudes</span>
+    <h1>Buzón</h1>
+    <p>
+      {% if worker_mode %}
+        Consulta aquí la respuesta a tus solicitudes de vacaciones.
+      {% else %}
+        Revisa y responde las solicitudes enviadas por tus trabajadores.
+      {% endif %}
+    </p>
+  </div>
+  {% if worker_mode %}
+    <a class="button primary" href="{{ url_for('request_vacation') }}">＋ Nueva solicitud</a>
+  {% elif pending_count %}
+    <div class="mailbox-pending-summary">
+      <strong>{{ pending_count }}</strong>
+      <span>por responder</span>
+    </div>
+  {% endif %}
+</header>
+
+{% if not rows %}
+  <section class="panel mailbox-empty">
+    <div class="mailbox-empty-icon" aria-hidden="true">✉</div>
+    <h2>Tu buzón está al día</h2>
+    <p>
+      {% if worker_mode %}
+        Cuando envíes una solicitud podrás seguir su estado desde aquí.
+      {% else %}
+        No tienes solicitudes de vacaciones asignadas.
+      {% endif %}
+    </p>
+  </section>
+{% else %}
+  <section class="mailbox-list">
+    {% for row in rows %}
+      <article class="mailbox-card status-{{ row.status }}">
+        <div class="mailbox-card-accent"></div>
+        <div class="mailbox-card-main">
+          <header class="mailbox-card-header">
+            <div class="mailbox-person">
+              <span class="avatar">{{ row.employee_name[0]|upper }}</span>
+              <div>
+                <span>{{ 'Tu solicitud' if worker_mode else 'Solicitud de vacaciones' }}</span>
+                <h2>{{ row.employee_name }}</h2>
+              </div>
+            </div>
+            <span class="request-status {{ row.status }}">
+              {% if row.status == 'pending' %}Pendiente
+              {% elif row.status == 'approved' %}Aprobada
+              {% else %}Rechazada{% endif %}
+            </span>
+          </header>
+
+          <div class="mailbox-request-details">
+            <div>
+              <span>Periodo solicitado</span>
+              <strong>{{ row.start_date|date_es }} — {{ row.end_date|date_es }}</strong>
+            </div>
+            <div>
+              <span>Días solicitados</span>
+              <strong>{{ row.requested_days }} día{{ 's' if row.requested_days != 1 else '' }}</strong>
+            </div>
+            <div>
+              <span>Supervisor</span>
+              <strong>{{ row.supervisor_name }}</strong>
+            </div>
+          </div>
+
+          <footer class="mailbox-card-footer">
+            <span>Enviada {{ row.requested_at|datetime_es }}</span>
+            {% if row.responded_at %}
+              <span>Respondida {{ row.responded_at|datetime_es }}</span>
+              <span>Decidió {{ row.decided_by_name }}</span>
+            {% endif %}
+          </footer>
+        </div>
+
+        {% if not worker_mode and row.status == 'pending' %}
+          <form method="post"
+                action="{{ url_for('decide_vacation_request', request_id=row.id) }}"
+                class="mailbox-decision-panel">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <span>Responder solicitud</span>
+            <button class="button approve-button" type="submit"
+                    name="decision" value="approved">✓ Aprobar</button>
+            <button class="button reject-button" type="submit"
+                    name="decision" value="rejected">× Rechazar</button>
+          </form>
+        {% endif %}
+      </article>
+    {% endfor %}
+  </section>
+{% endif %}
+{% endblock %}

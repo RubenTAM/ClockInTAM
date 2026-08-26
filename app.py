@@ -292,6 +292,18 @@ def register_filters(app: Flask) -> None:
             return "—"
         return f"{float(value):.2f}".rstrip("0").rstrip(".")
 
+    @app.template_filter("datetime_es")
+    def datetime_es_filter(value: str | None) -> str:
+        if not value:
+            return "—"
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        if parsed.tzinfo is not None:
+            parsed = parsed.astimezone(ZoneInfo(app.config["APP_TIMEZONE"]))
+        return (
+            f"{parsed.day} de {MONTH_NAMES[parsed.month]} de {parsed.year}"
+            f" · {parsed:%H:%M}"
+        )
+
 
 def register_context(app: Flask) -> None:
     @app.before_request
@@ -310,6 +322,8 @@ def register_context(app: Flask) -> None:
                     "home",
                     "logout",
                     "employee_photo",
+                    "request_vacation",
+                    "mailbox",
                     "static",
                 }
                 if request.endpoint not in allowed_endpoints:
@@ -325,6 +339,7 @@ def register_context(app: Flask) -> None:
             "csrf_token": token,
             "today": local_today(),
             "static_version": current_app.config["STATIC_VERSION"],
+            "mailbox_badge_count": mailbox_badge_count(),
         }
 
 
@@ -489,6 +504,68 @@ def default_supervised_area(display_name: str) -> str:
 
 def same_group(first: str, second: str) -> bool:
     return normalize_name(first) == normalize_name(second)
+
+
+def requested_vacation_days(start_date: date, end_date: date) -> int:
+    """Count TecnoAll workdays in a request; Sundays do not consume days."""
+    return sum(
+        1
+        for offset in range((end_date - start_date).days + 1)
+        if (start_date + timedelta(days=offset)).weekday() != 6
+    )
+
+
+def supervisor_for_employee(area: str):
+    supervisors = get_db().execute(
+        """
+        SELECT id, display_name, supervised_area
+        FROM users
+        WHERE active = 1 AND access_role = 'admin'
+        ORDER BY id
+        """
+    ).fetchall()
+    scoped = [
+        supervisor
+        for supervisor in supervisors
+        if supervisor["supervised_area"]
+        and same_group(supervisor["supervised_area"], area)
+    ]
+    if scoped:
+        return scoped[0]
+    return next(
+        (
+            supervisor
+            for supervisor in supervisors
+            if not str(supervisor["supervised_area"] or "").strip()
+        ),
+        None,
+    )
+
+
+def mailbox_badge_count() -> int:
+    if g.user is None:
+        return 0
+    if g.user["access_role"] == "worker":
+        row = get_db().execute(
+            """
+            SELECT COUNT(*) AS total
+            FROM vacation_requests
+            WHERE employee_name_key = ?
+              AND status IN ('approved', 'rejected')
+              AND worker_read_at IS NULL
+            """,
+            (g.user["employee_name_key"],),
+        ).fetchone()
+    else:
+        row = get_db().execute(
+            """
+            SELECT COUNT(*) AS total
+            FROM vacation_requests
+            WHERE supervisor_id = ? AND status = 'pending'
+            """,
+            (g.user["id"],),
+        ).fetchone()
+    return int(row["total"])
 
 
 def rounded_overtime_minutes(minutes: int) -> int:
@@ -1320,6 +1397,216 @@ def register_routes(app: Flask) -> None:
             employee_areas=employee_groups(),
             error=error,
         )
+
+    @app.route("/solicitar-vacaciones", methods=("GET", "POST"))
+    @login_required
+    def request_vacation():
+        if g.user["access_role"] != "worker":
+            abort(403)
+        connection = get_db()
+        employee = connection.execute(
+            """
+            SELECT employee_name, employee_name_key, employee_code, area,
+                   vacation_days_available, vacation_balance_as_of
+            FROM employees
+            WHERE employee_name_key = ?
+            """,
+            (g.user["employee_name_key"],),
+        ).fetchone()
+        if employee is None:
+            abort(400, "La cuenta no tiene un trabajador vinculado.")
+        supervisor = supervisor_for_employee(employee["area"])
+
+        if request.method == "POST":
+            validate_csrf()
+            try:
+                start_date = parse_iso_date(
+                    request.form.get("start_date", ""), "fecha inicial"
+                )
+                end_date = parse_iso_date(
+                    request.form.get("end_date", ""), "fecha final"
+                )
+            except ValueError as exc:
+                flash(str(exc), "error")
+                return redirect(url_for("request_vacation"))
+            if start_date < local_today():
+                flash("La solicitud debe comenzar hoy o después.", "error")
+                return redirect(url_for("request_vacation"))
+            if end_date < start_date:
+                flash(
+                    "La fecha final no puede ser anterior a la inicial.",
+                    "error",
+                )
+                return redirect(url_for("request_vacation"))
+            requested_days = requested_vacation_days(start_date, end_date)
+            if requested_days < 1:
+                flash("El periodo debe incluir al menos un día laborable.", "error")
+                return redirect(url_for("request_vacation"))
+            if supervisor is None:
+                flash(
+                    "Aún no hay un supervisor disponible para recibir la solicitud.",
+                    "error",
+                )
+                return redirect(url_for("request_vacation"))
+            overlapping = connection.execute(
+                """
+                SELECT id FROM vacation_requests
+                WHERE employee_name_key = ?
+                  AND status IN ('pending', 'approved')
+                  AND NOT (end_date < ? OR start_date > ?)
+                LIMIT 1
+                """,
+                (
+                    employee["employee_name_key"],
+                    start_date.isoformat(),
+                    end_date.isoformat(),
+                ),
+            ).fetchone()
+            if overlapping is not None:
+                flash(
+                    "Ya existe una solicitud pendiente o aprobada en ese periodo.",
+                    "error",
+                )
+                return redirect(url_for("request_vacation"))
+
+            cursor = connection.execute(
+                """
+                INSERT INTO vacation_requests (
+                    employee_name, employee_name_key, supervisor_id,
+                    start_date, end_date, requested_days, status,
+                    requested_at
+                ) VALUES (?, ?, ?, ?, ?, ?, 'pending', ?)
+                """,
+                (
+                    employee["employee_name"],
+                    employee["employee_name_key"],
+                    supervisor["id"],
+                    start_date.isoformat(),
+                    end_date.isoformat(),
+                    requested_days,
+                    utc_now(),
+                ),
+            )
+            log_action(
+                g.user["id"],
+                "create",
+                "vacation_request",
+                cursor.lastrowid,
+                json.dumps(
+                    {
+                        "start": start_date.isoformat(),
+                        "end": end_date.isoformat(),
+                        "days": requested_days,
+                        "supervisor_id": supervisor["id"],
+                    },
+                    ensure_ascii=False,
+                ),
+            )
+            connection.commit()
+            flash("Tu solicitud fue enviada al supervisor.", "success")
+            return redirect(url_for("mailbox"))
+
+        return render_template(
+            "vacation_request.html",
+            employee=employee,
+            supervisor=supervisor,
+        )
+
+    @app.get("/buzon")
+    @login_required
+    def mailbox():
+        connection = get_db()
+        worker_mode = g.user["access_role"] == "worker"
+        if worker_mode:
+            connection.execute(
+                """
+                UPDATE vacation_requests
+                SET worker_read_at = ?
+                WHERE employee_name_key = ?
+                  AND status IN ('approved', 'rejected')
+                  AND worker_read_at IS NULL
+                """,
+                (utc_now(), g.user["employee_name_key"]),
+            )
+            connection.commit()
+            rows = connection.execute(
+                """
+                SELECT vr.*, supervisor.display_name AS supervisor_name,
+                       decision.display_name AS decided_by_name
+                FROM vacation_requests vr
+                JOIN users supervisor ON supervisor.id = vr.supervisor_id
+                LEFT JOIN users decision ON decision.id = vr.decided_by
+                WHERE vr.employee_name_key = ?
+                ORDER BY vr.requested_at DESC, vr.id DESC
+                """,
+                (g.user["employee_name_key"],),
+            ).fetchall()
+        else:
+            rows = connection.execute(
+                """
+                SELECT vr.*, supervisor.display_name AS supervisor_name,
+                       decision.display_name AS decided_by_name
+                FROM vacation_requests vr
+                JOIN users supervisor ON supervisor.id = vr.supervisor_id
+                LEFT JOIN users decision ON decision.id = vr.decided_by
+                WHERE vr.supervisor_id = ?
+                ORDER BY CASE vr.status WHEN 'pending' THEN 0 ELSE 1 END,
+                         vr.requested_at DESC, vr.id DESC
+                """,
+                (g.user["id"],),
+            ).fetchall()
+        return render_template(
+            "mailbox.html",
+            rows=rows,
+            worker_mode=worker_mode,
+            pending_count=sum(row["status"] == "pending" for row in rows),
+        )
+
+    @app.post("/buzon/solicitudes/<int:request_id>/decision")
+    @login_required
+    def decide_vacation_request(request_id: int):
+        validate_csrf()
+        decision = request.form.get("decision", "").strip()
+        if decision not in {"approved", "rejected"}:
+            abort(400, "La decisión no es válida.")
+        connection = get_db()
+        vacation_request = connection.execute(
+            """
+            SELECT * FROM vacation_requests
+            WHERE id = ? AND supervisor_id = ?
+            """,
+            (request_id, g.user["id"]),
+        ).fetchone()
+        if vacation_request is None:
+            abort(404)
+        if vacation_request["status"] != "pending":
+            flash("Esa solicitud ya fue respondida.", "error")
+            return redirect(url_for("mailbox"))
+        responded_at = utc_now()
+        connection.execute(
+            """
+            UPDATE vacation_requests
+            SET status = ?, responded_at = ?, decided_by = ?,
+                worker_read_at = NULL
+            WHERE id = ?
+            """,
+            (decision, responded_at, g.user["id"], request_id),
+        )
+        log_action(
+            g.user["id"],
+            decision,
+            "vacation_request",
+            request_id,
+            vacation_request["employee_name"],
+        )
+        connection.commit()
+        flash(
+            "La solicitud fue aprobada."
+            if decision == "approved"
+            else "La solicitud fue rechazada.",
+            "success",
+        )
+        return redirect(url_for("mailbox"))
 
     @app.get("/vacaciones")
     @login_required

@@ -138,6 +138,45 @@
 })();
 
 (() => {
+  const form = document.querySelector("[data-vacation-request-form]");
+  if (!form) return;
+
+  const startInput = form.querySelector("[data-vacation-start]");
+  const endInput = form.querySelector("[data-vacation-end]");
+  const daysOutput = form.querySelector("[data-vacation-days]");
+
+  const calculateDays = () => {
+    if (!startInput.value || !endInput.value) {
+      daysOutput.textContent = "—";
+      return;
+    }
+    endInput.min = startInput.value;
+    const start = new Date(`${startInput.value}T12:00:00`);
+    const end = new Date(`${endInput.value}T12:00:00`);
+    if (end < start) {
+      daysOutput.textContent = "—";
+      return;
+    }
+    let days = 0;
+    const current = new Date(start);
+    while (current <= end) {
+      if (current.getDay() !== 0) days += 1;
+      current.setDate(current.getDate() + 1);
+    }
+    daysOutput.textContent = String(days);
+  };
+
+  startInput.addEventListener("change", () => {
+    if (!endInput.value || endInput.value < startInput.value) {
+      endInput.value = startInput.value;
+    }
+    calculateDays();
+  });
+  endInput.addEventListener("change", calculateDays);
+  calculateDays();
+})();
+
+(() => {
   const page = document.querySelector("[data-vacations-page]");
   if (!page) return;
 
