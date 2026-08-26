@@ -78,11 +78,21 @@ CREATE TABLE IF NOT EXISTS vacation_requests (
     worker_read_at TEXT,
     worker_deleted_at TEXT,
     sent_to_all INTEGER NOT NULL DEFAULT 0,
+    contpaqi_status TEXT NOT NULL DEFAULT 'not_queued',
+    contpaqi_attempts INTEGER NOT NULL DEFAULT 0,
+    contpaqi_error TEXT NOT NULL DEFAULT '',
+    contpaqi_applied_at TEXT,
+    contpaqi_record_id INTEGER,
+    contpaqi_locked_at TEXT,
+    contpaqi_updated_at TEXT,
     FOREIGN KEY (supervisor_id) REFERENCES users(id),
     FOREIGN KEY (decided_by) REFERENCES users(id),
     CHECK (end_date >= start_date),
     CHECK (requested_days > 0),
-    CHECK (status IN ('pending', 'approved', 'rejected'))
+    CHECK (status IN ('pending', 'approved', 'rejected')),
+    CHECK (contpaqi_status IN (
+        'not_queued', 'pending', 'processing', 'applied', 'failed'
+    ))
 );
 
 CREATE TABLE IF NOT EXISTS vacation_request_recipients (
@@ -195,6 +205,7 @@ def init_db() -> None:
     migrate_employee_code(connection)
     migrate_employee_vacation_balance(connection)
     migrate_vacation_request_recipients(connection)
+    migrate_vacation_request_integration(connection)
     connection.commit()
 
 
@@ -317,6 +328,38 @@ def migrate_vacation_request_recipients(
             request_id, supervisor_id
         )
         SELECT id, supervisor_id FROM vacation_requests
+        """
+    )
+
+
+def migrate_vacation_request_integration(
+    connection: sqlite3.Connection,
+) -> None:
+    """Add the durable outbox used by the local CONTPAQi connector."""
+    columns = {
+        row["name"]
+        for row in connection.execute(
+            "PRAGMA table_info('vacation_requests')"
+        ).fetchall()
+    }
+    additions = {
+        "contpaqi_status": "TEXT NOT NULL DEFAULT 'not_queued'",
+        "contpaqi_attempts": "INTEGER NOT NULL DEFAULT 0",
+        "contpaqi_error": "TEXT NOT NULL DEFAULT ''",
+        "contpaqi_applied_at": "TEXT",
+        "contpaqi_record_id": "INTEGER",
+        "contpaqi_locked_at": "TEXT",
+        "contpaqi_updated_at": "TEXT",
+    }
+    for name, definition in additions.items():
+        if name not in columns:
+            connection.execute(
+                f"ALTER TABLE vacation_requests ADD COLUMN {name} {definition}"
+            )
+    connection.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_vacation_requests_contpaqi
+        ON vacation_requests(contpaqi_status, id)
         """
     )
 

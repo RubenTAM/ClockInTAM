@@ -926,6 +926,7 @@ class AppFlowTests(unittest.TestCase):
                 (request_id,),
             ).fetchone()
             self.assertEqual(vacation_request["status"], "approved")
+            self.assertEqual(vacation_request["contpaqi_status"], "pending")
             self.assertIsNotNone(vacation_request["responded_at"])
             self.assertEqual(vacation_request["decided_by"], admin["id"])
             self.assertEqual(

@@ -97,6 +97,18 @@
               <span>Respondida {{ row.responded_at|datetime_es }}</span>
               <span>Decidió {{ row.decided_by_name }}</span>
             {% endif %}
+            {% if row.status == 'approved' %}
+              <span class="contpaqi-state {{ row.contpaqi_status }}">
+                {% if row.contpaqi_status == 'pending' %}Pendiente de aplicar en CONTPAQi
+                {% elif row.contpaqi_status == 'processing' %}Aplicando en CONTPAQi…
+                {% elif row.contpaqi_status == 'applied' %}Aplicada en CONTPAQi · Folio {{ row.contpaqi_record_id }}
+                {% elif row.contpaqi_status == 'failed' %}No pudo aplicarse en CONTPAQi
+                {% else %}Sin envío a CONTPAQi{% endif %}
+              </span>
+              {% if row.contpaqi_status == 'failed' and row.contpaqi_error %}
+                <span class="contpaqi-error">{{ row.contpaqi_error }}</span>
+              {% endif %}
+            {% endif %}
           </footer>
         </div>
 
@@ -110,6 +122,15 @@
                     name="decision" value="approved">✓ Aprobar</button>
             <button class="button reject-button" type="submit"
                     name="decision" value="rejected">× Rechazar</button>
+          </form>
+        {% endif %}
+        {% if not worker_mode and row.status == 'approved' and row.contpaqi_status == 'failed' %}
+          <form method="post"
+                action="{{ url_for('retry_contpaqi_vacation_request', request_id=row.id) }}"
+                class="mailbox-decision-panel">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <span>Integración detenida</span>
+            <button class="button primary" type="submit">↻ Reintentar</button>
           </form>
         {% endif %}
       </article>

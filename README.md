@@ -33,16 +33,18 @@ fecha de corte y envía a Tiempo el código de empleado, los días disponibles y
 la fecha de actualización. La misma sincronización reconstruye la tarjeta de
 vacaciones con aniversarios, periodos tomados y saldo progresivo para mostrarla
 al trabajador. Para mantenerla compacta, solo se envía el aniversario laboral
-más reciente y los movimientos posteriores. Tiempo conserva una copia de solo
-lectura de esa tarjeta; las
-solicitudes en captura se muestran como proyección y no escriben en CONTPAQi.
+más reciente y los movimientos posteriores. Tiempo conserva una copia de esa
+tarjeta. Las solicitudes aprobadas entran a una cola durable y un conector
+dentro de la red de TecnoAll las aplica de forma idempotente en `NOM10014`;
+una solicitud rechazada nunca entra a la cola.
 
 El código se mantiene separado por dominio: `checador/` contiene Hikvision,
 asistencia y reportes operativos; `nomina/` contiene únicamente la lectura y
 sincronización con CONTPAQi. Ambos módulos alimentan el mismo dashboard.
 
-Usa un inicio de sesión SQL exclusivo con permisos de solo lectura sobre la
-empresa de Nóminas. Nunca configures la cuenta `sa` en el sincronizador.
+Usa un inicio de sesión SQL exclusivo: lectura para la sincronización y los
+permisos mínimos de escritura requeridos sobre `NOM10014` para el conector.
+Nunca configures la cuenta `sa` en la instalación permanente.
 
 Variables requeridas en el equipo local:
 
@@ -66,6 +68,22 @@ python -m nomina.sync_contpaqi_vacations --dry-run --as-of 2026-08-25
 Antes de programar la sincronización automática, compara los resultados con el
 reporte **Vacaciones pendientes por empleado** de CONTPAQi, usando la misma
 fecha de corte y la opción sin proporción del año en curso.
+
+La primera versión del conector tiene un bloqueo intencional y solo acepta la
+base `ctTecno_DEV`. Para ejecutar una sola consulta de la cola:
+
+```bash
+python -m nomina.apply_vacation_requests
+```
+
+Para dejarlo activo dentro de la red local:
+
+```bash
+python -m nomina.apply_vacation_requests --watch --interval 30
+```
+
+Si la comunicación con Tiempo falla después de insertar, el siguiente intento
+reconoce el mismo empleado y periodo, reutiliza el folio y evita duplicarlo.
 
 ## Funcionamiento del cálculo
 

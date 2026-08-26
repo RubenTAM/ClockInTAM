@@ -159,6 +159,23 @@ def known_employee_code(employee_name: str) -> str:
     )
 
 
+def integration_authenticated() -> bool:
+    configured_token = str(
+        current_app.config.get("CONTPAQ_SYNC_TOKEN") or ""
+    )
+    authorization = request.headers.get("Authorization", "")
+    provided_token = (
+        authorization[7:].strip()
+        if authorization.startswith("Bearer ")
+        else ""
+    )
+    return bool(
+        configured_token
+        and provided_token
+        and secrets.compare_digest(provided_token, configured_token)
+    )
+
+
 def photo_name_key(value: str) -> tuple[str, ...]:
     """Return an order-independent worker name key from a photo filename."""
     normalized = normalize_name(Path(value).stem)
@@ -1677,10 +1694,19 @@ def register_routes(app: Flask) -> None:
             """
             UPDATE vacation_requests
             SET status = ?, responded_at = ?, decided_by = ?,
-                worker_read_at = NULL
+                worker_read_at = NULL,
+                contpaqi_status = ?, contpaqi_error = '',
+                contpaqi_locked_at = NULL, contpaqi_updated_at = ?
             WHERE id = ?
             """,
-            (decision, responded_at, g.user["id"], request_id),
+            (
+                decision,
+                responded_at,
+                g.user["id"],
+                "pending" if decision == "approved" else "not_queued",
+                responded_at,
+                request_id,
+            ),
         )
         log_action(
             g.user["id"],
@@ -1696,6 +1722,43 @@ def register_routes(app: Flask) -> None:
             else "La solicitud fue rechazada.",
             "success",
         )
+        return redirect(url_for("mailbox"))
+
+    @app.post("/buzon/solicitudes/<int:request_id>/reintentar-contpaqi")
+    @login_required
+    def retry_contpaqi_vacation_request(request_id: int):
+        validate_csrf()
+        if g.user["access_role"] == "worker":
+            abort(403)
+        connection = get_db()
+        vacation_request = connection.execute(
+            """
+            SELECT vr.id FROM vacation_requests vr
+            JOIN vacation_request_recipients recipient
+              ON recipient.request_id = vr.id
+            WHERE vr.id = ? AND recipient.supervisor_id = ?
+              AND vr.status = 'approved'
+              AND vr.contpaqi_status = 'failed'
+            """,
+            (request_id, g.user["id"]),
+        ).fetchone()
+        if vacation_request is None:
+            abort(404)
+        now = utc_now()
+        connection.execute(
+            """
+            UPDATE vacation_requests
+            SET contpaqi_status = 'pending', contpaqi_error = '',
+                contpaqi_locked_at = NULL, contpaqi_updated_at = ?
+            WHERE id = ?
+            """,
+            (now, request_id),
+        )
+        log_action(
+            g.user["id"], "retry", "contpaqi_vacation_request", request_id
+        )
+        connection.commit()
+        flash("La aplicación en CONTPAQi quedó lista para reintentarse.", "success")
         return redirect(url_for("mailbox"))
 
     @app.post("/buzon/solicitudes/<int:request_id>/eliminar")
@@ -2310,20 +2373,9 @@ def register_routes(app: Flask) -> None:
 
     @app.post("/api/integraciones/contpaqi/vacaciones")
     def receive_contpaqi_vacation_balances():
-        configured_token = str(
-            current_app.config.get("CONTPAQ_SYNC_TOKEN") or ""
-        )
-        authorization = request.headers.get("Authorization", "")
-        provided_token = (
-            authorization[7:].strip()
-            if authorization.startswith("Bearer ")
-            else ""
-        )
-        if not configured_token:
+        if not current_app.config.get("CONTPAQ_SYNC_TOKEN"):
             return jsonify({"error": "La integración no está configurada."}), 503
-        if not provided_token or not secrets.compare_digest(
-            provided_token, configured_token
-        ):
+        if not integration_authenticated():
             return jsonify({"error": "Credenciales de integración inválidas."}), 401
 
         payload = request.get_json(silent=True)
@@ -2612,6 +2664,135 @@ def register_routes(app: Flask) -> None:
                 "syncedAt": synced_at,
             }
         )
+
+    @app.post("/api/integraciones/contpaqi/solicitudes/tomar")
+    def claim_contpaqi_vacation_request():
+        if not current_app.config.get("CONTPAQ_SYNC_TOKEN"):
+            return jsonify({"error": "La integración no está configurada."}), 503
+        if not integration_authenticated():
+            return jsonify({"error": "Credenciales de integración inválidas."}), 401
+
+        connection = get_db()
+        now = utc_now()
+        stale_before = (
+            datetime.utcnow() - timedelta(minutes=10)
+        ).replace(microsecond=0).isoformat() + "Z"
+        connection.execute("BEGIN IMMEDIATE")
+        connection.execute(
+            """
+            UPDATE vacation_requests
+            SET contpaqi_status = 'pending', contpaqi_locked_at = NULL,
+                contpaqi_updated_at = ?
+            WHERE status = 'approved'
+              AND contpaqi_status = 'processing'
+              AND contpaqi_locked_at < ?
+            """,
+            (now, stale_before),
+        )
+        row = connection.execute(
+            """
+            SELECT vr.id, vr.employee_name, vr.employee_name_key,
+                   employee.employee_code, vr.start_date, vr.end_date,
+                   vr.requested_days, vr.responded_at
+            FROM vacation_requests vr
+            LEFT JOIN employees employee
+              ON employee.employee_name_key = vr.employee_name_key
+            WHERE vr.status = 'approved'
+              AND vr.contpaqi_status = 'pending'
+            ORDER BY vr.id
+            LIMIT 1
+            """
+        ).fetchone()
+        if row is None:
+            connection.commit()
+            return Response(status=204)
+        updated = connection.execute(
+            """
+            UPDATE vacation_requests
+            SET contpaqi_status = 'processing',
+                contpaqi_attempts = contpaqi_attempts + 1,
+                contpaqi_locked_at = ?, contpaqi_updated_at = ?
+            WHERE id = ? AND contpaqi_status = 'pending'
+            """,
+            (now, now, row["id"]),
+        ).rowcount
+        connection.commit()
+        if updated != 1:
+            return Response(status=204)
+        return jsonify(
+            {
+                "requestId": row["id"],
+                "employeeCode": row["employee_code"] or "",
+                "employeeName": row["employee_name"],
+                "startDate": row["start_date"],
+                "endDate": row["end_date"],
+                "requestedDays": row["requested_days"],
+                "approvedAt": row["responded_at"],
+            }
+        )
+
+    @app.post("/api/integraciones/contpaqi/solicitudes/<int:request_id>/resultado")
+    def finish_contpaqi_vacation_request(request_id: int):
+        if not current_app.config.get("CONTPAQ_SYNC_TOKEN"):
+            return jsonify({"error": "La integración no está configurada."}), 503
+        if not integration_authenticated():
+            return jsonify({"error": "Credenciales de integración inválidas."}), 401
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict):
+            return jsonify({"error": "El cuerpo JSON no es válido."}), 400
+        outcome = str(payload.get("status") or "").strip()
+        if outcome not in {"applied", "failed"}:
+            return jsonify({"error": "El resultado no es válido."}), 400
+        record_id = payload.get("recordId")
+        if outcome == "applied":
+            try:
+                record_id = int(record_id)
+            except (TypeError, ValueError):
+                return jsonify({"error": "Falta el folio de CONTPAQi."}), 400
+            if record_id <= 0:
+                return jsonify({"error": "El folio de CONTPAQi no es válido."}), 400
+        error = str(payload.get("error") or "").strip()[:500]
+        if outcome == "failed" and not error:
+            error = "El conector no pudo aplicar la solicitud."
+        connection = get_db()
+        row = connection.execute(
+            """
+            SELECT status, contpaqi_status, contpaqi_record_id
+            FROM vacation_requests WHERE id = ?
+            """,
+            (request_id,),
+        ).fetchone()
+        if row is None:
+            abort(404)
+        if row["status"] != "approved":
+            return jsonify({"error": "La solicitud no está aprobada."}), 409
+        if row["contpaqi_status"] == "applied":
+            if outcome == "applied" and row["contpaqi_record_id"] == record_id:
+                return jsonify({"status": "applied", "idempotent": True})
+            return jsonify({"error": "La solicitud ya fue aplicada."}), 409
+        if row["contpaqi_status"] != "processing":
+            return jsonify({"error": "La solicitud no está tomada por el conector."}), 409
+        now = utc_now()
+        connection.execute(
+            """
+            UPDATE vacation_requests
+            SET contpaqi_status = ?, contpaqi_error = ?,
+                contpaqi_record_id = ?, contpaqi_applied_at = ?,
+                contpaqi_locked_at = NULL, contpaqi_updated_at = ?,
+                worker_read_at = NULL
+            WHERE id = ?
+            """,
+            (
+                outcome,
+                "" if outcome == "applied" else error,
+                record_id if outcome == "applied" else None,
+                now if outcome == "applied" else None,
+                now,
+                request_id,
+            ),
+        )
+        connection.commit()
+        return jsonify({"status": outcome})
 
     @app.get("/reporte")
     @login_required

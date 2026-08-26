@@ -87,10 +87,6 @@
         <strong>{{ employee.employee_name }}</strong>
         <small>No. {{ employee.employee_code or 'pendiente' }}</small>
       </div>
-      <div class="vacation-supervisor-chip">
-        <span>Destinatario</span>
-        <strong>Tú eliges quién la revisa</strong>
-      </div>
     </div>
 
     <form method="post" class="vacation-request-form" data-vacation-request-form>
@@ -125,7 +121,6 @@
       <div class="vacation-days-preview" aria-live="polite">
         <span>Días solicitados</span>
         <strong data-vacation-days>1</strong>
-        <small>Los domingos no consumen días.</small>
         <small class="vacation-projected-copy">
           Saldo si se aprueba: <b data-vacation-projected-balance>—</b>
         </small>
@@ -142,6 +137,6 @@
 
 <section class="vacation-request-footnote">
   <span aria-hidden="true">i</span>
-  <p>Esta solicitud solo se procesa dentro del dashboard. Por ahora no realiza cambios en CONTPAQi.</p>
+  <p>Al aprobarse, la solicitud se enviará al conector local para aplicarse en CONTPAQi.</p>
 </section>
 {% endblock %}
