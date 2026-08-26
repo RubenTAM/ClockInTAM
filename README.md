@@ -32,7 +32,9 @@ consulta únicamente `NOM10001`, `NOM10014` y `NOM10051`, calcula el saldo a la
 fecha de corte y envía a Tiempo el código de empleado, los días disponibles y
 la fecha de actualización. La misma sincronización reconstruye la tarjeta de
 vacaciones con aniversarios, periodos tomados y saldo progresivo para mostrarla
-al trabajador. Tiempo conserva una copia de solo lectura de esa tarjeta; las
+al trabajador. Para mantenerla compacta, solo se envía el aniversario laboral
+más reciente y los movimientos posteriores. Tiempo conserva una copia de solo
+lectura de esa tarjeta; las
 solicitudes en captura se muestran como proyección y no escriben en CONTPAQi.
 
 El código se mantiene separado por dominio: `checador/` contiene Hikvision,

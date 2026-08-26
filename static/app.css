@@ -713,9 +713,9 @@ td.muted { max-width: 230px; overflow: hidden; text-overflow: ellipsis; }
 .vacation-ledger-header strong { display: block; margin-top: 7px; font-size: .92rem; }
 .vacation-ledger-scroll { min-height: 0; flex: 1 1 auto; overflow: auto; }
 .vacation-ledger-table { width: 100%; min-width: 570px; border-collapse: collapse; font-size: .67rem; }
-.vacation-ledger-table th, .vacation-ledger-table td { padding: 11px 7px; border-bottom: 1px solid rgba(255,255,255,.14); text-align: right; vertical-align: top; }
+.vacation-ledger-table th, .vacation-ledger-table td { padding: 11px 7px; border-bottom: 1px solid rgba(255,255,255,.14); text-align: center; vertical-align: top; }
 .vacation-ledger-table th { position: sticky; top: 0; z-index: 1; color: rgba(255,255,255,.62); background: #086f96; font-size: .61rem; letter-spacing: .05em; text-transform: uppercase; }
-.vacation-ledger-table th:first-child, .vacation-ledger-table td:first-child { width: 27%; padding-left: 25px; text-align: left; }
+.vacation-ledger-table th:first-child, .vacation-ledger-table td:first-child { width: 27%; padding-left: 25px; }
 .vacation-ledger-table th:last-child, .vacation-ledger-table td:last-child { padding-right: 25px; font-weight: 850; }
 .vacation-ledger-empty td { padding-block: 34px; color: rgba(255,255,255,.7); text-align: center !important; }
 .vacation-ledger-preview { background: rgba(255,255,255,.14); }

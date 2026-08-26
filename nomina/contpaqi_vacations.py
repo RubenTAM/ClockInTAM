@@ -236,7 +236,15 @@ def build_vacation_ledger(
                 "balance": float(balance.quantize(Decimal("0.01"))),
             }
         )
-    return ledger
+    latest_anniversary = next(
+        (
+            index
+            for index in range(len(ledger) - 1, -1, -1)
+            if ledger[index]["concept"] == "Aniversario laboral"
+        ),
+        None,
+    )
+    return ledger[latest_anniversary:] if latest_anniversary is not None else ledger
 
 
 def read_vacation_balances(

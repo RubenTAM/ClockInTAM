@@ -103,14 +103,13 @@ class ContpaqiVacationCalculationTests(unittest.TestCase):
         self.assertEqual(
             [row["concept"] for row in ledger],
             [
-                "Vac. tomadas antes del registro",
                 "Aniversario laboral",
                 "Vacaciones tomadas",
                 "Vacaciones tomadas",
             ],
         )
-        self.assertEqual(ledger[1]["daysEntitled"], 12.0)
-        self.assertEqual(ledger[2]["startDate"], "2026-05-28")
+        self.assertEqual(ledger[0]["daysEntitled"], 12.0)
+        self.assertEqual(ledger[1]["startDate"], "2026-05-28")
         self.assertEqual(ledger[-1]["daysTaken"], 2.0)
         self.assertEqual(ledger[-1]["balance"], 9.0)
 
