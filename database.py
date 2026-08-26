@@ -13,6 +13,8 @@ CREATE TABLE IF NOT EXISTS users (
     username TEXT NOT NULL UNIQUE COLLATE NOCASE,
     display_name TEXT NOT NULL,
     password_hash TEXT NOT NULL,
+    access_role TEXT NOT NULL DEFAULT 'admin',
+    employee_name_key TEXT NOT NULL DEFAULT '',
     active INTEGER NOT NULL DEFAULT 1,
     created_at TEXT NOT NULL
 );
@@ -128,6 +130,7 @@ def init_db() -> None:
     connection = get_db()
     connection.executescript(SCHEMA)
     migrate_user_supervised_area(connection)
+    migrate_user_worker_access(connection)
     migrate_multiple_authorizations(connection)
     migrate_approved_minutes(connection)
     migrate_employee_code(connection)
@@ -165,6 +168,28 @@ def migrate_user_supervised_area(connection: sqlite3.Connection) -> None:
         )
         """
     )
+
+
+def migrate_user_worker_access(connection: sqlite3.Connection) -> None:
+    """Add an explicit worker role and its linked employee profile."""
+    columns = {
+        row["name"]
+        for row in connection.execute("PRAGMA table_info('users')").fetchall()
+    }
+    if "access_role" not in columns:
+        connection.execute(
+            """
+            ALTER TABLE users
+            ADD COLUMN access_role TEXT NOT NULL DEFAULT 'admin'
+            """
+        )
+    if "employee_name_key" not in columns:
+        connection.execute(
+            """
+            ALTER TABLE users
+            ADD COLUMN employee_name_key TEXT NOT NULL DEFAULT ''
+            """
+        )
 
 
 def migrate_employee_code(connection: sqlite3.Connection) -> None:

@@ -11,6 +11,7 @@
       {% if supervisor_area %} · {{ supervisor_area }}{% endif %}
     </p>
   </div>
+  {% if not worker_mode %}
   <div class="header-actions home-header-actions">
     <form class="excel-export-form" method="get"
           action="{{ url_for('employee_records_xlsx') }}">
@@ -38,6 +39,7 @@
       {% endif %}
     </form>
   </div>
+  {% endif %}
 </header>
 
 <div class="week-nav">
@@ -67,7 +69,7 @@
 {% else %}
   <section class="home-browser" data-home-browser
            data-selected-worker="{{ selected_worker }}">
-    <aside class="panel home-worker-panel">
+    <aside class="panel home-worker-panel" {% if worker_mode %}hidden{% endif %}>
       <label for="home-worker-search">Buscar trabajador</label>
       <input id="home-worker-search" type="search"
              placeholder="Escribe un nombre…" autocomplete="off"
@@ -81,6 +83,7 @@
         <option value="__none__">Sin grupo registrado</option>
       </select>
       <div class="home-worker-list" data-home-list>
+        {% if not worker_mode %}
         <button type="button" class="home-worker-option home-preview-option active"
                 data-home-preview data-template="home-supervisor-preview">
           <span class="worker-avatar home-preview-icon">▤</span>
@@ -91,6 +94,7 @@
             </small>
           </span>
         </button>
+        {% endif %}
         {% for worker in calendar_rows %}
           <button type="button" class="home-worker-option"
                   data-home-worker data-worker-name="{{ worker.employee_name|lower }}"
@@ -121,6 +125,7 @@
     <div class="home-profile-host" data-home-profile></div>
   </section>
 
+  {% if not worker_mode %}
   <template id="home-supervisor-preview">
       <section class="supervisor-preview" data-supervisor-home>
         <article class="panel supervisor-team-panel">
@@ -223,6 +228,7 @@
         </article>
       </section>
   </template>
+  {% endif %}
 
   {% for worker in calendar_rows %}
     <template id="home-profile-{{ loop.index }}">
@@ -266,6 +272,7 @@
                 {% set report = cell.report %}
                 <article class="home-day-card {{ 'vacation' if cell.is_vacation else ('today' if cell.is_today else ('incident' if cell.has_attendance_incident else '')) }}">
                   <div class="home-day-actions">
+                    {% if not worker_mode %}
                     {% if not cell.is_vacation %}
                       <button type="button" class="enable-overtime-button"
                             data-enable-overtime
@@ -292,6 +299,7 @@
                                onchange="this.form.submit()">
                       </label>
                     </form>
+                    {% endif %}
                   </div>
                   <header>
                     <span>{{ cell.work_date|weekday_short }}</span>
@@ -365,6 +373,7 @@
   {% endfor %}
 {% endif %}
 
+{% if not worker_mode %}
 <dialog class="authorization-dialog" id="home-enable-overtime-dialog">
   <form method="post" action="{{ url_for('create_home_authorization') }}"
         class="authorization-dialog-form">
@@ -432,6 +441,7 @@
     </div>
   </form>
 </dialog>
+{% endif %}
 
 <dialog class="report-detail-dialog" id="home-authorization-dialog">
   <section class="report-detail-content">
@@ -461,6 +471,7 @@
         <dd id="home-authorization-counted"></dd>
       </div>
     </dl>
+    {% if not worker_mode %}
     <form method="post"
           action="{{ url_for('delete_home_authorizations') }}"
           class="home-delete-authorization"
@@ -474,6 +485,7 @@
         Eliminar tiempo extra autorizado
       </button>
     </form>
+    {% endif %}
   </section>
 </dialog>
 {% endblock %}

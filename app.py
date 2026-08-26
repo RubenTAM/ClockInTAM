@@ -305,6 +305,15 @@ def register_context(app: Flask) -> None:
             ).fetchone()
             if g.user is None:
                 session.clear()
+            elif g.user["access_role"] == "worker":
+                allowed_endpoints = {
+                    "home",
+                    "logout",
+                    "employee_photo",
+                    "static",
+                }
+                if request.endpoint not in allowed_endpoints:
+                    abort(403)
 
     @app.context_processor
     def shared_values() -> dict:
@@ -908,6 +917,21 @@ def register_routes(app: Flask) -> None:
     def employee_photo(filename: str):
         if Path(filename).suffix.casefold() not in PHOTO_EXTENSIONS:
             abort(404)
+        if g.user["access_role"] == "worker":
+            employee = get_db().execute(
+                """
+                SELECT employee_name FROM employees
+                WHERE employee_name_key = ?
+                """,
+                (g.user["employee_name_key"],),
+            ).fetchone()
+            allowed_filename = (
+                employee_photo_filename(employee["employee_name"])
+                if employee is not None
+                else None
+            )
+            if not allowed_filename or filename != allowed_filename:
+                abort(403)
         return send_from_directory(PHOTO_DIRECTORY, filename, conditional=True)
 
     @app.get("/")
@@ -966,7 +990,15 @@ def register_routes(app: Flask) -> None:
             if not is_inactive_group(worker["area"])
         ]
         supervisor_area = str(g.user["supervised_area"] or "").strip()
-        if supervisor_area:
+        worker_mode = g.user["access_role"] == "worker"
+        worker_employee_key = str(g.user["employee_name_key"] or "").strip()
+        if worker_mode:
+            calendar_rows = [
+                worker
+                for worker in calendar_rows
+                if worker["employee_name_key"] == worker_employee_key
+            ]
+        elif supervisor_area:
             calendar_rows = [
                 worker
                 for worker in calendar_rows
@@ -987,8 +1019,13 @@ def register_routes(app: Flask) -> None:
                 for group in employee_groups()
                 if not is_inactive_group(group)
             ],
-            selected_worker=request.args.get("trabajador", ""),
+            selected_worker=(
+                worker_employee_key
+                if worker_mode
+                else request.args.get("trabajador", "")
+            ),
             supervisor_area=supervisor_area,
+            worker_mode=worker_mode,
         )
 
     @app.post("/permisos-incidencia")
@@ -2241,7 +2278,7 @@ def register_routes(app: Flask) -> None:
         rows = get_db().execute(
             """
             SELECT id, username, display_name, active, supervised_area,
-                   created_at
+                   access_role, employee_name_key, created_at
             FROM users ORDER BY display_name
             """
         ).fetchall()
@@ -2252,6 +2289,7 @@ def register_routes(app: Flask) -> None:
                 group for group in employee_groups()
                 if not is_inactive_group(group)
             ],
+            employees=employee_directory(),
         )
 
     @app.post("/usuarios/nuevo")
@@ -2262,10 +2300,29 @@ def register_routes(app: Flask) -> None:
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
         supervised_area = request.form.get("supervised_area", "").strip()
+        access_role = request.form.get("access_role", "admin").strip()
+        employee_name_key = request.form.get(
+            "employee_name_key", ""
+        ).strip()
+        if access_role not in {"admin", "worker"}:
+            abort(400, "El tipo de acceso seleccionado no es válido.")
         valid_groups = {
             group for group in employee_groups()
             if not is_inactive_group(group)
         }
+        if access_role == "worker":
+            employee = get_db().execute(
+                """
+                SELECT employee_name_key FROM employees
+                WHERE employee_name_key = ?
+                """,
+                (employee_name_key,),
+            ).fetchone()
+            if employee is None:
+                abort(400, "Selecciona el trabajador vinculado a la cuenta.")
+            supervised_area = ""
+        else:
+            employee_name_key = ""
         if supervised_area and supervised_area not in valid_groups:
             abort(400, "El grupo supervisado seleccionado no es válido.")
         if len(display_name) < 2 or len(username) < 3 or len(password) < 10:
@@ -2280,8 +2337,9 @@ def register_routes(app: Flask) -> None:
                 """
                 INSERT INTO users (
                     username, display_name, password_hash,
-                    supervised_area, created_at
-                ) VALUES (?, ?, ?, ?, ?)
+                    supervised_area, access_role, employee_name_key,
+                    created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     username,
@@ -2290,6 +2348,8 @@ def register_routes(app: Flask) -> None:
                         password, method="pbkdf2:sha256"
                     ),
                     supervised_area,
+                    access_role,
+                    employee_name_key,
                     utc_now(),
                 ),
             )

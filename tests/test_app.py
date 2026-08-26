@@ -632,6 +632,80 @@ class AppFlowTests(unittest.TestCase):
         self.assertIn(b"Asistencia del equipo", home.data)
         self.assertNotIn(b"Supervisor &middot;", home.data)
 
+    def test_worker_user_only_sees_linked_profile_and_home(self):
+        self.initialize_admin()
+        self.login()
+
+        response = self.client.post(
+            "/usuarios/nuevo",
+            data={
+                "csrf_token": self.csrf_token(),
+                "display_name": "Rubén Humberto Lizárraga Reyes",
+                "username": "trabajador@example.com",
+                "password": "UnaClaveTrabajador123",
+                "access_role": "worker",
+                "employee_name_key": "ruben humberto lizarraga reyes",
+                "supervised_area": "TecnoAll - Ingenieria",
+            },
+            follow_redirects=True,
+        )
+
+        self.assertIn(b"Usuario creado correctamente", response.data)
+        with self.app.app_context():
+            worker_user = get_db().execute(
+                """
+                SELECT access_role, employee_name_key, supervised_area
+                FROM users WHERE username = 'trabajador@example.com'
+                """
+            ).fetchone()
+            self.assertEqual(worker_user["access_role"], "worker")
+            self.assertEqual(
+                worker_user["employee_name_key"],
+                "ruben humberto lizarraga reyes",
+            )
+            self.assertEqual(worker_user["supervised_area"], "")
+
+        self.client.post(
+            "/logout",
+            data={"csrf_token": self.csrf_token()},
+        )
+        self.client.get("/login")
+        login = self.client.post(
+            "/login",
+            data={
+                "csrf_token": self.csrf_token(),
+                "username": "trabajador@example.com",
+                "password": "UnaClaveTrabajador123",
+            },
+        )
+        self.assertEqual(login.status_code, 302)
+
+        with patch(
+            "app.report_for_week", return_value=([], None, set())
+        ), patch("app.local_today", return_value=date(2026, 8, 19)):
+            home = self.client.get(
+                "/?semana=2026-08-13&trabajador=jorge+rangel+pulido"
+            )
+
+        self.assertEqual(home.status_code, 200)
+        self.assertIn(b"Ruben Humberto Lizarraga Reyes", home.data)
+        self.assertNotIn(b"Jorge Rangel Pulido", home.data)
+        self.assertIn(b"Trabajador", home.data)
+        self.assertNotIn(b"Expediente Supervisor", home.data)
+        self.assertNotIn(b"data-home-preview", home.data)
+        self.assertNotIn(b"Habilitar tiempo extra", home.data)
+        self.assertNotIn(b'href="/usuarios"', home.data)
+        self.assertNotIn(b'href="/vacaciones"', home.data)
+
+        for path in (
+            "/trabajadores",
+            "/usuarios",
+            "/vacaciones",
+            "/reporte",
+            "/cuenta",
+        ):
+            self.assertEqual(self.client.get(path).status_code, 403, path)
+
     def test_home_can_enable_overtime_with_an_approved_hours_limit(self):
         self.initialize_admin()
         self.login()

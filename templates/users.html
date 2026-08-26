@@ -25,25 +25,33 @@
             <strong>{{ row['display_name'] }}</strong>
             <small>
               @{{ row['username'] }} ·
-              {{ 'Supervisor de ' ~ row['supervised_area'] if row['supervised_area'] else 'Acceso total' }}
+              {% if row['access_role'] == 'worker' %}
+                Trabajador
+              {% else %}
+                {{ 'Supervisor de ' ~ row['supervised_area'] if row['supervised_area'] else 'Acceso total' }}
+              {% endif %}
             </small>
           </span>
-          <form method="post" class="user-area-form"
-                action="{{ url_for('update_user_supervised_area', user_id=row['id']) }}">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            <label class="sr-only" for="supervised-area-{{ row['id'] }}">
-              Grupo supervisado por {{ row['display_name'] }}
-            </label>
-            <select id="supervised-area-{{ row['id'] }}" name="supervised_area"
-                    onchange="this.form.submit()">
-              <option value="">Acceso total · Todos los grupos</option>
-              {% for area in employee_areas %}
-                <option value="{{ area }}" {{ 'selected' if row['supervised_area'] == area else '' }}>
-                  Supervisor · {{ area }}
-                </option>
-              {% endfor %}
-            </select>
-          </form>
+          {% if row['access_role'] == 'worker' %}
+            <span class="status-pill normal">Perfil individual</span>
+          {% else %}
+            <form method="post" class="user-area-form"
+                  action="{{ url_for('update_user_supervised_area', user_id=row['id']) }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <label class="sr-only" for="supervised-area-{{ row['id'] }}">
+                Grupo supervisado por {{ row['display_name'] }}
+              </label>
+              <select id="supervised-area-{{ row['id'] }}" name="supervised_area"
+                      onchange="this.form.submit()">
+                <option value="">Acceso total · Todos los grupos</option>
+                {% for area in employee_areas %}
+                  <option value="{{ area }}" {{ 'selected' if row['supervised_area'] == area else '' }}>
+                    Supervisor · {{ area }}
+                  </option>
+                {% endfor %}
+              </select>
+            </form>
+          {% endif %}
           <span class="status-pill {{ 'authorized' if row['active'] else 'normal' }}">
             {{ 'Activo' if row['active'] else 'Inactivo' }}
           </span>
@@ -83,6 +91,24 @@
         Contraseña temporal
         <input type="password" name="password" autocomplete="new-password"
                minlength="10" required>
+      </label>
+      <label>
+        Tipo de acceso
+        <select name="access_role" data-user-access-role>
+          <option value="admin">Administrador o supervisor</option>
+          <option value="worker">Trabajador · Solo su inicio</option>
+        </select>
+      </label>
+      <label>
+        Trabajador vinculado
+        <select name="employee_name_key">
+          <option value="">Selecciona un trabajador</option>
+          {% for employee in employees %}
+            <option value="{{ employee.employee_name_key }}">
+              {% if employee.employee_code %}{{ employee.employee_code }} · {% endif %}{{ employee.employee_name }}
+            </option>
+          {% endfor %}
+        </select>
       </label>
       <label>
         Grupo supervisado

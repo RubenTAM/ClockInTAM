@@ -8,6 +8,37 @@ from database import get_db
 
 
 class DatabaseMigrationTests(unittest.TestCase):
+    def test_existing_users_default_to_admin_access(self):
+        with tempfile.TemporaryDirectory() as directory:
+            app = create_app(
+                {
+                    "TESTING": True,
+                    "SECRET_KEY": "user-migration-test",
+                    "DATABASE_PATH": str(Path(directory) / "users.sqlite3"),
+                }
+            )
+            with app.app_context():
+                connection = get_db()
+                connection.execute(
+                    """
+                    INSERT INTO users (
+                        username, display_name, password_hash, created_at
+                    ) VALUES (
+                        'legacy', 'Usuario Anterior', 'hash', '2026-08-26'
+                    )
+                    """
+                )
+                connection.commit()
+                row = connection.execute(
+                    """
+                    SELECT access_role, employee_name_key
+                    FROM users WHERE username = 'legacy'
+                    """
+                ).fetchone()
+
+                self.assertEqual(row["access_role"], "admin")
+                self.assertEqual(row["employee_name_key"], "")
+
     def test_existing_authorizations_survive_multiple_interval_migration(self):
         with tempfile.TemporaryDirectory() as directory:
             database_path = Path(directory) / "legacy.sqlite3"

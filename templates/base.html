@@ -23,6 +23,7 @@
            class="{{ 'active' if request.endpoint == 'home' else '' }}">
           <span class="nav-icon">⌂</span> Inicio
         </a>
+        {% if g.user['access_role'] != 'worker' %}
         <a href="{{ url_for('employees') }}"
            class="{{ 'active' if request.endpoint == 'employees' else '' }}">
           <span class="nav-icon">♟</span> Trabajadores
@@ -35,17 +36,30 @@
            class="{{ 'active' if request.endpoint in ('vacations', 'create_vacation', 'delete_vacation') else '' }}">
           <span class="nav-icon">☀</span> Vacaciones
         </a>
+        {% endif %}
       </nav>
       <div class="sidebar-footer">
+        {% if g.user['access_role'] == 'worker' %}
+        <div class="user-chip">
+        {% else %}
         <a class="user-chip" href="{{ url_for('account') }}">
+        {% endif %}
           <span class="avatar">{{ g.user['display_name'][0]|upper }}</span>
           <span>
             <strong>{{ g.user['display_name'] }}</strong>
             <small>
-              {{ 'Supervisor · ' ~ g.user['supervised_area'] if g.user['supervised_area'] else 'Administrador' }}
+              {% if g.user['access_role'] == 'worker' %}
+                Trabajador
+              {% else %}
+                {{ 'Supervisor · ' ~ g.user['supervised_area'] if g.user['supervised_area'] else 'Administrador' }}
+              {% endif %}
             </small>
           </span>
+        {% if g.user['access_role'] == 'worker' %}
+        </div>
+        {% else %}
         </a>
+        {% endif %}
         <form method="post" action="{{ url_for('logout') }}">
           <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
           <button class="link-button" type="submit">Cerrar sesión</button>
