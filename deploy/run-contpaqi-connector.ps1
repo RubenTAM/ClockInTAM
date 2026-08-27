@@ -9,6 +9,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+Add-Type -AssemblyName System.Security
 
 function Unprotect-LocalMachineSecret([string]$Value) {
     $protected = [Convert]::FromBase64String($Value)

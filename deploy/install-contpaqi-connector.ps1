@@ -9,6 +9,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+Add-Type -AssemblyName System.Security
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $pythonPath = Join-Path $projectRoot ".venv-connector\Scripts\python.exe"
 $envPath = Join-Path $projectRoot ".env.connector"
