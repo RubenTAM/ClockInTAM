@@ -324,8 +324,8 @@ def process_payroll_download(settings: Settings, client: TiempoClient) -> bool:
     request_id = str(item.get("requestId") or "")
     try:
         employee_code = str(item["employeeCode"]).strip()
-        year = int(item["year"])
-        period = int(item["period"])
+        period_start = date.fromisoformat(str(item["periodStart"]))
+        period_end = date.fromisoformat(str(item["periodEnd"]))
         receipts = read_payroll_receipts(
             server=settings.sql_server,
             port=settings.sql_port,
@@ -333,8 +333,8 @@ def process_payroll_download(settings: Settings, client: TiempoClient) -> bool:
             username=settings.sql_username,
             password=settings.sql_password,
             employee_code=employee_code,
-            year=year,
-            period_number=period,
+            period_start=period_start,
+            period_end=period_end,
             limit=2,
         )
         if len(receipts) != 1:

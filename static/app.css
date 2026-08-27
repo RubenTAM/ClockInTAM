@@ -856,10 +856,23 @@ td.muted { max-width: 230px; overflow: hidden; text-overflow: ellipsis; }
   font-size: 1.45rem;
 }
 .payroll-request-form {
-  display: grid; grid-template-columns: 1fr 1fr auto; align-items: end;
+  display: grid; grid-template-columns: minmax(230px, .8fr) minmax(320px, 1.2fr) auto;
+  align-items: end;
   gap: 15px; margin-top: 28px; padding-top: 26px; border-top: 1px solid var(--line);
 }
 .payroll-download-button { min-height: 48px; white-space: nowrap; }
+.payroll-period-preview {
+  min-height: 48px; padding: 9px 14px; border: 1px solid #c6dce7;
+  border-radius: 11px; background: #f3f9fb;
+}
+.payroll-period-preview small, .payroll-period-preview strong,
+.payroll-period-preview span { display: block; }
+.payroll-period-preview small {
+  color: var(--muted); font-size: .62rem; font-weight: 800;
+  letter-spacing: .06em; text-transform: uppercase;
+}
+.payroll-period-preview strong { margin: 3px 0; font-size: .86rem; }
+.payroll-period-preview span { color: var(--muted); font-size: .68rem; }
 .payroll-privacy-note {
   display: flex; gap: 9px; margin-top: 20px; padding: 15px 17px;
   border: 1px solid #c6dce7; border-radius: 13px; background: #edf6fa;

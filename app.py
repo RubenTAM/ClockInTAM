@@ -173,7 +173,9 @@ class PayrollDownloadBroker:
         ]:
             self.jobs.pop(job_id, None)
 
-    def create(self, *, employee_code: str, year: int, period: int) -> str:
+    def create(
+        self, *, employee_code: str, period_start: date, period_end: date
+    ) -> str:
         with self.condition:
             self._purge_expired()
             if len(self.jobs) >= self.maximum_jobs:
@@ -181,8 +183,8 @@ class PayrollDownloadBroker:
             job_id = secrets.token_urlsafe(32)
             self.jobs[job_id] = {
                 "employee_code": employee_code,
-                "year": year,
-                "period": period,
+                "period_start": period_start.isoformat(),
+                "period_end": period_end.isoformat(),
                 "status": "queued",
                 "pdf": None,
                 "error": "",
@@ -1266,13 +1268,16 @@ def register_routes(app: Flask) -> None:
                 flash("Tu cuenta no tiene número de empleado vinculado.", "error")
                 return redirect(url_for("payroll_receipts"))
             try:
-                selected_year = int(request.form.get("year", ""))
-                selected_period = int(request.form.get("period", ""))
-            except ValueError:
-                flash("Indica un año y periodo válidos.", "error")
+                selected_date = parse_iso_date(
+                    request.form.get("period_date", ""), "periodo"
+                )
+            except ValueError as exc:
+                flash(str(exc), "error")
                 return redirect(url_for("payroll_receipts"))
-            if not 2020 <= selected_year <= local_today().year or not 1 <= selected_period <= 60:
-                flash("El año o periodo solicitado no es válido.", "error")
+            period_start = week_start_for(selected_date)
+            period_end = period_start + timedelta(days=6)
+            if period_start.year < 2020 or period_start > local_today():
+                flash("El periodo solicitado no es válido.", "error")
                 return redirect(url_for("payroll_receipts"))
             broker: PayrollDownloadBroker = current_app.extensions[
                 "payroll_download_broker"
@@ -1280,8 +1285,8 @@ def register_routes(app: Flask) -> None:
             try:
                 job_id = broker.create(
                     employee_code=employee_code,
-                    year=selected_year,
-                    period=selected_period,
+                    period_start=period_start,
+                    period_end=period_end,
                 )
             except RuntimeError as exc:
                 flash(str(exc), "error")
@@ -1292,7 +1297,7 @@ def register_routes(app: Flask) -> None:
                 return redirect(url_for("payroll_receipts"))
             response = Response(pdf, mimetype="application/pdf")
             response.headers["Content-Disposition"] = (
-                f'attachment; filename="recibo-{selected_year}-periodo-{selected_period}.pdf"'
+                f'attachment; filename="recibo-{period_start.isoformat()}-a-{period_end.isoformat()}.pdf"'
             )
             response.headers["Cache-Control"] = "no-store, private"
             response.headers["Pragma"] = "no-cache"
@@ -2554,8 +2559,8 @@ def register_routes(app: Flask) -> None:
         return jsonify({
             "requestId": job_id,
             "employeeCode": item["employee_code"],
-            "year": item["year"],
-            "period": item["period"],
+            "periodStart": item["period_start"],
+            "periodEnd": item["period_end"],
         })
 
     @app.post("/api/integraciones/contpaqi/recibos/solicitudes/<job_id>/resultado")

@@ -28,6 +28,30 @@
     updateSupervisedAreaVisibility();
   }
 
+  const payrollDate = document.querySelector("[data-payroll-period-date]");
+  const payrollLabel = document.querySelector("[data-payroll-period-label]");
+  if (payrollDate && payrollLabel) {
+    const weekdays = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+    const months = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+    const formatDate = (value) =>
+      `${weekdays[value.getDay()]} ${value.getDate()} de ${months[value.getMonth()]}`;
+    const updatePayrollPeriod = () => {
+      if (!payrollDate.value) {
+        payrollLabel.textContent = "Selecciona una fecha";
+        return;
+      }
+      const selected = new Date(`${payrollDate.value}T12:00:00`);
+      const daysSinceThursday = (selected.getDay() - 4 + 7) % 7;
+      const start = new Date(selected);
+      start.setDate(selected.getDate() - daysSinceThursday);
+      const end = new Date(start);
+      end.setDate(start.getDate() + 6);
+      payrollLabel.textContent = `${formatDate(start)} — ${formatDate(end)}`;
+    };
+    payrollDate.addEventListener("change", updatePayrollPeriod);
+    updatePayrollPeriod();
+  }
+
   const workerList = document.querySelector("#worker-list");
   if (!workerList) return;
 

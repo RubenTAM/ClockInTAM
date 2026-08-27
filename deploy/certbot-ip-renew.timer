@@ -1,0 +1,11 @@
+[Unit]
+Description=Renovación diaria del certificado TLS de Tiempo
+
+[Timer]
+OnCalendar=*-*-* 03:17:00
+RandomizedDelaySec=30m
+Persistent=true
+Unit=certbot-ip-renew.service
+
+[Install]
+WantedBy=timers.target

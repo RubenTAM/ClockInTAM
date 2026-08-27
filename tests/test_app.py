@@ -861,7 +861,11 @@ class AppFlowTests(unittest.TestCase):
         self.assertNotIn(b"Neto", page.data)
 
         broker = self.app.extensions["payroll_download_broker"]
-        job_id = broker.create(employee_code="017", year=2026, period=32)
+        job_id = broker.create(
+            employee_code="017",
+            period_start=date(2026, 8, 20),
+            period_end=date(2026, 8, 26),
+        )
         connector = self.app.test_client()
         denied = connector.post(
             "/api/integraciones/contpaqi/recibos/solicitudes/tomar"
@@ -873,6 +877,8 @@ class AppFlowTests(unittest.TestCase):
         )
         self.assertEqual(claimed.status_code, 200)
         self.assertEqual(claimed.get_json()["employeeCode"], "017")
+        self.assertEqual(claimed.get_json()["periodStart"], "2026-08-20")
+        self.assertEqual(claimed.get_json()["periodEnd"], "2026-08-26")
         delivered = connector.post(
             f"/api/integraciones/contpaqi/recibos/solicitudes/{job_id}/resultado",
             data={"pdf": (io.BytesIO(b"%PDF-1.4\n%%EOF\n"), "recibo.pdf")},

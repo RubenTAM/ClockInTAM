@@ -54,13 +54,12 @@ try {
     icacls $envPath /inheritance:r | Out-Null
     icacls $envPath /grant:r "*S-1-5-18:(F)" "*S-1-5-32-544:(F)" | Out-Null
 
-    $arguments = "-m nomina.apply_vacation_requests --env-file `"$envPath`""
+    $arguments = "-m nomina.apply_vacation_requests --watch --interval 5 --env-file `"$envPath`""
     $action = New-ScheduledTaskAction `
         -Execute $pythonPath `
         -Argument $arguments `
         -WorkingDirectory $projectRoot
-    $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) `
-        -RepetitionInterval (New-TimeSpan -Minutes 1)
+    $trigger = New-ScheduledTaskTrigger -AtStartup
     $principal = New-ScheduledTaskPrincipal `
         -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
     $settings = New-ScheduledTaskSettingsSet `

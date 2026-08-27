@@ -22,21 +22,18 @@
     </div>
   </div>
 
-  <form method="post" class="payroll-request-form">
+  <form method="post" class="payroll-request-form" data-payroll-period-form>
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <label>
-      Año
-      <select name="year" required>
-        {% for year in range(current_year, 2019, -1) %}
-          <option value="{{ year }}">{{ year }}</option>
-        {% endfor %}
-      </select>
+      Selecciona una fecha del periodo
+      <input type="date" name="period_date" max="{{ today.isoformat() }}"
+             value="{{ today.isoformat() }}" required data-payroll-period-date>
     </label>
-    <label>
-      Periodo
-      <input type="number" name="period" min="1" max="60"
-             inputmode="numeric" placeholder="Ej. 32" required>
-    </label>
+    <div class="payroll-period-preview" aria-live="polite">
+      <small>Periodo laboral</small>
+      <strong data-payroll-period-label>Calculando fechas…</strong>
+      <span>Jueves a miércoles</span>
+    </div>
     <button class="button primary payroll-download-button" type="submit"
             {% if not download_enabled %}disabled{% endif %}>
       {{ 'Generar y descargar PDF ↓' if download_enabled else 'Disponible al activar conexión segura' }}

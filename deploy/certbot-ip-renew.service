@@ -1,0 +1,13 @@
+[Unit]
+Description=Renueva el certificado TLS corto de Tiempo
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/certbot/bin/certbot renew --quiet
+ExecStartPost=/usr/sbin/nginx -t
+ExecStartPost=/bin/systemctl reload nginx
+PrivateTmp=true
+NoNewPrivileges=true
+
