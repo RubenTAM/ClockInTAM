@@ -1,18 +1,27 @@
 {% extends "base.html" %}
 {% block title %}Vacaciones · Tiempo{% endblock %}
+{% block body_class %}vacations-page{% endblock %}
 {% block content %}
-<header class="page-header">
+<header class="page-header vacations-page-header">
   <div>
     <span class="eyebrow">Ausencias autorizadas</span>
     <h1>Vacaciones</h1>
-    <p>Selecciona un trabajador y registra su periodo de vacaciones.</p>
+    <p>Asigna vacaciones y consulta quién estará ausente en cada fecha.</p>
   </div>
 </header>
 
 <section class="vacations-layout" data-vacations-page>
-  <article class="panel vacations-workers-panel">
+  <aside class="panel vacations-workers-panel">
+    <div class="vacations-workers-heading">
+      <div>
+        <span class="eyebrow">Equipo</span>
+        <h2>Trabajadores</h2>
+      </div>
+      <span class="vacations-worker-count">{{ employees|length }}</span>
+    </div>
     <div class="vacations-toolbar">
       <form method="get">
+        <input type="hidden" name="mes" value="{{ calendar_month.strftime('%Y-%m') }}">
         <label for="vacation-group">Grupo de trabajadores</label>
         <select id="vacation-group" name="grupo" onchange="this.form.submit()">
           {% for area in employee_areas %}
@@ -22,13 +31,11 @@
           {% endfor %}
         </select>
       </form>
-      <label>
-        Buscar trabajador
-        <input type="search" placeholder="Escribe un nombre…"
-               autocomplete="off" data-vacation-search>
-      </label>
+      <label for="vacation-search">Buscar trabajador</label>
+      <input id="vacation-search" type="search" placeholder="Escribe un nombre…"
+             autocomplete="off" data-vacation-search>
     </div>
-    <div class="vacation-worker-grid" data-vacation-workers>
+    <div class="vacation-worker-list" data-vacation-workers>
       {% for employee in employees %}
         <button type="button" class="vacation-worker-card"
                 data-vacation-worker
@@ -42,87 +49,82 @@
           {% else %}
             <span class="worker-avatar">{{ employee.employee_name[0]|upper }}</span>
           {% endif %}
-          <span>
+          <span class="vacation-worker-copy">
             <strong>{{ employee.employee_name }}</strong>
             <small>{% if employee.employee_code %}No. {{ employee.employee_code }} · {% endif %}{{ employee.area }}</small>
           </span>
-          <span class="vacation-add" aria-hidden="true">＋</span>
+          <span class="vacation-assign-button" aria-hidden="true">
+            <span>＋</span> Asignar
+          </span>
         </button>
       {% else %}
         <p class="worker-state">No hay trabajadores en este grupo.</p>
       {% endfor %}
     </div>
-    <p class="home-search-empty" data-vacation-empty hidden>No hay coincidencias.</p>
-  </article>
-
-  <aside class="panel vacations-records-panel">
-    <div class="panel-header">
-      <div>
-        <h2>Periodos vacacionales activos</h2>
-        <p>{{ selected_group or 'Selecciona un grupo' }}</p>
-      </div>
-    </div>
-    <div class="vacation-records">
-      {% for vacation in vacation_rows %}
-        <article class="vacation-record">
-          <div>
-            <strong>{{ vacation.employee_name }}</strong>
-            <span>{{ vacation.start_date|date_es }} — {{ vacation.end_date|date_es }}</span>
-            <small>Registrado por {{ vacation.created_by_name }}</small>
-          </div>
-          <form method="post"
-                action="{{ url_for('delete_vacation', vacation_id=vacation.id) }}"
-                data-confirm="¿Eliminar este periodo de vacaciones?">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            <button type="submit" class="danger-link">Eliminar</button>
-          </form>
-        </article>
-      {% else %}
-        <div class="empty-state compact">
-          <span class="empty-icon">☀</span>
-          <p>No hay periodos vacacionales activos para este grupo.</p>
-        </div>
-      {% endfor %}
-    </div>
-
-    <details class="vacation-history" data-vacation-history>
-      <summary>
-        <span>Consultar periodos anteriores</span>
-        <small>{{ vacation_history_rows|length }} periodo{{ '' if vacation_history_rows|length == 1 else 's' }} aprobado{{ '' if vacation_history_rows|length == 1 else 's' }}</small>
-      </summary>
-      <div class="vacation-history-search">
-        <label>
-          Buscar por nombre del trabajador
-          <input type="search" placeholder="Escribe un nombre…"
-                 autocomplete="off" data-vacation-history-search>
-        </label>
-      </div>
-      <div class="vacation-records vacation-history-records">
-        {% for vacation in vacation_history_rows %}
-          <article class="vacation-record" hidden
-                   data-vacation-history-row
-                   data-history-name="{{ vacation.employee_name }}">
-            <div>
-              <strong>{{ vacation.employee_name }}</strong>
-              <span>{{ vacation.start_date|date_es }} — {{ vacation.end_date|date_es }}</span>
-              <small>Aprobado por {{ vacation.created_by_name }}</small>
-            </div>
-          </article>
-        {% else %}
-          <div class="empty-state compact" data-vacation-history-none>
-            <span class="empty-icon">⌕</span>
-            <p>Aún no hay periodos anteriores almacenados.</p>
-          </div>
-        {% endfor %}
-        {% if vacation_history_rows %}
-          <p class="vacation-history-prompt" data-vacation-history-prompt>
-            Escribe el nombre de un trabajador para consultar sus periodos anteriores.
-          </p>
-        {% endif %}
-        <p class="home-search-empty" data-vacation-history-empty hidden>No hay coincidencias en el historial.</p>
-      </div>
-    </details>
+    <p class="home-search-empty vacation-search-empty" data-vacation-empty hidden>
+      No hay coincidencias.
+    </p>
   </aside>
+
+  <article class="panel vacation-calendar-panel">
+    <header class="vacation-calendar-header">
+      <div>
+        <span class="eyebrow">Calendario mensual</span>
+        <h2>{{ calendar_month_label }}</h2>
+        <p>{{ selected_group or 'Todos los grupos' }}</p>
+      </div>
+      <nav class="vacation-month-nav" aria-label="Cambiar mes">
+        <a class="vacation-month-button"
+           href="{{ url_for('vacations', grupo=selected_group, mes=previous_month) }}"
+           aria-label="Mes anterior">‹</a>
+        <a class="vacation-today-button"
+           href="{{ url_for('vacations', grupo=selected_group, mes=current_month) }}">Hoy</a>
+        <a class="vacation-month-button"
+           href="{{ url_for('vacations', grupo=selected_group, mes=next_month) }}"
+           aria-label="Mes siguiente">›</a>
+      </nav>
+    </header>
+
+    <div class="vacation-calendar-scroll">
+      <div class="vacation-calendar" role="grid" aria-label="{{ calendar_month_label }}">
+        <div class="vacation-weekdays" role="row">
+          {% for weekday in ('dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb') %}
+            <span role="columnheader">{{ weekday }}</span>
+          {% endfor %}
+        </div>
+        <div class="vacation-month-grid">
+          {% for cell in calendar_cells %}
+            <section class="vacation-calendar-day{{ '' if cell.is_current_month else ' outside-month' }}"
+                     role="gridcell" aria-label="{{ cell.date|date_es }}">
+              <time datetime="{{ cell.date }}"
+                    class="vacation-day-number{{ ' today' if cell.is_today else '' }}">
+                {{ cell.day_label }}
+              </time>
+              <div class="vacation-day-events">
+                {% for vacation in cell.vacations %}
+                  <div class="vacation-calendar-event"
+                       title="{{ vacation.employee_name }} · {{ vacation.start_date|date_es }} — {{ vacation.end_date|date_es }}">
+                    <span>{{ vacation.employee_name }}</span>
+                    <form method="post"
+                          action="{{ url_for('delete_vacation', vacation_id=vacation.id) }}"
+                          data-confirm="¿Eliminar las vacaciones de {{ vacation.employee_name }}?">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                      <input type="hidden" name="calendar_month" value="{{ calendar_month.strftime('%Y-%m') }}">
+                      <button type="submit" aria-label="Eliminar vacaciones de {{ vacation.employee_name }}">×</button>
+                    </form>
+                  </div>
+                {% endfor %}
+              </div>
+            </section>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    <footer class="vacation-calendar-legend">
+      <span><i></i> Trabajador de vacaciones</span>
+      <span><b>{{ today.day }}</b> Día actual</span>
+    </footer>
+  </article>
 </section>
 
 <dialog class="authorization-dialog vacation-dialog" id="vacation-dialog">
@@ -131,6 +133,7 @@
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <input type="hidden" name="employee_name_key" id="vacation-employee-key">
     <input type="hidden" name="group_name" value="{{ selected_group }}">
+    <input type="hidden" name="calendar_month" value="{{ calendar_month.strftime('%Y-%m') }}">
     <div class="dialog-heading">
       <div>
         <span class="eyebrow">Nuevo periodo</span>
@@ -151,7 +154,7 @@
       </label>
     </div>
     <p class="vacation-help">
-      Estos días se mostrarán en amarillo y no generarán alertas por falta de checada.
+      El nombre del trabajador aparecerá en cada día de este periodo.
     </p>
     <div class="dialog-actions">
       <button type="button" class="button ghost" data-vacation-close>Cancelar</button>

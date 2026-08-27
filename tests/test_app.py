@@ -1553,7 +1553,7 @@ class AppFlowTests(unittest.TestCase):
         self.assertIn(b".is-filtered-out", stylesheet.data)
         stylesheet.close()
 
-    def test_vacations_page_separates_active_periods_from_history(self):
+    def test_vacations_calendar_shows_past_current_and_future_periods(self):
         self.initialize_admin()
         self.login()
         with self.app.app_context():
@@ -1587,20 +1587,17 @@ class AppFlowTests(unittest.TestCase):
             )
 
         self.assertEqual(response.status_code, 200)
-        self.assertIn(b"Periodos vacacionales activos", response.data)
-        active_section, history_section = response.data.split(
-            b'<details class="vacation-history"', 1
+        self.assertIn(b"Agosto de 2026", response.data)
+        self.assertIn(b"Periodo Pasado", response.data)
+        self.assertIn(b"Periodo Vigente", response.data)
+        self.assertIn(b"Periodo Futuro", response.data)
+        self.assertIn(
+            b'datetime="2026-08-25"\n                    class="vacation-day-number today"',
+            response.data,
         )
-        self.assertNotIn(b"Periodo Pasado", active_section)
-        self.assertIn(b"Periodo Vigente", active_section)
-        self.assertIn(b"Periodo Futuro", active_section)
-        self.assertIn(b"Periodo Pasado", history_section)
-        self.assertNotIn(b"Periodo Vigente", history_section)
-        self.assertIn(b"data-vacation-history-search", history_section)
-        self.assertIn(b'data-vacation-history-row', history_section)
-        self.assertIn(b'<article class="vacation-record" hidden', history_section)
-        self.assertIn(b'data-history-name="Periodo Pasado"', history_section)
-        self.assertNotIn(b"data-history-search", history_section)
+        self.assertIn(b'data-vacation-worker', response.data)
+        self.assertIn(b'aria-label="Mes anterior"', response.data)
+        self.assertIn(b'aria-label="Mes siguiente"', response.data)
 
     def test_incident_permission_checkbox_is_persisted(self):
         self.initialize_admin()

@@ -2127,6 +2127,33 @@ def register_routes(app: Flask) -> None:
     @app.get("/vacaciones")
     @login_required
     def vacations():
+        today = local_today()
+        requested_month = request.args.get("mes", "").strip()
+        try:
+            calendar_month = (
+                datetime.strptime(requested_month, "%Y-%m").date().replace(day=1)
+                if requested_month
+                else today.replace(day=1)
+            )
+        except ValueError:
+            abort(400, "El mes seleccionado no es válido.")
+
+        previous_month = (
+            calendar_month - timedelta(days=1)
+        ).replace(day=1)
+        next_month = (
+            calendar_month.replace(day=28) + timedelta(days=4)
+        ).replace(day=1)
+        # The reference calendar starts on Sunday and always shows complete weeks.
+        calendar_start = calendar_month - timedelta(
+            days=(calendar_month.weekday() + 1) % 7
+        )
+        next_month_start = next_month
+        month_last_day = next_month_start - timedelta(days=1)
+        calendar_end = month_last_day + timedelta(
+            days=(5 - month_last_day.weekday()) % 7
+        )
+
         active_groups = [
             group for group in employee_groups()
             if not is_inactive_group(group)
@@ -2152,40 +2179,66 @@ def register_routes(app: Flask) -> None:
                 worker["employee_name"]
             )
         connection = get_db()
-        today_iso = local_today().isoformat()
-        vacation_rows = connection.execute(
+        calendar_vacations = connection.execute(
             """
-            SELECT v.*, e.area, u.display_name AS created_by_name
+            SELECT v.*, e.area
             FROM vacations v
             LEFT JOIN employees e
               ON e.employee_name_key = v.employee_name_key
-            JOIN users u ON u.id = v.created_by
             WHERE (? = '' OR e.area = ? COLLATE NOCASE)
-              AND v.end_date >= ?
-            ORDER BY v.start_date, v.employee_name_key
+              AND v.start_date <= ? AND v.end_date >= ?
+            ORDER BY v.employee_name_key, v.start_date, v.id
             """,
-            (selected_group, selected_group, today_iso),
+            (
+                selected_group,
+                selected_group,
+                calendar_end.isoformat(),
+                calendar_start.isoformat(),
+            ),
         ).fetchall()
-        vacation_history_rows = connection.execute(
-            """
-            SELECT v.*, e.area, u.display_name AS created_by_name
-            FROM vacations v
-            LEFT JOIN employees e
-              ON e.employee_name_key = v.employee_name_key
-            JOIN users u ON u.id = v.created_by
-            WHERE (? = '' OR e.area = ? COLLATE NOCASE)
-              AND v.end_date < ?
-            ORDER BY v.end_date DESC, v.employee_name_key
-            """,
-            (selected_group, selected_group, today_iso),
-        ).fetchall()
+        vacation_days: dict[date, list[dict]] = {}
+        for vacation in calendar_vacations:
+            vacation_start = max(
+                date.fromisoformat(vacation["start_date"]), calendar_start
+            )
+            vacation_end = min(
+                date.fromisoformat(vacation["end_date"]), calendar_end
+            )
+            for offset in range((vacation_end - vacation_start).days + 1):
+                work_date = vacation_start + timedelta(days=offset)
+                vacation_days.setdefault(work_date, []).append(dict(vacation))
+
+        calendar_cells = []
+        for offset in range((calendar_end - calendar_start).days + 1):
+            work_date = calendar_start + timedelta(days=offset)
+            calendar_cells.append(
+                {
+                    "date": work_date,
+                    "day_label": (
+                        f"{work_date.day} {MONTH_NAMES[work_date.month][:3]}"
+                        if work_date.day == 1 and work_date.month != calendar_month.month
+                        else str(work_date.day)
+                    ),
+                    "is_current_month": work_date.month == calendar_month.month,
+                    "is_today": work_date == today,
+                    "vacations": vacation_days.get(work_date, []),
+                }
+            )
         return render_template(
             "vacations.html",
             employees=workers,
             employee_areas=available_groups,
             selected_group=selected_group,
-            vacation_rows=vacation_rows,
-            vacation_history_rows=vacation_history_rows,
+            calendar_month=calendar_month,
+            calendar_month_label=(
+                f"{MONTH_NAMES[calendar_month.month].capitalize()} "
+                f"de {calendar_month.year}"
+            ),
+            previous_month=previous_month.strftime("%Y-%m"),
+            next_month=next_month.strftime("%Y-%m"),
+            current_month=today.strftime("%Y-%m"),
+            today=today,
+            calendar_cells=calendar_cells,
         )
 
     @app.post("/vacaciones/nueva")
@@ -2194,6 +2247,11 @@ def register_routes(app: Flask) -> None:
         validate_csrf()
         employee_key = request.form.get("employee_name_key", "").strip()
         group_name = request.form.get("group_name", "").strip()
+        calendar_month = request.form.get("calendar_month", "").strip()
+        try:
+            datetime.strptime(calendar_month, "%Y-%m")
+        except ValueError:
+            calendar_month = ""
         try:
             start_date = parse_iso_date(
                 request.form.get("start_date", ""), "fecha inicial"
@@ -2203,10 +2261,14 @@ def register_routes(app: Flask) -> None:
             )
         except ValueError as exc:
             flash(str(exc), "error")
-            return redirect(url_for("vacations", grupo=group_name))
+            return redirect(
+                url_for("vacations", grupo=group_name, mes=calendar_month)
+            )
         if end_date < start_date:
             flash("La fecha final no puede ser anterior a la inicial.", "error")
-            return redirect(url_for("vacations", grupo=group_name))
+            return redirect(
+                url_for("vacations", grupo=group_name, mes=calendar_month)
+            )
 
         connection = get_db()
         employee = connection.execute(
@@ -2236,7 +2298,11 @@ def register_routes(app: Flask) -> None:
                 "Ese trabajador ya tiene vacaciones en parte de ese periodo.",
                 "error",
             )
-            return redirect(url_for("vacations", grupo=employee["area"]))
+            return redirect(
+                url_for(
+                    "vacations", grupo=employee["area"], mes=calendar_month
+                )
+            )
 
         cursor = connection.execute(
             """
@@ -2270,12 +2336,19 @@ def register_routes(app: Flask) -> None:
         )
         connection.commit()
         flash("El periodo de vacaciones fue guardado.", "success")
-        return redirect(url_for("vacations", grupo=employee["area"]))
+        return redirect(
+            url_for("vacations", grupo=employee["area"], mes=calendar_month)
+        )
 
     @app.post("/vacaciones/<int:vacation_id>/eliminar")
     @login_required
     def delete_vacation(vacation_id: int):
         validate_csrf()
+        calendar_month = request.form.get("calendar_month", "").strip()
+        try:
+            datetime.strptime(calendar_month, "%Y-%m")
+        except ValueError:
+            calendar_month = ""
         connection = get_db()
         vacation = connection.execute(
             """
@@ -2303,7 +2376,13 @@ def register_routes(app: Flask) -> None:
         )
         connection.commit()
         flash("El periodo de vacaciones fue eliminado.", "success")
-        return redirect(url_for("vacations", grupo=vacation["area"] or ""))
+        return redirect(
+            url_for(
+                "vacations",
+                grupo=vacation["area"] or "",
+                mes=calendar_month,
+            )
+        )
 
     @app.get("/resumen")
     @login_required
