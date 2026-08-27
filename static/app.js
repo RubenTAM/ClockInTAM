@@ -52,6 +52,74 @@
     updatePayrollPeriod();
   }
 
+  const payrollForm = document.querySelector("[data-payroll-period-form]");
+  const payrollStatus = document.querySelector("[data-payroll-generation-status]");
+  if (payrollForm && payrollStatus) {
+    const submitButton = payrollForm.querySelector('button[type="submit"]');
+    const readyPeriod = payrollStatus.querySelector("[data-payroll-ready-period]");
+    const errorMessage = payrollStatus.querySelector("[data-payroll-error-message]");
+    const downloadLink = payrollStatus.querySelector("[data-payroll-download-link]");
+    const delay = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+    const readError = async (response) => {
+      try {
+        const payload = await response.json();
+        return payload.error || "No fue posible generar el recibo.";
+      } catch (_error) {
+        return "No fue posible generar el recibo.";
+      }
+    };
+    const showError = (message) => {
+      payrollStatus.hidden = false;
+      payrollStatus.dataset.state = "error";
+      errorMessage.textContent = message;
+      submitButton.disabled = false;
+      submitButton.textContent = "Intentar nuevamente";
+    };
+
+    payrollForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      submitButton.disabled = true;
+      submitButton.textContent = "Generando…";
+      payrollStatus.hidden = false;
+      payrollStatus.dataset.state = "loading";
+      downloadLink.removeAttribute("href");
+
+      try {
+        const created = await fetch(payrollForm.dataset.createUrl, {
+          method: "POST",
+          body: new FormData(payrollForm),
+          headers: { Accept: "application/json" },
+        });
+        if (!created.ok) throw new Error(await readError(created));
+        const job = await created.json();
+        const statusUrl = `/api/recibos-nomina/solicitudes/${encodeURIComponent(job.jobId)}`;
+
+        while (true) {
+          await delay(1400);
+          const response = await fetch(statusUrl, {
+            headers: { Accept: "application/json" },
+            cache: "no-store",
+          });
+          if (!response.ok) throw new Error(await readError(response));
+          const result = await response.json();
+          if (result.status === "failed") {
+            throw new Error(result.error || "CONTPAQi no pudo generar el recibo.");
+          }
+          if (result.status === "ready") {
+            readyPeriod.textContent = payrollLabel?.textContent || "Periodo seleccionado";
+            downloadLink.href = `/recibos-nomina/solicitudes/${encodeURIComponent(job.jobId)}/descargar`;
+            payrollStatus.dataset.state = "ready";
+            submitButton.disabled = false;
+            submitButton.textContent = "Generar otro recibo";
+            break;
+          }
+        }
+      } catch (error) {
+        showError(error.message || "No fue posible generar el recibo.");
+      }
+    });
+  }
+
   const workerList = document.querySelector("#worker-list");
   if (!workerList) return;
 

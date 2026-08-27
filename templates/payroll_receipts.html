@@ -22,7 +22,8 @@
     </div>
   </div>
 
-  <form method="post" class="payroll-request-form" data-payroll-period-form>
+  <form method="post" class="payroll-request-form" data-payroll-period-form
+        data-create-url="{{ url_for('create_worker_payroll_download') }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <label>
       Selecciona una fecha del periodo
@@ -36,13 +37,35 @@
     </div>
     <button class="button primary payroll-download-button" type="submit"
             {% if not download_enabled %}disabled{% endif %}>
-      {{ 'Generar y descargar PDF ↓' if download_enabled else 'Disponible al activar conexión segura' }}
+      {{ 'Generar recibo' if download_enabled else 'Disponible al activar conexión segura' }}
     </button>
   </form>
 
-  <div class="payroll-privacy-note">
-    <strong>Descarga de una sola vez</strong>
-    <span>El documento viaja únicamente durante esta solicitud y no queda guardado en tu cuenta.</span>
+  <div class="payroll-generation-status" data-payroll-generation-status hidden>
+    <div class="payroll-status-view payroll-status-loading">
+      <span class="payroll-loader" aria-hidden="true"></span>
+      <div>
+        <strong>Generando tu recibo</strong>
+        <span>CONTPAQi está preparando el PDF. Puedes permanecer en esta pantalla.</span>
+      </div>
+    </div>
+    <div class="payroll-status-view payroll-status-ready">
+      <span class="payroll-pdf-icon" aria-hidden="true">PDF</span>
+      <div class="payroll-ready-copy">
+        <strong>Tu recibo está listo</strong>
+        <span data-payroll-ready-period></span>
+      </div>
+      <a class="button payroll-ready-button" href="#" data-payroll-download-link>
+        Descargar PDF ↓
+      </a>
+    </div>
+    <div class="payroll-status-view payroll-status-error">
+      <span class="payroll-error-icon" aria-hidden="true">!</span>
+      <div>
+        <strong>No pudimos generar el recibo</strong>
+        <span data-payroll-error-message></span>
+      </div>
+    </div>
   </div>
   {% if not download_enabled %}
     <div class="callout pending-callout">

@@ -174,7 +174,8 @@ class PayrollDownloadBroker:
             self.jobs.pop(job_id, None)
 
     def create(
-        self, *, employee_code: str, period_start: date, period_end: date
+        self, *, employee_code: str, period_start: date, period_end: date,
+        owner_id: int | None = None,
     ) -> str:
         with self.condition:
             self._purge_expired()
@@ -185,6 +186,7 @@ class PayrollDownloadBroker:
                 "employee_code": employee_code,
                 "period_start": period_start.isoformat(),
                 "period_end": period_end.isoformat(),
+                "owner_id": owner_id,
                 "status": "queued",
                 "pdf": None,
                 "error": "",
@@ -211,8 +213,33 @@ class PayrollDownloadBroker:
             item["pdf"] = pdf
             item["error"] = error
             item["status"] = "ready" if pdf is not None else "failed"
+            item["expires_at"] = monotonic() + self.lifetime_seconds
             self.condition.notify_all()
             return True
+
+    def status(self, job_id: str, *, owner_id: int) -> dict | None:
+        with self.condition:
+            self._purge_expired()
+            item = self.jobs.get(job_id)
+            if item is None or item.get("owner_id") != owner_id:
+                return None
+            return {
+                "status": item["status"],
+                "error": item["error"] if item["status"] == "failed" else "",
+                "period_start": item["period_start"],
+                "period_end": item["period_end"],
+            }
+
+    def consume_ready(self, job_id: str, *, owner_id: int) -> tuple[str, dict | None]:
+        with self.condition:
+            self._purge_expired()
+            item = self.jobs.get(job_id)
+            if item is None or item.get("owner_id") != owner_id:
+                return "missing", None
+            if item["status"] not in {"ready", "failed"}:
+                return "pending", None
+            self.jobs.pop(job_id, None)
+            return item["status"], dict(item)
 
     def wait_and_consume(self, job_id: str) -> tuple[bytes | None, str]:
         with self.condition:
@@ -444,6 +471,9 @@ def register_context(app: Flask) -> None:
                     "request_vacation",
                     "mailbox",
                     "payroll_receipts",
+                    "create_worker_payroll_download",
+                    "worker_payroll_download_status",
+                    "download_worker_payroll_receipt",
                     "delete_vacation_request",
                     "clear_mailbox",
                     "static",
@@ -1287,6 +1317,7 @@ def register_routes(app: Flask) -> None:
                     employee_code=employee_code,
                     period_start=period_start,
                     period_end=period_end,
+                    owner_id=int(g.user["id"]),
                 )
             except RuntimeError as exc:
                 flash(str(exc), "error")
@@ -1308,6 +1339,79 @@ def register_routes(app: Flask) -> None:
             current_year=local_today().year,
             download_enabled=current_app.config["PAYROLL_DOWNLOAD_ENABLED"],
         )
+
+    @app.post("/api/recibos-nomina/solicitudes")
+    @login_required
+    def create_worker_payroll_download():
+        if g.user["access_role"] != "worker":
+            abort(403)
+        validate_csrf()
+        if not current_app.config["PAYROLL_DOWNLOAD_ENABLED"]:
+            return jsonify({"error": "La conexión segura no está disponible."}), 503
+        employee = get_db().execute(
+            "SELECT employee_code FROM employees WHERE employee_name_key = ?",
+            (g.user["employee_name_key"],),
+        ).fetchone()
+        employee_code = str(employee["employee_code"] or "").strip() if employee else ""
+        if not employee_code:
+            return jsonify({"error": "Tu cuenta no tiene número de empleado vinculado."}), 422
+        try:
+            selected_date = parse_iso_date(request.form.get("period_date", ""), "periodo")
+        except ValueError as exc:
+            return jsonify({"error": str(exc)}), 400
+        period_start = week_start_for(selected_date)
+        period_end = period_start + timedelta(days=6)
+        if period_start.year < 2020 or period_start > local_today():
+            return jsonify({"error": "El periodo solicitado no es válido."}), 400
+        broker: PayrollDownloadBroker = current_app.extensions["payroll_download_broker"]
+        try:
+            job_id = broker.create(
+                employee_code=employee_code,
+                period_start=period_start,
+                period_end=period_end,
+                owner_id=int(g.user["id"]),
+            )
+        except RuntimeError as exc:
+            return jsonify({"error": str(exc)}), 429
+        return jsonify({
+            "jobId": job_id,
+            "status": "queued",
+            "periodStart": period_start.isoformat(),
+            "periodEnd": period_end.isoformat(),
+        }), 202
+
+    @app.get("/api/recibos-nomina/solicitudes/<job_id>")
+    @login_required
+    def worker_payroll_download_status(job_id: str):
+        if g.user["access_role"] != "worker" or not re.fullmatch(r"[A-Za-z0-9_-]{40,60}", job_id):
+            abort(404)
+        broker: PayrollDownloadBroker = current_app.extensions["payroll_download_broker"]
+        item = broker.status(job_id, owner_id=int(g.user["id"]))
+        if item is None:
+            return jsonify({"error": "La solicitud venció. Genera el recibo nuevamente."}), 410
+        return jsonify({"status": item["status"], "error": item["error"]})
+
+    @app.get("/recibos-nomina/solicitudes/<job_id>/descargar")
+    @login_required
+    def download_worker_payroll_receipt(job_id: str):
+        if g.user["access_role"] != "worker" or not re.fullmatch(r"[A-Za-z0-9_-]{40,60}", job_id):
+            abort(404)
+        broker: PayrollDownloadBroker = current_app.extensions["payroll_download_broker"]
+        state, item = broker.consume_ready(job_id, owner_id=int(g.user["id"]))
+        if state == "missing":
+            abort(410, "La descarga venció.")
+        if state == "pending":
+            abort(409, "El recibo todavía se está generando.")
+        if state == "failed" or item is None or item["pdf"] is None:
+            abort(422, item["error"] if item else "No fue posible generar el recibo.")
+        response = Response(item["pdf"], mimetype="application/pdf")
+        response.headers["Content-Disposition"] = (
+            f'attachment; filename="recibo-{item["period_start"]}-a-{item["period_end"]}.pdf"'
+        )
+        response.headers["Cache-Control"] = "no-store, private"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        return response
 
     @app.post("/permisos-incidencia")
     @login_required

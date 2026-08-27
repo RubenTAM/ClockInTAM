@@ -856,16 +856,22 @@ class AppFlowTests(unittest.TestCase):
         )
         page = self.client.get("/recibos-nomina")
         self.assertEqual(page.status_code, 200)
-        self.assertIn(b"Generar y descargar PDF", page.data)
+        self.assertIn(b"Generar recibo", page.data)
+        self.assertIn(b"Generando tu recibo", page.data)
+        self.assertIn(b"Descargar PDF", page.data)
+        self.assertNotIn(b"Descarga de una sola vez", page.data)
         self.assertNotIn(b"Historial", page.data)
         self.assertNotIn(b"Neto", page.data)
 
-        broker = self.app.extensions["payroll_download_broker"]
-        job_id = broker.create(
-            employee_code="017",
-            period_start=date(2026, 8, 20),
-            period_end=date(2026, 8, 26),
+        created = self.client.post(
+            "/api/recibos-nomina/solicitudes",
+            data={
+                "csrf_token": self.csrf_token(),
+                "period_date": "2026-08-20",
+            },
         )
+        self.assertEqual(created.status_code, 202)
+        job_id = created.get_json()["jobId"]
         connector = self.app.test_client()
         denied = connector.post(
             "/api/integraciones/contpaqi/recibos/solicitudes/tomar"
@@ -885,9 +891,20 @@ class AppFlowTests(unittest.TestCase):
             headers={"Authorization": "Bearer sync-test-token"},
         )
         self.assertEqual(delivered.status_code, 200)
-        pdf, error = broker.wait_and_consume(job_id)
-        self.assertTrue(pdf.startswith(b"%PDF-"))
-        self.assertEqual(error, "")
+        status = self.client.get(f"/api/recibos-nomina/solicitudes/{job_id}")
+        self.assertEqual(status.get_json()["status"], "ready")
+        download = self.client.get(
+            f"/recibos-nomina/solicitudes/{job_id}/descargar"
+        )
+        self.assertEqual(download.status_code, 200)
+        self.assertTrue(download.data.startswith(b"%PDF-"))
+        self.assertEqual(download.headers["Cache-Control"], "no-store, private")
+        self.assertEqual(
+            self.client.get(
+                f"/api/recibos-nomina/solicitudes/{job_id}"
+            ).status_code,
+            410,
+        )
         with self.app.app_context():
             tables = {
                 row["name"] for row in get_db().execute(

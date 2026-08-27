@@ -846,7 +846,7 @@ td.muted { max-width: 230px; overflow: hidden; text-overflow: ellipsis; }
 .account-panel { max-width: 620px; }
 
 .payroll-header { width: 100%; }
-.payroll-request-panel { width: 100%; max-width: 980px; padding: 30px; }
+.payroll-request-panel { width: 100%; max-width: none; padding: 30px; }
 .payroll-request-copy { display: flex; align-items: flex-start; gap: 18px; }
 .payroll-request-copy h2 { margin: 4px 0 7px; }
 .payroll-request-copy p { max-width: 650px; margin: 0; }
@@ -873,12 +873,37 @@ td.muted { max-width: 230px; overflow: hidden; text-overflow: ellipsis; }
 }
 .payroll-period-preview strong { margin: 3px 0; font-size: .86rem; }
 .payroll-period-preview span { color: var(--muted); font-size: .68rem; }
-.payroll-privacy-note {
-  display: flex; gap: 9px; margin-top: 20px; padding: 15px 17px;
-  border: 1px solid #c6dce7; border-radius: 13px; background: #edf6fa;
-  color: var(--muted); font-size: .82rem;
+.payroll-generation-status { margin-top: 20px; }
+.payroll-status-view {
+  min-height: 82px; display: none; align-items: center; gap: 16px;
+  padding: 16px 18px; border: 1px solid #b9ddcf; border-radius: 15px;
+  background: #edf9f4;
 }
-.payroll-privacy-note strong { color: var(--ink); white-space: nowrap; }
+.payroll-generation-status[data-state="loading"] .payroll-status-loading,
+.payroll-generation-status[data-state="ready"] .payroll-status-ready,
+.payroll-generation-status[data-state="error"] .payroll-status-error { display: flex; }
+.payroll-status-view strong, .payroll-status-view span { display: block; }
+.payroll-status-view strong { margin-bottom: 4px; }
+.payroll-status-view span { color: var(--muted); font-size: .82rem; }
+.payroll-loader {
+  width: 42px; height: 42px; flex: 0 0 auto; border: 4px solid #bfe7d7;
+  border-top-color: #16825f; border-radius: 50%; animation: spin .75s linear infinite;
+}
+.payroll-pdf-icon {
+  width: 48px; height: 58px; flex: 0 0 auto; display: grid !important;
+  place-items: center; border: 2px solid #16825f; border-radius: 9px;
+  color: #126247 !important; background: white; font-size: .72rem !important;
+  font-weight: 950;
+}
+.payroll-ready-copy { flex: 1; }
+.payroll-ready-button { color: white; border-color: #16825f; background: #16825f; }
+.payroll-ready-button:hover { background: #106b4e; }
+.payroll-status-error { border-color: #efc1bd; background: var(--red-pale); }
+.payroll-error-icon {
+  width: 42px; height: 42px; flex: 0 0 auto; display: grid !important;
+  place-items: center; border-radius: 50%; color: white !important;
+  background: var(--red); font-size: 1.1rem !important; font-weight: 900;
+}
 
 .empty-state { padding: 65px 24px; text-align: center; }
 .empty-state.compact { padding: 38px 24px; }
@@ -922,6 +947,7 @@ td.muted { max-width: 230px; overflow: hidden; text-overflow: ellipsis; }
   .home-photo-placeholder { min-height: 220px; }
   .vacation-request-layout { grid-template-columns: 1fr; }
   .mailbox-request-details { grid-template-columns: 1fr 1fr; }
+  .payroll-request-form { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 760px) {
@@ -994,6 +1020,7 @@ td.muted { max-width: 230px; overflow: hidden; text-overflow: ellipsis; }
   .mailbox-card-header { align-items: flex-start; }
   .payroll-request-panel { padding: 22px; }
   .payroll-request-form { grid-template-columns: 1fr; }
-  .payroll-request-copy, .payroll-privacy-note { align-items: flex-start; }
-  .payroll-privacy-note { flex-direction: column; }
+  .payroll-request-copy, .payroll-status-view { align-items: flex-start; }
+  .payroll-status-ready { flex-wrap: wrap; }
+  .payroll-ready-button { width: 100%; }
 }

@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string]$SqlServer = "SERVIDOR\COMPAC",
+    [string]$SqlServer = "192.168.1.222",
     [string]$SqlDatabase = "ctTecno_DEV",
     [string]$SqlUser = "tiempo_integracion",
     [Parameter(Mandatory = $true)]
