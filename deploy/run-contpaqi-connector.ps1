@@ -12,12 +12,12 @@ $ErrorActionPreference = "Stop"
 
 function Unprotect-LocalMachineSecret([string]$Value) {
     $protected = [Convert]::FromBase64String($Value)
-    $bytes = [Security.Cryptography.ProtectedData]::Unprotect(
+    $bytes = [System.Security.Cryptography.ProtectedData]::Unprotect(
         $protected,
         $null,
-        [Security.Cryptography.DataProtectionScope]::LocalMachine
+        [System.Security.Cryptography.DataProtectionScope]::LocalMachine
     )
-    return [Text.Encoding]::UTF8.GetString($bytes)
+    return [System.Text.Encoding]::UTF8.GetString($bytes)
 }
 
 Get-Content -Path $EnvPath | ForEach-Object {

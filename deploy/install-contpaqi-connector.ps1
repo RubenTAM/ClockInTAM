@@ -36,11 +36,11 @@ function Read-PlainSecret([string]$Prompt) {
 }
 
 function Protect-LocalMachineSecret([string]$Value) {
-    $bytes = [Text.Encoding]::UTF8.GetBytes($Value)
-    $protected = [Security.Cryptography.ProtectedData]::Protect(
+    $bytes = [System.Text.Encoding]::UTF8.GetBytes($Value)
+    $protected = [System.Security.Cryptography.ProtectedData]::Protect(
         $bytes,
         $null,
-        [Security.Cryptography.DataProtectionScope]::LocalMachine
+        [System.Security.Cryptography.DataProtectionScope]::LocalMachine
     )
     return [Convert]::ToBase64String($protected)
 }
