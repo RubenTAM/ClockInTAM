@@ -17,6 +17,11 @@ if ($SqlDatabase -cne "ctTecno_DEV") {
     throw "Esta versión solo puede instalarse para ctTecno_DEV."
 }
 
+$tiempoUri = [Uri]$TiempoBaseUrl
+if ($tiempoUri.Scheme -cne "https") {
+    throw "TiempoBaseUrl debe usar HTTPS. No se transmitirán datos privados por HTTP."
+}
+
 function Read-PlainSecret([string]$Prompt) {
     $secure = Read-Host $Prompt -AsSecureString
     $pointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
@@ -66,7 +71,7 @@ try {
 
     Register-ScheduledTask -TaskName $TaskName -Action $action `
         -Trigger $trigger -Principal $principal -Settings $settings `
-        -Description "Aplica en ctTecno_DEV las vacaciones aprobadas en Tiempo." `
+        -Description "Conector saliente cifrado de vacaciones y recibos bajo demanda." `
         -Force | Out-Null
     Start-ScheduledTask -TaskName $TaskName
     Write-Host "Conector instalado y activo: $TaskName"

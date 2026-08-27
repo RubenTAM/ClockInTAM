@@ -11,6 +11,8 @@ import requests
 from dotenv import load_dotenv
 
 from nomina.contpaqi_vacations import read_vacation_balances
+from nomina.contpaqi_payroll import read_payroll_receipts
+from nomina.payroll_pdf import render_payroll_receipt
 
 
 TEST_DATABASE = "ctTecno_DEV"
@@ -62,13 +64,18 @@ class Settings:
     def from_environment(cls) -> "Settings":
         database = required_environment("CONTPAQ_SQL_DATABASE")
         require_test_database(database)
+        base_url = required_environment("TIEMPO_BASE_URL").rstrip("/")
+        if not base_url.lower().startswith("https://"):
+            raise VacationConnectorError(
+                "TIEMPO_BASE_URL debe usar HTTPS para transmitir información privada."
+            )
         return cls(
             sql_server=required_environment("CONTPAQ_SQL_SERVER"),
             sql_port=int(os.getenv("CONTPAQ_SQL_PORT", "1433")),
             sql_database=database,
             sql_username=required_environment("CONTPAQ_SQL_USER"),
             sql_password=required_environment("CONTPAQ_SQL_PASSWORD"),
-            tiempo_base_url=required_environment("TIEMPO_BASE_URL").rstrip("/"),
+            tiempo_base_url=base_url,
             tiempo_token=required_environment("TIEMPO_SYNC_TOKEN"),
         )
 
@@ -117,6 +124,31 @@ class TiempoClient:
                 "asOf": as_of.isoformat(),
                 "balances": [balance],
             },
+            timeout=60,
+        )
+        response.raise_for_status()
+
+    def claim_payroll_download(self) -> dict | None:
+        response = self.session.post(
+            f"{self.base_url}/api/integraciones/contpaqi/recibos/solicitudes/tomar",
+            timeout=30,
+        )
+        if response.status_code == 204:
+            return None
+        response.raise_for_status()
+        return response.json()
+
+    def post_payroll_download(
+        self, request_id: str, *, pdf: bytes | None = None, error: str = ""
+    ) -> None:
+        files = None
+        data = {"error": error}
+        if pdf is not None:
+            files = {"pdf": ("recibo.pdf", pdf, "application/pdf")}
+        response = self.session.post(
+            f"{self.base_url}/api/integraciones/contpaqi/recibos/solicitudes/{request_id}/resultado",
+            data=data,
+            files=files,
             timeout=60,
         )
         response.raise_for_status()
@@ -285,6 +317,50 @@ def process_one(settings: Settings, client: TiempoClient) -> bool:
     return True
 
 
+def process_payroll_download(settings: Settings, client: TiempoClient) -> bool:
+    item = client.claim_payroll_download()
+    if item is None:
+        return False
+    request_id = str(item.get("requestId") or "")
+    try:
+        employee_code = str(item["employeeCode"]).strip()
+        year = int(item["year"])
+        period = int(item["period"])
+        receipts = read_payroll_receipts(
+            server=settings.sql_server,
+            port=settings.sql_port,
+            database=settings.sql_database,
+            username=settings.sql_username,
+            password=settings.sql_password,
+            employee_code=employee_code,
+            year=year,
+            period_number=period,
+            limit=2,
+        )
+        if len(receipts) != 1:
+            raise VacationConnectorError(
+                "No existe un recibo timbrado único para ese año y periodo."
+            )
+        pdf = render_payroll_receipt(receipts[0])
+        if len(pdf) > 5 * 1024 * 1024:
+            raise VacationConnectorError(
+                "El recibo generado excede el tamaño permitido."
+            )
+        client.post_payroll_download(request_id, pdf=pdf)
+        print("Recibo solicitado entregado sin almacenamiento permanente.")
+    except Exception as exc:
+        message = (
+            str(exc) if isinstance(exc, VacationConnectorError)
+            else "El conector no pudo generar el recibo solicitado."
+        )
+        try:
+            client.post_payroll_download(request_id, error=message)
+        except requests.RequestException:
+            pass
+        print(f"Descarga de recibo detenida: {message}")
+    return True
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Aplica en CONTPAQi las vacaciones aprobadas en Tiempo."
@@ -303,8 +379,11 @@ def main() -> None:
     settings = Settings.from_environment()
     client = TiempoClient(settings.tiempo_base_url, settings.tiempo_token)
     while True:
-        while process_one(settings, client):
-            pass
+        while True:
+            handled_vacation = process_one(settings, client)
+            handled_payroll = process_payroll_download(settings, client)
+            if not handled_vacation and not handled_payroll:
+                break
         if not args.watch:
             break
         time.sleep(args.interval)

@@ -45,6 +45,7 @@ def read_payroll_receipts(
     employee_code: str,
     receipt_uuid: str | None = None,
     year: int | None = None,
+    period_number: int | None = None,
     limit: int = 60,
 ) -> list[dict]:
     """Read stamped payroll receipts and printable concepts for one employee."""
@@ -98,11 +99,16 @@ def read_payroll_receipts(
         employee = employees[0]
         uuid_filter = "AND UPPER(d.UUID) = %s" if receipt_uuid else ""
         year_filter = "AND p.ejercicio = %s" if year is not None else ""
+        period_filter = (
+            "AND p.numeroperiodo = %s" if period_number is not None else ""
+        )
         query_parameters = [limit, int(employee["IdEmpleado"])]
         if receipt_uuid:
             query_parameters.append(str(receipt_uuid).strip().upper())
         if year is not None:
             query_parameters.append(int(year))
+        if period_number is not None:
+            query_parameters.append(int(period_number))
         cursor.execute(
             f"""
             SELECT TOP %s
@@ -118,6 +124,7 @@ def read_payroll_receipts(
               AND d.Estado = 3
               {uuid_filter}
               {year_filter}
+              {period_filter}
             ORDER BY d.FechaPago DESC, d.IdDocumento DESC
             """,
             tuple(query_parameters),

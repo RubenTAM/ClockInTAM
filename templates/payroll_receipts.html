@@ -1,61 +1,57 @@
 {% extends "base.html" %}
-{% block title %}Recibos de nómina · Tiempo{% endblock %}
+{% block title %}Descargar recibo · Tiempo{% endblock %}
 {% block content %}
 <header class="page-header payroll-header">
   <div>
     <span class="eyebrow">Mi información</span>
-    <h1>Recibos de nómina</h1>
-    <p>Consulta tus comprobantes timbrados por periodo.</p>
+    <h1>Descargar recibo</h1>
+    <p>Solicita directamente a CONTPAQi el comprobante de un periodo.</p>
   </div>
-  {% if receipts %}
-    <div class="payroll-count">
-      <strong>{{ receipts|length }}</strong>
-      <span>{{ 'periodo disponible' if receipts|length == 1 else 'periodos disponibles' }}</span>
-    </div>
-  {% endif %}
 </header>
 
-{% if receipts %}
-  <section class="panel payroll-periods" aria-label="Recibos de nómina disponibles">
-    <div class="payroll-periods-heading">
-      <div>
-        <h2>Historial de recibos</h2>
-        <p>Del periodo más reciente al más antiguo.</p>
-      </div>
+<section class="panel payroll-request-panel">
+  <div class="payroll-request-copy">
+    <span class="payroll-private-icon" aria-hidden="true">▣</span>
+    <div>
+      <span class="eyebrow">Consulta privada</span>
+      <h2>Elige el periodo laboral</h2>
+      <p>
+        Sólo puedes solicitar el recibo asociado a tu número de empleado.
+        Tiempo no conserva historial, importes ni archivos de nómina.
+      </p>
     </div>
-    <div class="payroll-period-list">
-      {% for receipt in receipts %}
-        <article class="payroll-period-row">
-          <span class="payroll-date-tile">
-            <small>{{ receipt.payment_date[5:7] }}</small>
-            <strong>{{ receipt.payment_date[8:10] }}</strong>
-            <span>{{ receipt.payment_date[:4] }}</span>
-          </span>
-          <span class="payroll-summary-main">
-            <small>Periodo {{ receipt.period_number or receipt.period_id }}{% if receipt.period_type %} · {{ receipt.period_type }}{% endif %}</small>
-            <strong>{{ receipt.period_start|date_short }} — {{ receipt.period_end|date_short }}</strong>
-            <span>Fecha de pago: {{ receipt.payment_date|date_short }}</span>
-          </span>
-          <span class="payroll-period-action">
-            {% if receipt.pdf_filename %}
-              <a class="button primary"
-                 href="{{ url_for('download_payroll_receipt', receipt_id=receipt.id) }}"
-                 target="_blank" rel="noopener">
-                Ver recibo PDF ↗
-              </a>
-            {% else %}
-              <span class="payroll-pdf-pending">PDF pendiente</span>
-            {% endif %}
-          </span>
-        </article>
-      {% endfor %}
+  </div>
+
+  <form method="post" class="payroll-request-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label>
+      Año
+      <select name="year" required>
+        {% for year in range(current_year, 2019, -1) %}
+          <option value="{{ year }}">{{ year }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>
+      Periodo
+      <input type="number" name="period" min="1" max="60"
+             inputmode="numeric" placeholder="Ej. 32" required>
+    </label>
+    <button class="button primary payroll-download-button" type="submit"
+            {% if not download_enabled %}disabled{% endif %}>
+      {{ 'Generar y descargar PDF ↓' if download_enabled else 'Disponible al activar conexión segura' }}
+    </button>
+  </form>
+
+  <div class="payroll-privacy-note">
+    <strong>Descarga de una sola vez</strong>
+    <span>El documento viaja únicamente durante esta solicitud y no queda guardado en tu cuenta.</span>
+  </div>
+  {% if not download_enabled %}
+    <div class="callout pending-callout">
+      <strong>Protección activa</strong>
+      <p>La descarga está bloqueada hasta configurar HTTPS y encender el conector local.</p>
     </div>
-  </section>
-{% else %}
-  <section class="panel empty-state payroll-empty">
-    <div class="empty-icon">▤</div>
-    <h2>Todavía no hay recibos sincronizados</h2>
-    <p>Cuando CONTPAQi envíe un comprobante timbrado aparecerá aquí y solamente tú podrás consultarlo.</p>
-  </section>
-{% endif %}
+  {% endif %}
+</section>
 {% endblock %}

@@ -1,6 +1,5 @@
 import tempfile
 import unittest
-import base64
 import io
 import zipfile
 from datetime import date, time
@@ -31,6 +30,7 @@ class AppFlowTests(unittest.TestCase):
                 "TESTING": True,
                 "SECRET_KEY": "test-secret",
                 "CONTPAQ_SYNC_TOKEN": "sync-test-token",
+                "PAYROLL_DOWNLOAD_ENABLED": True,
                 "DATABASE_PATH": str(
                     Path(self.tempdir.name) / "test.sqlite3"
                 ),
@@ -822,61 +822,8 @@ class AppFlowTests(unittest.TestCase):
             self.assertEqual(worker["username"], "ruben.trabajador@tecnoall.com")
             self.assertEqual(worker["must_change_password"], 0)
 
-    def test_worker_can_view_only_their_synced_payroll_receipt(self):
+    def test_worker_requests_payroll_pdf_without_persistent_storage(self):
         self.initialize_admin()
-        payload = {
-            "source": "CONTPAQi Nóminas · ctTecno_DEV",
-            "receipts": [
-                {
-                    "sourceDocumentId": 13165,
-                    "employeeCode": "017",
-                    "uuid": "CE4CF157-BA09-41A2-B65A-2C75D0D84D9B",
-                    "periodId": 5931,
-                    "periodType": "Semanal",
-                    "periodNumber": 32,
-                    "periodStart": "2026-08-06",
-                    "periodEnd": "2026-08-12",
-                    "paymentDate": "2026-08-12",
-                    "issuedAt": "2026-08-17T11:23:03",
-                    "paidDays": 7,
-                    "grossPay": 5675.93,
-                    "deductions": 1142.19,
-                    "withholdings": 777.54,
-                    "netPay": 3756.20,
-                    "pdfBase64": base64.b64encode(
-                        b"%PDF-1.4\n%%EOF\n"
-                    ).decode("ascii"),
-                    "items": [
-                        {
-                            "category": "perception",
-                            "satCode": "001",
-                            "conceptNumber": 1,
-                            "conceptName": "Sueldo",
-                            "amount": 4395.36,
-                        },
-                        {
-                            "category": "withholding",
-                            "satCode": "002",
-                            "conceptNumber": 45,
-                            "conceptName": "I.S.R. mes",
-                            "amount": 777.54,
-                        },
-                    ],
-                }
-            ],
-        }
-        denied_sync = self.client.post(
-            "/api/integraciones/contpaqi/recibos-nomina", json=payload
-        )
-        self.assertEqual(denied_sync.status_code, 401)
-        synced = self.client.post(
-            "/api/integraciones/contpaqi/recibos-nomina",
-            json=payload,
-            headers={"Authorization": "Bearer sync-test-token"},
-        )
-        self.assertEqual(synced.status_code, 200)
-        self.assertEqual(synced.get_json()["updated"], 1)
-
         with self.app.app_context():
             connection = get_db()
             connection.execute(
@@ -897,11 +844,7 @@ class AppFlowTests(unittest.TestCase):
                     "2026-08-26T20:00:00Z",
                 ),
             )
-            receipt_id = connection.execute(
-                "SELECT id FROM payroll_receipts"
-            ).fetchone()["id"]
             connection.commit()
-
         self.client.get("/login")
         self.client.post(
             "/login",
@@ -913,23 +856,40 @@ class AppFlowTests(unittest.TestCase):
         )
         page = self.client.get("/recibos-nomina")
         self.assertEqual(page.status_code, 200)
-        self.assertIn(b"Recibos de n\xc3\xb3mina", page.data)
-        self.assertIn(b"Periodo 32", page.data)
-        self.assertIn(b"Ver recibo PDF", page.data)
-        self.assertNotIn(b"$3,756.20", page.data)
-        self.assertNotIn(b"Percepciones", page.data)
-        self.assertNotIn(b"Sueldo", page.data)
-        pdf = self.client.get(f"/recibos-nomina/{receipt_id}/pdf")
-        self.assertEqual(pdf.status_code, 200)
-        self.assertEqual(pdf.mimetype, "application/pdf")
-        self.assertTrue(pdf.data.startswith(b"%PDF-"))
-        pdf.close()
+        self.assertIn(b"Generar y descargar PDF", page.data)
+        self.assertNotIn(b"Historial", page.data)
+        self.assertNotIn(b"Neto", page.data)
 
-        self.client.post(
-            "/logout", data={"csrf_token": self.csrf_token()}
+        broker = self.app.extensions["payroll_download_broker"]
+        job_id = broker.create(employee_code="017", year=2026, period=32)
+        connector = self.app.test_client()
+        denied = connector.post(
+            "/api/integraciones/contpaqi/recibos/solicitudes/tomar"
         )
-        self.login()
-        self.assertEqual(self.client.get("/recibos-nomina").status_code, 403)
+        self.assertEqual(denied.status_code, 401)
+        claimed = connector.post(
+            "/api/integraciones/contpaqi/recibos/solicitudes/tomar",
+            headers={"Authorization": "Bearer sync-test-token"},
+        )
+        self.assertEqual(claimed.status_code, 200)
+        self.assertEqual(claimed.get_json()["employeeCode"], "017")
+        delivered = connector.post(
+            f"/api/integraciones/contpaqi/recibos/solicitudes/{job_id}/resultado",
+            data={"pdf": (io.BytesIO(b"%PDF-1.4\n%%EOF\n"), "recibo.pdf")},
+            headers={"Authorization": "Bearer sync-test-token"},
+        )
+        self.assertEqual(delivered.status_code, 200)
+        pdf, error = broker.wait_and_consume(job_id)
+        self.assertTrue(pdf.startswith(b"%PDF-"))
+        self.assertEqual(error, "")
+        with self.app.app_context():
+            tables = {
+                row["name"] for row in get_db().execute(
+                    "SELECT name FROM sqlite_master WHERE type = 'table'"
+                ).fetchall()
+            }
+        self.assertNotIn("payroll_receipts", tables)
+        self.assertNotIn("payroll_receipt_items", tables)
 
     def test_worker_vacation_request_supervisor_decision_and_mailbox_badges(self):
         self.initialize_admin()

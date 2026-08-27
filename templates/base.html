@@ -29,8 +29,8 @@
           <span class="nav-icon">☀</span> Solicitar vacaciones
         </a>
         <a href="{{ url_for('payroll_receipts') }}"
-           class="{{ 'active' if request.endpoint in ('payroll_receipts', 'download_payroll_receipt') else '' }}">
-          <span class="nav-icon">▤</span> Recibos de nómina
+           class="{{ 'active' if request.endpoint == 'payroll_receipts' else '' }}">
+          <span class="nav-icon">▤</span> Descargar recibo
         </a>
         {% else %}
         <a href="{{ url_for('employees') }}"
