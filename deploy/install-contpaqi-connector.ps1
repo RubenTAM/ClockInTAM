@@ -12,6 +12,8 @@ $ErrorActionPreference = "Stop"
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $pythonPath = Join-Path $projectRoot ".venv-connector\Scripts\python.exe"
 $envPath = Join-Path $projectRoot ".env.connector"
+$secretsPath = Join-Path $projectRoot ".secrets.connector.json"
+$runnerPath = Join-Path $PSScriptRoot "run-contpaqi-connector.ps1"
 
 if ($SqlDatabase -cne "ctTecno_DEV") {
     throw "Esta versión solo puede instalarse para ctTecno_DEV."
@@ -33,6 +35,16 @@ function Read-PlainSecret([string]$Prompt) {
     }
 }
 
+function Protect-LocalMachineSecret([string]$Value) {
+    $bytes = [Text.Encoding]::UTF8.GetBytes($Value)
+    $protected = [Security.Cryptography.ProtectedData]::Protect(
+        $bytes,
+        $null,
+        [Security.Cryptography.DataProtectionScope]::LocalMachine
+    )
+    return [Convert]::ToBase64String($protected)
+}
+
 $sqlPassword = Read-PlainSecret "Contraseña SQL del usuario de integración"
 $tiempoToken = Read-PlainSecret "Token compartido de Tiempo"
 
@@ -46,17 +58,27 @@ try {
         "CONTPAQ_SQL_PORT=1433"
         "CONTPAQ_SQL_DATABASE=$SqlDatabase"
         "CONTPAQ_SQL_USER=$SqlUser"
-        "CONTPAQ_SQL_PASSWORD=$sqlPassword"
         "TIEMPO_BASE_URL=$($TiempoBaseUrl.TrimEnd('/'))"
-        "TIEMPO_SYNC_TOKEN=$tiempoToken"
     ) | Set-Content -Path $envPath -Encoding UTF8
+
+    @{
+        SqlPassword = Protect-LocalMachineSecret $sqlPassword
+        TiempoToken = Protect-LocalMachineSecret $tiempoToken
+    } | ConvertTo-Json | Set-Content -Path $secretsPath -Encoding UTF8
 
     icacls $envPath /inheritance:r | Out-Null
     icacls $envPath /grant:r "*S-1-5-18:(F)" "*S-1-5-32-544:(F)" | Out-Null
+    icacls $secretsPath /inheritance:r | Out-Null
+    icacls $secretsPath /grant:r "*S-1-5-18:(F)" "*S-1-5-32-544:(F)" | Out-Null
 
-    $arguments = "-m nomina.apply_vacation_requests --watch --interval 5 --env-file `"$envPath`""
+    $powershellPath = Join-Path $env:SystemRoot "System32\WindowsPowerShell\v1.0\powershell.exe"
+    $arguments = (
+        "-NoProfile -NonInteractive -ExecutionPolicy Bypass " +
+        "-File `"$runnerPath`" -PythonPath `"$pythonPath`" " +
+        "-EnvPath `"$envPath`" -SecretsPath `"$secretsPath`""
+    )
     $action = New-ScheduledTaskAction `
-        -Execute $pythonPath `
+        -Execute $powershellPath `
         -Argument $arguments `
         -WorkingDirectory $projectRoot
     $trigger = New-ScheduledTaskTrigger -AtStartup

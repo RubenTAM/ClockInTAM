@@ -339,7 +339,7 @@ def process_payroll_download(settings: Settings, client: TiempoClient) -> bool:
         )
         if len(receipts) != 1:
             raise VacationConnectorError(
-                "No existe un recibo timbrado único para ese año y periodo."
+                "No existe un recibo timbrado único para esas fechas."
             )
         pdf = render_payroll_receipt(receipts[0])
         if len(pdf) > 5 * 1024 * 1024:
