@@ -729,6 +729,23 @@ button.vacation-mini-day:focus-visible .vacation-mini-day-number { outline: 2px 
   color: white; border-color: var(--green); background: var(--green);
 }
 .dialog-day input:checked + span small { color: rgba(255,255,255,.75); }
+.day-permission-type-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 22px; }
+.day-permission-option { position: relative; cursor: pointer; }
+.day-permission-option input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.day-permission-option span {
+  display: grid; gap: 4px; padding: 14px; border: 1px solid var(--line);
+  border-radius: 12px; text-align: left;
+}
+.day-permission-option strong { font-size: .8rem; }
+.day-permission-option small { color: var(--muted); font-size: .68rem; font-weight: 850; letter-spacing: .06em; text-transform: uppercase; }
+.day-permission-option input:checked + span { border-color: var(--green); background: var(--green-pale); }
+.day-permission-option input:checked + span strong { color: var(--green-dark); }
+.day-permission-reason-field { display: block; margin-top: 18px; color: var(--muted); font-size: .75rem; font-weight: 800; }
+.day-permission-reason-field textarea {
+  width: 100%; margin-top: 7px; padding: 10px 12px; border: 1px solid var(--line);
+  border-radius: 10px; color: var(--ink); font-family: inherit; font-size: .82rem; resize: vertical;
+}
+.day-permission-error { margin: 14px 0 0; padding: 10px 12px; border-radius: 9px; color: var(--red); background: var(--red-pale); font-size: .75rem; }
 .dialog-actions {
   display: flex; justify-content: flex-end; gap: 10px;
   margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--line);

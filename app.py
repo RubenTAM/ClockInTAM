@@ -817,7 +817,7 @@ def attendance_permissions_for_week(week_start: date) -> list[dict]:
     week_end = week_start + timedelta(days=6)
     rows = get_db().execute(
         """
-        SELECT employee_name_key, work_date
+        SELECT employee_name_key, work_date, permission_type, reason
         FROM attendance_permissions
         WHERE work_date BETWEEN ? AND ?
         """,
@@ -927,15 +927,14 @@ def weekly_report_calendar(
                 vacation_map[(vacation["employee_name_key"], vacation_date)] = (
                     vacation
                 )
-    permission_dates = {
-        (
-            row["employee_name_key"],
+    permission_map: dict[tuple[str, date], dict] = {}
+    for row in permission_rows or []:
+        permission_date = (
             date.fromisoformat(row["work_date"])
             if isinstance(row["work_date"], str)
-            else row["work_date"],
+            else row["work_date"]
         )
-        for row in permission_rows or []
-    }
+        permission_map[(row["employee_name_key"], permission_date)] = row
 
     calendar_rows = []
     for name_key, employee_name in sorted(people.items()):
@@ -978,7 +977,8 @@ def weekly_report_calendar(
             today = local_today()
             is_today = work_date == today
             is_future = work_date > today
-            has_incident_permission = (name_key, work_date) in permission_dates
+            permission = permission_map.get((name_key, work_date))
+            has_incident_permission = permission is not None
             is_non_working = (
                 work_date.weekday() == 6
                 and report is None
@@ -1018,6 +1018,12 @@ def weekly_report_calendar(
                     "incident_labels": incident_labels,
                     "has_attendance_incident": bool(incident_labels),
                     "has_incident_permission": has_incident_permission,
+                    "permission_type": (
+                        permission.get("permission_type", "") if permission else ""
+                    ),
+                    "permission_reason": (
+                        permission.get("reason", "") if permission else ""
+                    ),
                     "is_vacation": vacation is not None,
                     "vacation": vacation,
                 }
@@ -1440,20 +1446,41 @@ def register_routes(app: Flask) -> None:
         if supervised_area and not same_group(employee["area"], supervised_area):
             abort(403)
 
+        redirect_target = redirect(
+            url_for(
+                "home",
+                semana=week_start_for(work_date),
+                trabajador=employee_key,
+            )
+        )
+
         has_permission = request.form.get("has_permission") == "1"
         if has_permission:
+            permission_type = request.form.get("permission_type", "").strip()
+            reason = request.form.get("reason", "").strip()
+            if permission_type not in ("PCS", "PSS") or not reason:
+                flash(
+                    "Selecciona el tipo de permiso y describe el motivo.",
+                    "error",
+                )
+                return redirect_target
             connection.execute(
                 """
                 INSERT INTO attendance_permissions (
-                    employee_name_key, work_date, granted_by, created_at
-                ) VALUES (?, ?, ?, ?)
+                    employee_name_key, work_date, permission_type, reason,
+                    granted_by, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?)
                 ON CONFLICT(employee_name_key, work_date) DO UPDATE SET
+                    permission_type = excluded.permission_type,
+                    reason = excluded.reason,
                     granted_by = excluded.granted_by,
                     created_at = excluded.created_at
                 """,
                 (
                     employee_key,
                     work_date.isoformat(),
+                    permission_type,
+                    reason,
                     g.user["id"],
                     utc_now(),
                 ),
@@ -1479,13 +1506,7 @@ def register_routes(app: Flask) -> None:
             ),
         )
         connection.commit()
-        return redirect(
-            url_for(
-                "home",
-                semana=week_start_for(work_date),
-                trabajador=employee_key,
-            )
-        )
+        return redirect_target
 
     @app.post("/autorizaciones/desde-inicio")
     @login_required

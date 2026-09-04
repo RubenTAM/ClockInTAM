@@ -836,3 +836,85 @@
     if (event.target === dialog) dialog.close();
   });
 })();
+
+(() => {
+  const dialog = document.querySelector("#day-permission-dialog");
+  const checkboxes = [...document.querySelectorAll("[data-day-permission-checkbox]")];
+  if (!dialog || !checkboxes.length) return;
+
+  const summary = dialog.querySelector("[data-day-permission-summary]");
+  const reasonInput = dialog.querySelector("[data-day-permission-reason]");
+  const errorMessage = dialog.querySelector("[data-day-permission-error]");
+  const typeChoices = [
+    ...dialog.querySelectorAll('input[name="day-permission-type-choice"]'),
+  ];
+  const applyButton = dialog.querySelector("[data-day-permission-apply]");
+
+  let activeCheckbox = null;
+
+  const resetDialog = () => {
+    typeChoices.forEach((input) => { input.checked = false; });
+    reasonInput.value = "";
+    errorMessage.hidden = true;
+  };
+
+  const revertActiveCheckbox = () => {
+    if (activeCheckbox) activeCheckbox.checked = false;
+    activeCheckbox = null;
+  };
+
+  checkboxes.forEach((checkbox) => {
+    checkbox.addEventListener("change", () => {
+      const form = checkbox.closest("[data-day-permission-form]");
+      if (!form) return;
+      if (checkbox.checked) {
+        activeCheckbox = checkbox;
+        resetDialog();
+        summary.textContent = checkbox.getAttribute("aria-label") || "";
+        dialog.showModal();
+      } else {
+        // Removing an existing permission needs no extra detail.
+        const typeField = form.querySelector("[data-day-permission-type-field]");
+        const reasonField = form.querySelector("[data-day-permission-reason-field]");
+        if (typeField) typeField.value = "";
+        if (reasonField) reasonField.value = "";
+        form.submit();
+      }
+    });
+  });
+
+  dialog.querySelectorAll("[data-day-permission-close]").forEach((button) => {
+    button.addEventListener("click", () => {
+      revertActiveCheckbox();
+      dialog.close();
+    });
+  });
+  dialog.addEventListener("cancel", revertActiveCheckbox);
+  dialog.addEventListener("click", (event) => {
+    if (event.target === dialog) {
+      revertActiveCheckbox();
+      dialog.close();
+    }
+  });
+
+  applyButton.addEventListener("click", () => {
+    const selected = typeChoices.find((input) => input.checked);
+    const reasonValue = reasonInput.value.trim();
+    if (!selected || !reasonValue) {
+      errorMessage.hidden = false;
+      return;
+    }
+    if (activeCheckbox) {
+      const form = activeCheckbox.closest("[data-day-permission-form]");
+      const typeField = form?.querySelector("[data-day-permission-type-field]");
+      const reasonField = form?.querySelector("[data-day-permission-reason-field]");
+      if (typeField) typeField.value = selected.value;
+      if (reasonField) reasonField.value = reasonValue;
+      activeCheckbox = null;
+      dialog.close();
+      form?.submit();
+      return;
+    }
+    dialog.close();
+  });
+})();

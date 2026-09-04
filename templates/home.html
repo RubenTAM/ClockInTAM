@@ -198,7 +198,8 @@
                               + {{ used_hours }} h extra{{ 's' if used_hours != 1 else '' }} utilizada{{ 's' if used_hours != 1 else '' }}
                             </span>
                           {% elif cell.has_incident_permission %}
-                            <span class="supervisor-status permission">✓ Permiso aplicado</span>
+                            <span class="supervisor-status permission"
+                                  title="{{ cell.permission_reason }}">✓ Permiso aplicado{{ ' · ' + cell.permission_type if cell.permission_type else '' }}</span>
                           {% elif report and report.clock_in and report.clock_out %}
                             <span class="supervisor-status clear">✓ Sin incidencias</span>
                           {% elif cell.is_today %}
@@ -288,16 +289,20 @@
                       <span class="home-day-actions-spacer"></span>
                     {% endif %}
                     <form method="post" action="{{ url_for('toggle_attendance_permission') }}"
-                          class="day-permission-form">
+                          class="day-permission-form" data-day-permission-form>
                       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                       <input type="hidden" name="employee_name_key" value="{{ worker.employee_name_key }}">
                       <input type="hidden" name="work_date" value="{{ cell.work_date }}">
+                      <input type="hidden" name="permission_type" value="{{ cell.permission_type }}"
+                             data-day-permission-type-field>
+                      <input type="hidden" name="reason" value="{{ cell.permission_reason }}"
+                             data-day-permission-reason-field>
                       <label class="day-permission-toggle"
                              title="Permiso para omitir las incidencias de asistencia de este día">
                         <input type="checkbox" name="has_permission" value="1"
+                               data-day-permission-checkbox
                                aria-label="Permiso de incidencia para {{ worker.employee_name }} el {{ cell.work_date|date_es }}"
-                               {% if cell.has_incident_permission %}checked{% endif %}
-                               onchange="this.form.submit()">
+                               {% if cell.has_incident_permission %}checked{% endif %}>
                       </label>
                     </form>
                     {% endif %}
@@ -321,7 +326,8 @@
                         <span class="home-today">Hoy · día en curso</span>
                       {% endif %}
                       {% if cell.has_incident_permission %}
-                        <span class="home-permission">✓ Permiso aplicado</span>
+                        <span class="home-permission"
+                              title="{{ cell.permission_reason }}">✓ Permiso aplicado{{ ' · ' + cell.permission_type if cell.permission_type else '' }}</span>
                       {% else %}
                         {% for incident in cell.incident_labels %}
                           <span class="home-incomplete">{{ incident }}</span>
@@ -488,5 +494,47 @@
     </form>
     {% endif %}
   </section>
+</dialog>
+
+<dialog class="authorization-dialog day-permission-dialog" id="day-permission-dialog">
+  <div class="authorization-dialog-form">
+    <div class="dialog-heading">
+      <div>
+        <span class="eyebrow">Permiso de incidencia</span>
+        <h2>Selecciona el tipo de permiso</h2>
+        <p data-day-permission-summary></p>
+      </div>
+      <button type="button" class="dialog-close" data-day-permission-close
+              aria-label="Cerrar">×</button>
+    </div>
+    <div class="day-permission-type-grid" role="radiogroup" aria-label="Tipo de permiso">
+      <label class="day-permission-option">
+        <input type="radio" name="day-permission-type-choice" value="PCS">
+        <span>
+          <strong>Permiso con Goce de Sueldo</strong>
+          <small>PCS</small>
+        </span>
+      </label>
+      <label class="day-permission-option">
+        <input type="radio" name="day-permission-type-choice" value="PSS">
+        <span>
+          <strong>Permiso sin Goce de Sueldo</strong>
+          <small>PSS</small>
+        </span>
+      </label>
+    </div>
+    <label class="day-permission-reason-field">
+      Motivo del permiso
+      <textarea data-day-permission-reason rows="3"
+                placeholder="Describe brevemente el motivo…"></textarea>
+    </label>
+    <p class="day-permission-error" data-day-permission-error hidden>
+      Selecciona el tipo de permiso y describe el motivo.
+    </p>
+    <div class="dialog-actions">
+      <button type="button" class="button ghost" data-day-permission-close>Cancelar</button>
+      <button type="button" class="button primary" data-day-permission-apply>Aplicar</button>
+    </div>
+  </div>
 </dialog>
 {% endblock %}

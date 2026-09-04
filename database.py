@@ -125,6 +125,8 @@ CREATE TABLE IF NOT EXISTS attendance_permissions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     employee_name_key TEXT NOT NULL,
     work_date TEXT NOT NULL,
+    permission_type TEXT NOT NULL DEFAULT '',
+    reason TEXT NOT NULL DEFAULT '',
     granted_by INTEGER NOT NULL,
     created_at TEXT NOT NULL,
     FOREIGN KEY (granted_by) REFERENCES users(id),
@@ -208,6 +210,7 @@ def init_db() -> None:
     migrate_employee_vacation_balance(connection)
     migrate_vacation_request_recipients(connection)
     migrate_vacation_request_integration(connection)
+    migrate_attendance_permission_details(connection)
     remove_legacy_payroll_storage(connection)
     connection.commit()
 
@@ -385,6 +388,27 @@ def migrate_vacation_request_integration(
         ON vacation_requests(contpaqi_status, id)
         """
     )
+
+
+def migrate_attendance_permission_details(
+    connection: sqlite3.Connection,
+) -> None:
+    """Record which kind of permission was granted and why."""
+    columns = {
+        row["name"]
+        for row in connection.execute(
+            "PRAGMA table_info('attendance_permissions')"
+        ).fetchall()
+    }
+    additions = {
+        "permission_type": "TEXT NOT NULL DEFAULT ''",
+        "reason": "TEXT NOT NULL DEFAULT ''",
+    }
+    for name, definition in additions.items():
+        if name not in columns:
+            connection.execute(
+                f"ALTER TABLE attendance_permissions ADD COLUMN {name} {definition}"
+            )
 
 
 def migrate_approved_minutes(connection: sqlite3.Connection) -> None:

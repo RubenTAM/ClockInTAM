@@ -1611,7 +1611,7 @@ class AppFlowTests(unittest.TestCase):
                 "group_name": "TecnoAll - Ingenieria",
             }])
 
-        response = self.client.post(
+        rejected = self.client.post(
             "/permisos-incidencia",
             data={
                 "csrf_token": self.csrf_token(),
@@ -1620,12 +1620,33 @@ class AppFlowTests(unittest.TestCase):
                 "has_permission": "1",
             },
         )
+        self.assertEqual(rejected.status_code, 302)
+        with self.app.app_context():
+            self.assertIsNone(
+                get_db().execute(
+                    "SELECT * FROM attendance_permissions"
+                ).fetchone()
+            )
+
+        response = self.client.post(
+            "/permisos-incidencia",
+            data={
+                "csrf_token": self.csrf_token(),
+                "employee_name_key": "jorge rangel pulido",
+                "work_date": "2026-08-17",
+                "has_permission": "1",
+                "permission_type": "PCS",
+                "reason": "Cita médica",
+            },
+        )
         self.assertEqual(response.status_code, 302)
         with self.app.app_context():
             permission = get_db().execute(
                 "SELECT * FROM attendance_permissions"
             ).fetchone()
             self.assertEqual(permission["work_date"], "2026-08-17")
+            self.assertEqual(permission["permission_type"], "PCS")
+            self.assertEqual(permission["reason"], "Cita médica")
 
         with (
             patch("app.report_for_week", return_value=([], "", set())),
@@ -1635,7 +1656,7 @@ class AppFlowTests(unittest.TestCase):
                 "/?semana=2026-08-13&trabajador=jorge%20rangel%20pulido"
             )
         self.assertIn(b'data-work-date="2026-08-17"', home.data)
-        self.assertIn(b"Permiso aplicado", home.data)
+        self.assertIn("Permiso aplicado · PCS".encode(), home.data)
         self.assertIn(b"checked", home.data)
 
         response = self.client.post(
@@ -1652,6 +1673,7 @@ class AppFlowTests(unittest.TestCase):
                 "SELECT COUNT(*) AS total FROM attendance_permissions"
             ).fetchone()["total"]
         self.assertEqual(remaining, 0)
+
 
     def test_excel_records_are_filtered_by_group_with_incidents(self):
         self.initialize_admin()
