@@ -922,3 +922,37 @@
     dialog.close();
   });
 })();
+
+(() => {
+  const dialog = document.querySelector("#day-permission-detail-dialog");
+  if (!dialog) return;
+
+  const nameEl = dialog.querySelector("#day-permission-detail-name");
+  const dateEl = dialog.querySelector("#day-permission-detail-date");
+  const typeEl = dialog.querySelector("#day-permission-detail-type");
+  const reasonEl = dialog.querySelector("#day-permission-detail-reason");
+
+  const TYPE_LABELS = {
+    PCS: "Permiso con Goce de Sueldo (PCS)",
+    PSS: "Permiso sin Goce de Sueldo (PSS)",
+  };
+
+  // Delegated on document: these badges are cloned from <template> tags
+  // when a worker profile loads, so they don't exist at page-load time.
+  document.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-day-permission-detail]");
+    if (!button) return;
+    nameEl.textContent = button.dataset.employee || "";
+    dateEl.textContent = button.dataset.date || "";
+    typeEl.textContent = TYPE_LABELS[button.dataset.type] || button.dataset.type || "—";
+    reasonEl.textContent = button.dataset.reason || "Sin motivo registrado.";
+    dialog.showModal();
+  });
+
+  dialog.querySelectorAll("[data-day-permission-detail-close]").forEach((button) => {
+    button.addEventListener("click", () => dialog.close());
+  });
+  dialog.addEventListener("click", (event) => {
+    if (event.target === dialog) dialog.close();
+  });
+})();

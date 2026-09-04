@@ -225,7 +225,10 @@ p { color: var(--muted); line-height: 1.55; }
   line-height: 1.25; text-wrap: balance; white-space: normal;
 }
 .supervisor-status.pending { color: #667987; background: #f4f6f7; }
-.supervisor-status.permission { color: #185a8d; background: #e7f2fb; }
+.supervisor-status.permission {
+  border: 0; color: #185a8d; background: #e7f2fb; cursor: pointer;
+}
+.supervisor-status.permission:hover { background: #d3e9fa; }
 .supervisor-day-time { display: block; margin-top: 6px; color: #455f75; font-size: .65rem; font-weight: 750; white-space: nowrap; }
 .supervisor-preview-empty td { height: 110px; color: var(--muted); text-align: center; }
 .user-area-form select { width: 230px; padding: 8px 10px; font-size: .76rem; }
@@ -376,7 +379,11 @@ p { color: var(--muted); line-height: 1.55; }
 .home-authorization:hover { background: #d4efdf; }
 .home-incomplete { color: var(--red); background: var(--red-pale); }
 .home-today { color: #51469b; background: #e9e5ff; }
-.home-permission { color: #185a8d; background: #e7f2fb; }
+.home-permission {
+  width: 100%; border: 1px solid #b9dcf3;
+  color: #185a8d; background: #e7f2fb; cursor: pointer;
+}
+.home-permission:hover { background: #d3e9fa; }
 .home-day-statuses {
   display: grid; gap: 7px; margin-top: auto; padding-top: 10px;
 }

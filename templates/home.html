@@ -198,8 +198,12 @@
                               + {{ used_hours }} h extra{{ 's' if used_hours != 1 else '' }} utilizada{{ 's' if used_hours != 1 else '' }}
                             </span>
                           {% elif cell.has_incident_permission %}
-                            <span class="supervisor-status permission"
-                                  title="{{ cell.permission_reason }}">✓ Permiso aplicado{{ ' · ' + cell.permission_type if cell.permission_type else '' }}</span>
+                            <button type="button" class="supervisor-status permission"
+                                    data-day-permission-detail
+                                    data-employee="{{ worker.employee_name }}"
+                                    data-date="{{ cell.work_date|date_es }}"
+                                    data-type="{{ cell.permission_type }}"
+                                    data-reason="{{ cell.permission_reason }}">✓ Permiso aplicado{{ ' · ' + cell.permission_type if cell.permission_type else '' }}</button>
                           {% elif report and report.clock_in and report.clock_out %}
                             <span class="supervisor-status clear">✓ Sin incidencias</span>
                           {% elif cell.is_today %}
@@ -326,8 +330,12 @@
                         <span class="home-today">Hoy · día en curso</span>
                       {% endif %}
                       {% if cell.has_incident_permission %}
-                        <span class="home-permission"
-                              title="{{ cell.permission_reason }}">✓ Permiso aplicado{{ ' · ' + cell.permission_type if cell.permission_type else '' }}</span>
+                        <button type="button" class="home-permission"
+                                data-day-permission-detail
+                                data-employee="{{ worker.employee_name }}"
+                                data-date="{{ cell.work_date|date_es }}"
+                                data-type="{{ cell.permission_type }}"
+                                data-reason="{{ cell.permission_reason }}">✓ Permiso aplicado{{ ' · ' + cell.permission_type if cell.permission_type else '' }}</button>
                       {% else %}
                         {% for incident in cell.incident_labels %}
                           <span class="home-incomplete">{{ incident }}</span>
@@ -536,5 +544,32 @@
       <button type="button" class="button primary" data-day-permission-apply>Aplicar</button>
     </div>
   </div>
+</dialog>
+
+<dialog class="report-detail-dialog" id="day-permission-detail-dialog">
+  <section class="report-detail-content">
+    <div class="dialog-heading">
+      <div>
+        <span class="eyebrow">Permiso de incidencia</span>
+        <h2 id="day-permission-detail-name"></h2>
+      </div>
+      <button type="button" class="dialog-close" data-day-permission-detail-close
+              aria-label="Cerrar">×</button>
+    </div>
+    <dl class="home-authorization-detail">
+      <div>
+        <dt>Fecha</dt>
+        <dd id="day-permission-detail-date"></dd>
+      </div>
+      <div>
+        <dt>Tipo de permiso</dt>
+        <dd id="day-permission-detail-type"></dd>
+      </div>
+      <div>
+        <dt>Motivo</dt>
+        <dd id="day-permission-detail-reason"></dd>
+      </div>
+    </dl>
+  </section>
 </dialog>
 {% endblock %}
