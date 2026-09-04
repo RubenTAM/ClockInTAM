@@ -10,7 +10,11 @@
   </div>
 </header>
 
-<section class="vacations-layout" data-vacations-page>
+<section class="vacations-layout" data-vacations-page
+         data-today="{{ today.isoformat() }}"
+         data-year="{{ calendar_year }}"
+         data-csrf="{{ csrf_token }}"
+         data-delete-url-template="{{ url_for('delete_vacation', vacation_id=0) }}">
   <aside class="panel vacations-workers-panel">
     <div class="vacations-workers-heading">
       <div>
@@ -21,7 +25,7 @@
     </div>
     <div class="vacations-toolbar">
       <form method="get">
-        <input type="hidden" name="mes" value="{{ calendar_month.strftime('%Y-%m') }}">
+        <input type="hidden" name="year" value="{{ calendar_year }}">
         <label for="vacation-group">Grupo de trabajadores</label>
         <select id="vacation-group" name="grupo" onchange="this.form.submit()">
           {% for area in employee_areas %}
@@ -69,55 +73,61 @@
   <article class="panel vacation-calendar-panel">
     <header class="vacation-calendar-header">
       <div>
-        <span class="eyebrow">Calendario mensual</span>
-        <h2>{{ calendar_month_label }}</h2>
+        <span class="eyebrow">Calendario anual</span>
+        <h2>{{ calendar_year }}</h2>
         <p>{{ selected_group or 'Todos los grupos' }}</p>
       </div>
-      <nav class="vacation-month-nav" aria-label="Cambiar mes">
+      <nav class="vacation-month-nav" aria-label="Cambiar año">
         <a class="vacation-month-button"
-           href="{{ url_for('vacations', grupo=selected_group, mes=previous_month) }}"
-           aria-label="Mes anterior">‹</a>
+           href="{{ url_for('vacations', grupo=selected_group, year=previous_year) }}"
+           aria-label="Año anterior">‹</a>
         <a class="vacation-today-button"
-           href="{{ url_for('vacations', grupo=selected_group, mes=current_month) }}">Hoy</a>
+           href="{{ url_for('vacations', grupo=selected_group, year=current_year) }}">Hoy</a>
         <a class="vacation-month-button"
-           href="{{ url_for('vacations', grupo=selected_group, mes=next_month) }}"
-           aria-label="Mes siguiente">›</a>
+           href="{{ url_for('vacations', grupo=selected_group, year=next_year) }}"
+           aria-label="Año siguiente">›</a>
       </nav>
     </header>
 
     <div class="vacation-calendar-scroll">
-      <div class="vacation-calendar" role="grid" aria-label="{{ calendar_month_label }}">
-        <div class="vacation-weekdays" role="row">
-          {% for weekday in ('dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb') %}
-            <span role="columnheader">{{ weekday }}</span>
-          {% endfor %}
-        </div>
-        <div class="vacation-month-grid">
-          {% for cell in calendar_cells %}
-            <section class="vacation-calendar-day{{ '' if cell.is_current_month else ' outside-month' }}"
-                     role="gridcell" aria-label="{{ cell.date|date_es }}">
-              <time datetime="{{ cell.date }}"
-                    class="vacation-day-number{{ ' today' if cell.is_today else '' }}">
-                {{ cell.day_label }}
-              </time>
-              <div class="vacation-day-events">
-                {% for vacation in cell.vacations %}
-                  <div class="vacation-calendar-event"
-                       title="{{ vacation.employee_name }} · {{ vacation.start_date|date_es }} — {{ vacation.end_date|date_es }}">
-                    <span>{{ vacation.employee_name }}</span>
-                    <form method="post"
-                          action="{{ url_for('delete_vacation', vacation_id=vacation.id) }}"
-                          data-confirm="¿Eliminar las vacaciones de {{ vacation.employee_name }}?">
-                      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                      <input type="hidden" name="calendar_month" value="{{ calendar_month.strftime('%Y-%m') }}">
-                      <button type="submit" aria-label="Eliminar vacaciones de {{ vacation.employee_name }}">×</button>
-                    </form>
-                  </div>
+      <div class="vacation-year-grid">
+        {% for month in months %}
+          <div class="vacation-mini-month{{ ' is-current-month' if month.is_current_month else '' }}"
+               {{ 'data-today-month' if month.is_current_month else '' }}>
+            <h3 class="vacation-mini-month-title">{{ month.name.capitalize() }} de {{ calendar_year }}</h3>
+            <div class="vacation-mini-grid" role="table" aria-label="{{ month.name.capitalize() }} de {{ calendar_year }}">
+              <div class="vacation-mini-row vacation-mini-weekdays" role="row">
+                <span class="vacation-mini-weeknum" aria-hidden="true"></span>
+                {% for weekday in ('D', 'L', 'M', 'M', 'J', 'V', 'S') %}
+                  <span role="columnheader">{{ weekday }}</span>
                 {% endfor %}
               </div>
-            </section>
-          {% endfor %}
-        </div>
+              {% for week in month.weeks %}
+                <div class="vacation-mini-row" role="row">
+                  <span class="vacation-mini-weeknum">{{ week.week_number }}</span>
+                  {% for cell in week.days %}
+                    {% if cell.vacations %}
+                      <button type="button"
+                              class="vacation-mini-day{{ '' if cell.is_current_month else ' outside-month' }}{{ ' is-today' if cell.is_today else '' }} has-vacation"
+                              role="gridcell"
+                              data-vacation-day
+                              data-date="{{ cell.date }}"
+                              data-vacations='{{ cell.vacations|tojson }}'
+                              aria-label="{{ cell.date|date_es }} · {{ cell.vacations|length }} de vacaciones">
+                        <span class="vacation-mini-day-number">{{ cell.day }}</span>
+                      </button>
+                    {% else %}
+                      <span class="vacation-mini-day{{ '' if cell.is_current_month else ' outside-month' }}{{ ' is-today' if cell.is_today else '' }}"
+                            role="gridcell">
+                        <span class="vacation-mini-day-number">{{ cell.day }}</span>
+                      </span>
+                    {% endif %}
+                  {% endfor %}
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+        {% endfor %}
       </div>
     </div>
     <footer class="vacation-calendar-legend">
@@ -133,7 +143,7 @@
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <input type="hidden" name="employee_name_key" id="vacation-employee-key">
     <input type="hidden" name="group_name" value="{{ selected_group }}">
-    <input type="hidden" name="calendar_month" value="{{ calendar_month.strftime('%Y-%m') }}">
+    <input type="hidden" name="year" value="{{ calendar_year }}">
     <div class="dialog-heading">
       <div>
         <span class="eyebrow">Nuevo periodo</span>
@@ -161,5 +171,22 @@
       <button type="submit" class="button primary">Aplicar vacaciones</button>
     </div>
   </form>
+</dialog>
+
+<dialog class="authorization-dialog vacation-day-dialog" id="vacation-day-dialog">
+  <div class="authorization-dialog-form">
+    <div class="dialog-heading">
+      <div>
+        <span class="eyebrow" data-vacation-day-status></span>
+        <h2 data-vacation-day-title></h2>
+      </div>
+      <button type="button" class="dialog-close" data-vacation-day-close
+              aria-label="Cerrar">×</button>
+    </div>
+    <ul class="vacation-day-list" data-vacation-day-list></ul>
+    <div class="dialog-actions">
+      <button type="button" class="button ghost" data-vacation-day-close>Cerrar</button>
+    </div>
+  </div>
 </dialog>
 {% endblock %}

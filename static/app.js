@@ -410,6 +410,156 @@
   dialog.addEventListener("click", (event) => {
     if (event.target === dialog) dialog.close();
   });
+
+  // Yearly calendar: clicking a circled day shows who was, is, or will be
+  // on vacation that date.
+  const dayButtons = [...page.querySelectorAll("[data-vacation-day]")];
+  const dayDialog = document.querySelector("#vacation-day-dialog");
+  if (dayDialog && dayButtons.length) {
+    const MONTHS_ES = [
+      "enero", "febrero", "marzo", "abril", "mayo", "junio",
+      "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+    ];
+    const WEEKDAYS_ES = [
+      "domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado",
+    ];
+
+    const parseIsoDate = (value) => {
+      const [year, month, day] = value.split("-").map(Number);
+      return new Date(year, month - 1, day);
+    };
+    const formatLongDate = (value) => {
+      const parsed = parseIsoDate(value);
+      return `${WEEKDAYS_ES[parsed.getDay()]} ${parsed.getDate()} de `
+        + `${MONTHS_ES[parsed.getMonth()]} de ${parsed.getFullYear()}`;
+    };
+    const formatRange = (startValue, endValue) => {
+      const rangeStart = parseIsoDate(startValue);
+      const rangeEnd = parseIsoDate(endValue);
+      if (startValue === endValue) {
+        return `${rangeStart.getDate()} de ${MONTHS_ES[rangeStart.getMonth()]} `
+          + `de ${rangeStart.getFullYear()}`;
+      }
+      if (
+        rangeStart.getFullYear() === rangeEnd.getFullYear()
+        && rangeStart.getMonth() === rangeEnd.getMonth()
+      ) {
+        return `Del ${rangeStart.getDate()} al ${rangeEnd.getDate()} de `
+          + `${MONTHS_ES[rangeStart.getMonth()]} de ${rangeStart.getFullYear()}`;
+      }
+      return `Del ${rangeStart.getDate()} de ${MONTHS_ES[rangeStart.getMonth()]} `
+        + `al ${rangeEnd.getDate()} de ${MONTHS_ES[rangeEnd.getMonth()]} `
+        + `de ${rangeEnd.getFullYear()}`;
+    };
+
+    const dayTitle = dayDialog.querySelector("[data-vacation-day-title]");
+    const dayStatus = dayDialog.querySelector("[data-vacation-day-status]");
+    const dayList = dayDialog.querySelector("[data-vacation-day-list]");
+    const csrfToken = page.dataset.csrf || "";
+    const todayValue = page.dataset.today || "";
+    const yearValue = page.dataset.year || "";
+    const deleteUrlTemplate = page.dataset.deleteUrlTemplate || "";
+
+    dayButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        const dateValue = button.dataset.date;
+        let vacations = [];
+        try {
+          vacations = JSON.parse(button.dataset.vacations || "[]");
+        } catch (err) {
+          vacations = [];
+        }
+
+        dayTitle.textContent = formatLongDate(dateValue);
+        if (dateValue < todayValue) {
+          dayStatus.textContent = "Vacaciones pasadas";
+        } else if (dateValue > todayValue) {
+          dayStatus.textContent = "Vacaciones próximas";
+        } else {
+          dayStatus.textContent = "Vacaciones en curso";
+        }
+
+        dayList.innerHTML = "";
+        vacations.forEach((vacation) => {
+          const item = document.createElement("li");
+          item.className = "vacation-day-list-item";
+
+          const avatar = document.createElement("span");
+          avatar.className = "worker-avatar";
+          avatar.textContent = (vacation.employee_name || "?")
+            .trim().charAt(0).toUpperCase();
+
+          const copy = document.createElement("span");
+          copy.className = "vacation-day-list-copy";
+          const strong = document.createElement("strong");
+          strong.textContent = vacation.employee_name;
+          const small = document.createElement("small");
+          small.textContent = formatRange(vacation.start_date, vacation.end_date);
+          copy.append(strong, small);
+
+          item.append(avatar, copy);
+
+          if (csrfToken && deleteUrlTemplate) {
+            const form = document.createElement("form");
+            form.method = "post";
+            form.action = deleteUrlTemplate.replace(
+              "/0/eliminar", `/${vacation.id}/eliminar`
+            );
+            form.className = "vacation-day-list-delete";
+            form.addEventListener("submit", (event) => {
+              const confirmed = window.confirm(
+                `¿Eliminar las vacaciones de ${vacation.employee_name}?`
+              );
+              if (!confirmed) event.preventDefault();
+            });
+
+            const csrfInput = document.createElement("input");
+            csrfInput.type = "hidden";
+            csrfInput.name = "csrf_token";
+            csrfInput.value = csrfToken;
+
+            const yearInput = document.createElement("input");
+            yearInput.type = "hidden";
+            yearInput.name = "year";
+            yearInput.value = yearValue;
+
+            const deleteButton = document.createElement("button");
+            deleteButton.type = "submit";
+            deleteButton.setAttribute(
+              "aria-label", `Eliminar vacaciones de ${vacation.employee_name}`
+            );
+            deleteButton.textContent = "×";
+
+            form.append(csrfInput, yearInput, deleteButton);
+            item.append(form);
+          }
+
+          dayList.append(item);
+        });
+
+        if (!vacations.length) {
+          const emptyState = document.createElement("li");
+          emptyState.className = "vacation-day-empty";
+          emptyState.textContent = "No hay vacaciones registradas ese día.";
+          dayList.append(emptyState);
+        }
+
+        dayDialog.showModal();
+      });
+    });
+
+    dayDialog.querySelectorAll("[data-vacation-day-close]").forEach((button) => {
+      button.addEventListener("click", () => dayDialog.close());
+    });
+    dayDialog.addEventListener("click", (event) => {
+      if (event.target === dayDialog) dayDialog.close();
+    });
+  }
+
+  const todayMonth = page.querySelector("[data-today-month]");
+  if (todayMonth) {
+    todayMonth.scrollIntoView({ behavior: "auto", block: "start" });
+  }
 })();
 
 (() => {

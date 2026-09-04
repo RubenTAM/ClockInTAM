@@ -2128,31 +2128,27 @@ def register_routes(app: Flask) -> None:
     @login_required
     def vacations():
         today = local_today()
-        requested_month = request.args.get("mes", "").strip()
+        requested_year = request.args.get("year", "").strip()
+        if not requested_year:
+            requested_month = request.args.get("mes", "").strip()
+            requested_year = requested_month[:4] if requested_month else ""
         try:
-            calendar_month = (
-                datetime.strptime(requested_month, "%Y-%m").date().replace(day=1)
-                if requested_month
-                else today.replace(day=1)
-            )
+            calendar_year = int(requested_year) if requested_year else today.year
         except ValueError:
-            abort(400, "El mes seleccionado no es válido.")
+            abort(400, "El año seleccionado no es válido.")
+        if not 1900 <= calendar_year <= 2200:
+            abort(400, "El año seleccionado no es válido.")
 
-        previous_month = (
-            calendar_month - timedelta(days=1)
-        ).replace(day=1)
-        next_month = (
-            calendar_month.replace(day=28) + timedelta(days=4)
-        ).replace(day=1)
-        # The reference calendar starts on Sunday and always shows complete weeks.
-        calendar_start = calendar_month - timedelta(
-            days=(calendar_month.weekday() + 1) % 7
-        )
-        next_month_start = next_month
-        month_last_day = next_month_start - timedelta(days=1)
-        calendar_end = month_last_day + timedelta(
-            days=(5 - month_last_day.weekday()) % 7
-        )
+        previous_year = calendar_year - 1
+        next_year = calendar_year + 1
+        current_year = today.year
+
+        year_start = date(calendar_year, 1, 1)
+        year_end = date(calendar_year, 12, 31)
+        # Every mini month shows complete weeks, so the padding at the very
+        # start/end of the year can reach into the neighbouring years.
+        grid_start = year_start - timedelta(days=(year_start.weekday() + 1) % 7)
+        grid_end = year_end + timedelta(days=(5 - year_end.weekday()) % 7)
 
         active_groups = [
             group for group in employee_groups()
@@ -2178,8 +2174,9 @@ def register_routes(app: Flask) -> None:
             worker["photo_filename"] = employee_photo_filename(
                 worker["employee_name"]
             )
+
         connection = get_db()
-        calendar_vacations = connection.execute(
+        year_vacations = connection.execute(
             """
             SELECT v.*, e.area
             FROM vacations v
@@ -2192,53 +2189,90 @@ def register_routes(app: Flask) -> None:
             (
                 selected_group,
                 selected_group,
-                calendar_end.isoformat(),
-                calendar_start.isoformat(),
+                grid_end.isoformat(),
+                grid_start.isoformat(),
             ),
         ).fetchall()
+
+        # Keyed by date so every day cell can look up who was (or will be)
+        # on vacation without re-scanning the whole list.
         vacation_days: dict[date, list[dict]] = {}
-        for vacation in calendar_vacations:
+        for vacation in year_vacations:
             vacation_start = max(
-                date.fromisoformat(vacation["start_date"]), calendar_start
+                date.fromisoformat(vacation["start_date"]), grid_start
             )
             vacation_end = min(
-                date.fromisoformat(vacation["end_date"]), calendar_end
+                date.fromisoformat(vacation["end_date"]), grid_end
             )
             for offset in range((vacation_end - vacation_start).days + 1):
                 work_date = vacation_start + timedelta(days=offset)
-                vacation_days.setdefault(work_date, []).append(dict(vacation))
+                vacation_days.setdefault(work_date, []).append(
+                    {
+                        "id": vacation["id"],
+                        "employee_name": vacation["employee_name"],
+                        "start_date": vacation["start_date"],
+                        "end_date": vacation["end_date"],
+                    }
+                )
 
-        calendar_cells = []
-        for offset in range((calendar_end - calendar_start).days + 1):
-            work_date = calendar_start + timedelta(days=offset)
-            calendar_cells.append(
+        months = []
+        for month_index in range(1, 13):
+            month_first = date(calendar_year, month_index, 1)
+            month_last = (
+                date(calendar_year, month_index + 1, 1) - timedelta(days=1)
+                if month_index < 12
+                else date(calendar_year, 12, 31)
+            )
+            month_grid_start = month_first - timedelta(
+                days=(month_first.weekday() + 1) % 7
+            )
+            month_grid_end = month_last + timedelta(
+                days=(5 - month_last.weekday()) % 7
+            )
+            weeks = []
+            cursor_date = month_grid_start
+            while cursor_date <= month_grid_end:
+                days = []
+                for _ in range(7):
+                    days.append(
+                        {
+                            "date": cursor_date,
+                            "day": cursor_date.day,
+                            "is_current_month": cursor_date.month == month_index,
+                            "is_today": cursor_date == today,
+                            "vacations": vacation_days.get(cursor_date, []),
+                        }
+                    )
+                    cursor_date += timedelta(days=1)
+                weeks.append(
+                    {
+                        "week_number": days[0]["date"].isocalendar()[1],
+                        "days": days,
+                    }
+                )
+            months.append(
                 {
-                    "date": work_date,
-                    "day_label": (
-                        f"{work_date.day} {MONTH_NAMES[work_date.month][:3]}"
-                        if work_date.day == 1 and work_date.month != calendar_month.month
-                        else str(work_date.day)
+                    "index": month_index,
+                    "name": MONTH_NAMES[month_index],
+                    "is_current_month": (
+                        month_index == today.month
+                        and calendar_year == today.year
                     ),
-                    "is_current_month": work_date.month == calendar_month.month,
-                    "is_today": work_date == today,
-                    "vacations": vacation_days.get(work_date, []),
+                    "weeks": weeks,
                 }
             )
+
         return render_template(
             "vacations.html",
             employees=workers,
             employee_areas=available_groups,
             selected_group=selected_group,
-            calendar_month=calendar_month,
-            calendar_month_label=(
-                f"{MONTH_NAMES[calendar_month.month].capitalize()} "
-                f"de {calendar_month.year}"
-            ),
-            previous_month=previous_month.strftime("%Y-%m"),
-            next_month=next_month.strftime("%Y-%m"),
-            current_month=today.strftime("%Y-%m"),
+            calendar_year=calendar_year,
+            previous_year=previous_year,
+            next_year=next_year,
+            current_year=current_year,
             today=today,
-            calendar_cells=calendar_cells,
+            months=months,
         )
 
     @app.post("/vacaciones/nueva")
@@ -2247,11 +2281,11 @@ def register_routes(app: Flask) -> None:
         validate_csrf()
         employee_key = request.form.get("employee_name_key", "").strip()
         group_name = request.form.get("group_name", "").strip()
-        calendar_month = request.form.get("calendar_month", "").strip()
+        year_value = request.form.get("year", "").strip()
         try:
-            datetime.strptime(calendar_month, "%Y-%m")
+            int(year_value)
         except ValueError:
-            calendar_month = ""
+            year_value = ""
         try:
             start_date = parse_iso_date(
                 request.form.get("start_date", ""), "fecha inicial"
@@ -2262,12 +2296,12 @@ def register_routes(app: Flask) -> None:
         except ValueError as exc:
             flash(str(exc), "error")
             return redirect(
-                url_for("vacations", grupo=group_name, mes=calendar_month)
+                url_for("vacations", grupo=group_name, year=year_value)
             )
         if end_date < start_date:
             flash("La fecha final no puede ser anterior a la inicial.", "error")
             return redirect(
-                url_for("vacations", grupo=group_name, mes=calendar_month)
+                url_for("vacations", grupo=group_name, year=year_value)
             )
 
         connection = get_db()
@@ -2300,7 +2334,7 @@ def register_routes(app: Flask) -> None:
             )
             return redirect(
                 url_for(
-                    "vacations", grupo=employee["area"], mes=calendar_month
+                    "vacations", grupo=employee["area"], year=year_value
                 )
             )
 
@@ -2336,19 +2370,21 @@ def register_routes(app: Flask) -> None:
         )
         connection.commit()
         flash("El periodo de vacaciones fue guardado.", "success")
+        if not year_value:
+            year_value = str(start_date.year)
         return redirect(
-            url_for("vacations", grupo=employee["area"], mes=calendar_month)
+            url_for("vacations", grupo=employee["area"], year=year_value)
         )
 
     @app.post("/vacaciones/<int:vacation_id>/eliminar")
     @login_required
     def delete_vacation(vacation_id: int):
         validate_csrf()
-        calendar_month = request.form.get("calendar_month", "").strip()
+        year_value = request.form.get("year", "").strip()
         try:
-            datetime.strptime(calendar_month, "%Y-%m")
+            int(year_value)
         except ValueError:
-            calendar_month = ""
+            year_value = ""
         connection = get_db()
         vacation = connection.execute(
             """
@@ -2376,11 +2412,13 @@ def register_routes(app: Flask) -> None:
         )
         connection.commit()
         flash("El periodo de vacaciones fue eliminado.", "success")
+        if not year_value:
+            year_value = str(date.fromisoformat(vacation["start_date"]).year)
         return redirect(
             url_for(
                 "vacations",
                 grupo=vacation["area"] or "",
-                mes=calendar_month,
+                year=year_value,
             )
         )
 

@@ -1588,16 +1588,18 @@ class AppFlowTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn(b"Agosto de 2026", response.data)
+        self.assertIn(b"Septiembre de 2026", response.data)
         self.assertIn(b"Periodo Pasado", response.data)
         self.assertIn(b"Periodo Vigente", response.data)
         self.assertIn(b"Periodo Futuro", response.data)
+        self.assertIn(b'data-date="2026-08-25"', response.data)
         self.assertIn(
-            b'datetime="2026-08-25"\n                    class="vacation-day-number today"',
+            b'class="vacation-mini-day is-today has-vacation"',
             response.data,
         )
         self.assertIn(b'data-vacation-worker', response.data)
-        self.assertIn(b'aria-label="Mes anterior"', response.data)
-        self.assertIn(b'aria-label="Mes siguiente"', response.data)
+        self.assertIn(b'aria-label="A\xc3\xb1o anterior"', response.data)
+        self.assertIn(b'aria-label="A\xc3\xb1o siguiente"', response.data)
 
     def test_incident_permission_checkbox_is_persisted(self):
         self.initialize_admin()
