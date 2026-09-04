@@ -540,9 +540,8 @@ td.muted { max-width: 230px; overflow: hidden; text-overflow: ellipsis; }
 .vacation-mini-month.is-current-month { border-color: #8fc9ac; background: #f3fbf7; box-shadow: 0 0 0 1px rgba(22,130,95,.16) inset; }
 .vacation-mini-month-title { margin: 0 0 10px; color: var(--ink); font-size: .8rem; font-weight: 850; text-transform: capitalize; }
 .vacation-mini-grid { display: grid; gap: 4px; }
-.vacation-mini-row { display: grid; grid-template-columns: 20px repeat(7, 1fr); align-items: center; gap: 2px; }
+.vacation-mini-row { display: grid; grid-template-columns: repeat(7, 1fr); align-items: center; gap: 2px; }
 .vacation-mini-weekdays span { color: var(--muted); font-size: .6rem; font-weight: 850; text-align: center; text-transform: uppercase; }
-.vacation-mini-weeknum { color: #b7c3ca; font-size: .56rem; font-weight: 750; text-align: right; padding-right: 3px; }
 .vacation-mini-day { width: 100%; aspect-ratio: 1 / 1; display: grid; place-items: center; padding: 0; border: 0; border-radius: 50%; background: none; }
 button.vacation-mini-day { cursor: pointer; }
 .vacation-mini-day-number { width: 22px; height: 22px; display: grid; place-items: center; border-radius: 50%; color: var(--ink); font-size: .66rem; font-weight: 750; transition: transform .12s ease; }

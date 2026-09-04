@@ -97,14 +97,12 @@
             <h3 class="vacation-mini-month-title">{{ month.name.capitalize() }} de {{ calendar_year }}</h3>
             <div class="vacation-mini-grid" role="table" aria-label="{{ month.name.capitalize() }} de {{ calendar_year }}">
               <div class="vacation-mini-row vacation-mini-weekdays" role="row">
-                <span class="vacation-mini-weeknum" aria-hidden="true"></span>
                 {% for weekday in ('D', 'L', 'M', 'M', 'J', 'V', 'S') %}
                   <span role="columnheader">{{ weekday }}</span>
                 {% endfor %}
               </div>
               {% for week in month.weeks %}
                 <div class="vacation-mini-row" role="row">
-                  <span class="vacation-mini-weeknum">{{ week.week_number }}</span>
                   {% for cell in week.days %}
                     {% if not cell.is_current_month %}
                       <span class="vacation-mini-day is-blank" role="gridcell" aria-hidden="true"></span>
