@@ -839,8 +839,7 @@
 
 (() => {
   const dialog = document.querySelector("#day-permission-dialog");
-  const checkboxes = [...document.querySelectorAll("[data-day-permission-checkbox]")];
-  if (!dialog || !checkboxes.length) return;
+  if (!dialog) return;
 
   const summary = dialog.querySelector("[data-day-permission-summary]");
   const reasonInput = dialog.querySelector("[data-day-permission-reason]");
@@ -863,24 +862,29 @@
     activeCheckbox = null;
   };
 
-  checkboxes.forEach((checkbox) => {
-    checkbox.addEventListener("change", () => {
-      const form = checkbox.closest("[data-day-permission-form]");
-      if (!form) return;
-      if (checkbox.checked) {
-        activeCheckbox = checkbox;
-        resetDialog();
-        summary.textContent = checkbox.getAttribute("aria-label") || "";
-        dialog.showModal();
-      } else {
-        // Removing an existing permission needs no extra detail.
-        const typeField = form.querySelector("[data-day-permission-type-field]");
-        const reasonField = form.querySelector("[data-day-permission-reason-field]");
-        if (typeField) typeField.value = "";
-        if (reasonField) reasonField.value = "";
-        form.submit();
-      }
-    });
+  // Day-permission checkboxes live inside <template> elements and are only
+  // cloned into the page when a supervisor picks a worker, so they don't
+  // exist yet when this script runs. Listen on the document instead of
+  // binding to each checkbox directly, so clicks work no matter when the
+  // checkbox was inserted into the page.
+  document.addEventListener("change", (event) => {
+    const checkbox = event.target.closest("[data-day-permission-checkbox]");
+    if (!checkbox) return;
+    const form = checkbox.closest("[data-day-permission-form]");
+    if (!form) return;
+    if (checkbox.checked) {
+      activeCheckbox = checkbox;
+      resetDialog();
+      summary.textContent = checkbox.getAttribute("aria-label") || "";
+      dialog.showModal();
+    } else {
+      // Removing an existing permission needs no extra detail.
+      const typeField = form.querySelector("[data-day-permission-type-field]");
+      const reasonField = form.querySelector("[data-day-permission-reason-field]");
+      if (typeField) typeField.value = "";
+      if (reasonField) reasonField.value = "";
+      form.submit();
+    }
   });
 
   dialog.querySelectorAll("[data-day-permission-close]").forEach((button) => {
