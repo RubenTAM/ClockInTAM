@@ -106,9 +106,11 @@
                 <div class="vacation-mini-row" role="row">
                   <span class="vacation-mini-weeknum">{{ week.week_number }}</span>
                   {% for cell in week.days %}
-                    {% if cell.vacations %}
+                    {% if not cell.is_current_month %}
+                      <span class="vacation-mini-day is-blank" role="gridcell" aria-hidden="true"></span>
+                    {% elif cell.vacations %}
                       <button type="button"
-                              class="vacation-mini-day{{ '' if cell.is_current_month else ' outside-month' }}{{ ' is-today' if cell.is_today else '' }} has-vacation"
+                              class="vacation-mini-day{{ ' is-today' if cell.is_today else '' }} has-vacation"
                               role="gridcell"
                               data-vacation-day
                               data-date="{{ cell.date }}"
@@ -117,7 +119,7 @@
                         <span class="vacation-mini-day-number">{{ cell.day }}</span>
                       </button>
                     {% else %}
-                      <span class="vacation-mini-day{{ '' if cell.is_current_month else ' outside-month' }}{{ ' is-today' if cell.is_today else '' }}"
+                      <span class="vacation-mini-day{{ ' is-today' if cell.is_today else '' }}"
                             role="gridcell">
                         <span class="vacation-mini-day-number">{{ cell.day }}</span>
                       </span>

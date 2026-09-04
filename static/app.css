@@ -546,7 +546,7 @@ td.muted { max-width: 230px; overflow: hidden; text-overflow: ellipsis; }
 .vacation-mini-day { width: 100%; aspect-ratio: 1 / 1; display: grid; place-items: center; padding: 0; border: 0; border-radius: 50%; background: none; }
 button.vacation-mini-day { cursor: pointer; }
 .vacation-mini-day-number { width: 22px; height: 22px; display: grid; place-items: center; border-radius: 50%; color: var(--ink); font-size: .66rem; font-weight: 750; transition: transform .12s ease; }
-.vacation-mini-day.outside-month .vacation-mini-day-number { color: #c3ccd1; }
+.vacation-mini-day.is-blank { visibility: hidden; }
 .vacation-mini-day.has-vacation .vacation-mini-day-number { color: white; background: #16825f; font-weight: 850; }
 .vacation-mini-day.is-today .vacation-mini-day-number { color: white; background: #ef3f47; }
 .vacation-mini-day.is-today.has-vacation .vacation-mini-day-number { background: #ef3f47; box-shadow: 0 0 0 3px #16825f; }
